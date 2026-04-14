@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Creator Videos Bookmarklet</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 780px; margin: 40px auto; padding: 0 20px; color: #222; }
+    h1 { font-size: 22px; }
+    p { line-height: 1.5; }
+    .bm {
+      display: inline-block;
+      padding: 8px 14px;
+      background: #009995;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    pre { background: #f4f4f4; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <h1>Creator Videos Bookmarklet</h1>
+  <p>Drag the link below to your bookmarks bar. When on a creator page with the Videos panel, click it to <code>console.log</code> each <strong>active</strong> video as <code>{ name: { Video&nbsp;ID, Link, Posted, Duration, Affiliate&nbsp;GMV, Items&nbsp;sold, Est.&nbsp;commissions, Direct&nbsp;GMV, RPM, Views, Completion&nbsp;rate, Details } }</code>. Inactive videos are skipped.</p>
+
+  <p>
+    <a class="bm" href="javascript:(function()%7Bvar%20items%3Ddocument.querySelectorAll('.arco-space-item')%3Bvar%20root%3Ditems%5Bitems.length-1%5D%3Bif(!root)%7Bconsole.warn('Videos%20container%20not%20found')%3Breturn%3B%7Dvar%20rows%3Droot.querySelectorAll('tbody%20tr.arco-table-tr')%3Brows.forEach(function(row)%7Bvar%20link%3Drow.querySelector('a.text-12.hover%5C%5C%3Aunderline')%3Bif(!link)return%3Bvar%20linkParent%3Dlink.parentElement%3Bvar%20infoCol%3DlinkParent.parentElement%3Bvar%20nameContainer%3DinfoCol.querySelector('.whitespace-nowrap.overflow-ellipsis.overflow-hidden')%3Bvar%20nameEl%3DnameContainer%26%26nameContainer.querySelector('.overflow-hidden.overflow-ellipsis')%3Bvar%20name%3DnameEl%3FnameEl.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20')%3A''%3Bvar%20idText%3D''%3Bvar%20idDiv%3DlinkParent.previousElementSibling%3Bif(idDiv)%7Bvar%20idEl%3DidDiv.querySelector('.text-12')%3BidText%3DidEl%3FidEl.textContent.trim().replace(%2F%5EVideo%20ID%3A%5Cs*%2F%2C'')%3A''%3B%7Dvar%20posted%3D''%2Cduration%3D''%3Bvar%20postedDiv%3DlinkParent.nextElementSibling%3Bif(postedDiv)%7Bvar%20pEl%3DpostedDiv.querySelector('.text-12')%3Bif(pEl)%7Bvar%20m%3DpEl.textContent.trim().match(%2FPosted%3A%5Cs*(%5CS%2B)%5Cs%2BDuration%3A%5Cs*(%5CS%2B)%2F)%3Bif(m)%7Bposted%3Dm%5B1%5D%3Bduration%3Dm%5B2%5D%3B%7D%7D%7Dvar%20tds%3Drow.querySelectorAll('td.arco-table-td')%3Bvar%20get%3Dfunction(td)%7Bvar%20i%3Dtd.querySelector('.arco-table-cell-wrap-value')%3Breturn%20i%3Fi.textContent.trim()%3A''%3B%7D%3Bvar%20dl%3D''%3Bif(tds%5B8%5D)%7Bvar%20a%3Dtds%5B8%5D.querySelector('a')%3Bdl%3Da%3Fa.getAttribute('href')%3A''%3B%7Dvar%20o%3D%7B%7D%3Bo%5Bname%5D%3D%7B'Video%20ID'%3AidText%2C'Link'%3Alink.getAttribute('href')%2C'Posted'%3Aposted%2C'Duration'%3Aduration%2C'Affiliate%20GMV'%3Atds%5B1%5D%3Fget(tds%5B1%5D)%3A''%2C'Items%20sold'%3Atds%5B2%5D%3Fget(tds%5B2%5D)%3A''%2C'Est.%20commissions'%3Atds%5B3%5D%3Fget(tds%5B3%5D)%3A''%2C'Direct%20GMV'%3Atds%5B4%5D%3Fget(tds%5B4%5D)%3A''%2C'RPM'%3Atds%5B5%5D%3Fget(tds%5B5%5D)%3A''%2C'Views'%3Atds%5B6%5D%3Fget(tds%5B6%5D)%3A''%2C'Completion%20rate'%3Atds%5B7%5D%3Fget(tds%5B7%5D)%3A''%2C'Details'%3Adl%7D%3Bconsole.log(o)%3B%7D)%3B%7D)()%3B">Log Creator Videos</a>
+  </p>
+
+  <h2>Source</h2>
+  <pre><code>javascript:(function(){
+  var items = document.querySelectorAll('.arco-space-item');
+  var root = items[items.length - 1];
+  if (!root) { console.warn('Videos container not found'); return; }
+
+  var rows = root.querySelectorAll('tbody tr.arco-table-tr');
+  rows.forEach(function(row){
+    // Active videos have a TikTok video link with these classes; inactive rows do not.
+    var link = row.querySelector('a.text-12.hover\\:underline');
+    if (!link) return;
+
+    var linkParent = link.parentElement;          // .flex.items-center wrapping the link
+    var infoCol   = linkParent.parentElement;     // .ml-6.flex-1.overflow-auto column
+
+    // Video name lives in parent-of-parent of the link.
+    var nameContainer = infoCol.querySelector('.whitespace-nowrap.overflow-ellipsis.overflow-hidden');
+    var nameEl = nameContainer &amp;&amp; nameContainer.querySelector('.overflow-hidden.overflow-ellipsis');
+    var name = nameEl ? nameEl.textContent.replace(/\s+/g, ' ') : '';
+
+    // Video ID lives in the sibling div immediately above the link.
+    var idText = '';
+    var idDiv = linkParent.previousElementSibling;
+    if (idDiv) {
+      var idEl = idDiv.querySelector('.text-12');
+      idText = idEl ? idEl.textContent.trim().replace(/^Video ID:\s*/, '') : '';
+    }
+
+    // Posted &amp; Duration live in the sibling div immediately below the link.
+    var posted = '', duration = '';
+    var postedDiv = linkParent.nextElementSibling;
+    if (postedDiv) {
+      var pEl = postedDiv.querySelector('.text-12');
+      if (pEl) {
+        var m = pEl.textContent.trim().match(/Posted:\s*(\S+)\s+Duration:\s*(\S+)/);
+        if (m) { posted = m[1]; duration = m[2]; }
+      }
+    }
+
+    // Per-row table cells: 0=Info, 1=Affiliate GMV, 2=Items sold, 3=Est. commissions,
+    // 4=Direct GMV, 5=RPM, 6=Views, 7=Completion rate, 8=Video details (View link).
+    var tds = row.querySelectorAll('td.arco-table-td');
+    var get = function(td){
+      var inner = td.querySelector('.arco-table-cell-wrap-value');
+      return inner ? inner.textContent.trim() : '';
+    };
+
+    var detailsLink = '';
+    if (tds[8]) {
+      var a = tds[8].querySelector('a');
+      detailsLink = a ? a.getAttribute('href') : '';
+    }
+
+    var o = {};
+    o[name] = {
+      'Video ID':         idText,
+      'Link':             link.getAttribute('href'),
+      'Posted':           posted,
+      'Duration':         duration,
+      'Affiliate GMV':    tds[1] ? get(tds[1]) : '',
+      'Items sold':       tds[2] ? get(tds[2]) : '',
+      'Est. commissions': tds[3] ? get(tds[3]) : '',
+      'Direct GMV':       tds[4] ? get(tds[4]) : '',
+      'RPM':              tds[5] ? get(tds[5]) : '',
+      'Views':            tds[6] ? get(tds[6]) : '',
+      'Completion rate':  tds[7] ? get(tds[7]) : '',
+      'Details':          detailsLink
+    };
+    console.log(o);
+  });
+})();</code></pre>
+
+  <h2>Example output</h2>
+  <pre><code>{ "Zooone Super Yerba Mate #securepayeveryday #tiktokshopspringglowup ": {
+    "Video ID":         "7619844508980743438",
+    "Link":             "https://www.tiktok.com/@wizardofdealz/video/7619844508980743438",
+    "Posted":           "2026/03/21",
+    "Duration":         "0min29s",
+    "Affiliate GMV":    "$215.52",
+    "Items sold":       "7",
+    "Est. commissions": "$14.79",
+    "Direct GMV":       "$171.01",
+    "RPM":              "$55.09",
+    "Views":            "3,104",
+    "Completion rate":  "42.82%",
+    "Details":          "https://partner.us.tiktokshop.com/compass/video-analysis/detail/7619844508980743438?creator_id=6983923605470856197&amp;..."
+} }</code></pre>
+</body>
+</html>
