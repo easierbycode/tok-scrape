@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Key Metrics Bookmarklet</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 780px; margin: 40px auto; padding: 0 20px; color: #222; }
+    h1 { font-size: 22px; }
+    p { line-height: 1.5; }
+    .bm {
+      display: inline-block;
+      padding: 8px 14px;
+      background: #009995;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    pre { background: #f4f4f4; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <h1>Key Metrics Bookmarklet</h1>
+  <p>Drag the link below to your bookmarks bar. When on a page with the Key metrics panel, click it to <code>console.log</code> each metric.</p>
+
+  <p>
+    <a class="bm" href="javascript:(function()%7Bvar%20s%3Ddocument.querySelectorAll('.arco-space-item')%5B2%5D%3Bif(!s)%7Bconsole.warn('Key%20metrics%20container%20not%20found')%3Breturn%3B%7Ds.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%3Dc.querySelector('.text-14')%2Cv%3Dc.querySelector('.text-20')%3Bif(k%26%26v)%7Bvar%20o%3D%7B%7D%3Bo%5Bk.textContent.trim()%5D%3Dv.textContent.trim()%3Bconsole.log(o)%3B%7D%7D)%3B%7D)()%3B">Log Key Metrics</a>
+  </p>
+
+  <h2>Source</h2>
+  <pre><code>javascript:(function(){
+  var s = document.querySelectorAll('.arco-space-item')[2];
+  if (!s) { console.warn('Key metrics container not found'); return; }
+  s.querySelectorAll('.flex.flex-col.items-start').forEach(function(c){
+    var k = c.querySelector('.text-14'),
+        v = c.querySelector('.text-20');
+    if (k &amp;&amp; v) {
+      var o = {};
+      o[k.textContent.trim()] = v.textContent.trim();
+      console.log(o);
+    }
+  });
+})();</code></pre>
+
+  <h2>Example output</h2>
+  <pre><code>{ "Affiliate GMV": "$43,029.64" }
+{ "Items sold": "1,586" }
+{ "Est. commissions": "$6,306.22" }
+{ "Direct GMV": "$35,851.93" }
+{ "Videos": "365" }</code></pre>
+</body>
+</html>
