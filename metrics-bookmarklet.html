@@ -22,18 +22,25 @@
 </head>
 <body>
   <h1>Key Metrics Bookmarklet</h1>
-  <p>Drag the link below to your bookmarks bar. When on a page with the Key metrics panel, click it to <code>console.log</code> each metric with its vs.&nbsp;previous&nbsp;month trend.</p>
+  <p>Drag the link below to your bookmarks bar. When on a page with the creator selector and Key metrics panel, click it to <code>console.log</code> each metric tagged with the selected creator and vs.&nbsp;previous&nbsp;month trend.</p>
 
   <p>
-    <a class="bm" href="javascript:(function()%7Bvar%20UP%3D'M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z'%3Bvar%20s%3Ddocument.querySelectorAll('.arco-space-item')%5B2%5D%3Bif(!s)%7Bconsole.warn('Key%20metrics%20container%20not%20found')%3Breturn%3B%7Ds.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%3Dc.querySelector('.text-14')%2Cv%3Dc.querySelector('.text-20')%3Bif(!k%7C%7C!v)return%3Bvar%20row%3Dv.nextElementSibling%2Cp%3Drow%26%26row.querySelector('svg%20path')%2Cpct%3Drow%26%26row.querySelector('span')%3Bvar%20dir%3Dp%26%26p.getAttribute('d')%3D%3D%3DUP%3F'%E2%86%91'%3A'%E2%86%93'%3Bvar%20o%3D%7B%7D%3Bo%5Bk.textContent.trim()%5D%3Dv.textContent.trim()%3Bo%5B'vs.%20previous%20month'%5D%3Ddir%2B'%20'%2B(pct%3Fpct.textContent.trim()%3A'')%3Bconsole.log(o)%3B%7D)%3B%7D)()%3B">Log Key Metrics</a>
+    <a class="bm" href="javascript:(function()%7Bvar%20UP%3D'M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z'%3Bvar%20items%3Ddocument.querySelectorAll('.arco-space-item')%3Bvar%20metricsRoot%3Ditems%5B2%5D%3Bif(!metricsRoot)%7Bconsole.warn('Key%20metrics%20container%20not%20found')%3Breturn%3B%7Dvar%20checked%3Ditems%5B1%5D%26%26items%5B1%5D.querySelector('.arco-radio-checked')%3Bvar%20card%3Dchecked%26%26checked.closest('.flex.w-full.flex-col')%3Bvar%20nameEl%3Dcard%26%26card.querySelector('.text-body-s-medium')%3Bvar%20creator%3DnameEl%3FnameEl.textContent.trim()%3A''%3BmetricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%3Dc.querySelector('.text-14')%2Cv%3Dc.querySelector('.text-20')%3Bif(!k%7C%7C!v)return%3Bvar%20row%3Dv.nextElementSibling%2Cp%3Drow%26%26row.querySelector('svg%20path')%2Cpct%3Drow%26%26row.querySelector('span')%3Bvar%20dir%3Dp%26%26p.getAttribute('d')%3D%3D%3DUP%3F'%E2%86%91'%3A'%E2%86%93'%3Bvar%20o%3D%7Bcreator%3Acreator%7D%3Bo%5Bk.textContent.trim()%5D%3Dv.textContent.trim()%3Bo%5B'vs.%20previous%20month'%5D%3Ddir%2B'%20'%2B(pct%3Fpct.textContent.trim()%3A'')%3Bconsole.log(o)%3B%7D)%3B%7D)()%3B">Log Key Metrics</a>
   </p>
 
   <h2>Source</h2>
   <pre><code>javascript:(function(){
   var UP = "M2.97731 0.130983C3.11029 -0.0430998 3.37217 -0.0437687 3.50604 0.129632L6.44523 3.93668C6.6144 4.15581 6.45821 4.47372 6.18138 4.47372H4.60189V8.33326C4.60189 8.51735 4.45265 8.66659 4.26855 8.66659H2.26855C2.08446 8.66659 1.93522 8.51735 1.93522 8.33326V4.47372H0.333945C0.057903 4.47372 -0.0985142 4.15739 0.0690572 3.93803L2.97731 0.130983Z";
-  var s = document.querySelectorAll('.arco-space-item')[2];
-  if (!s) { console.warn('Key metrics container not found'); return; }
-  s.querySelectorAll('.flex.flex-col.items-start').forEach(function(c){
+  var items = document.querySelectorAll('.arco-space-item');
+  var metricsRoot = items[2];
+  if (!metricsRoot) { console.warn('Key metrics container not found'); return; }
+
+  var checked = items[1] &amp;&amp; items[1].querySelector('.arco-radio-checked');
+  var card = checked &amp;&amp; checked.closest('.flex.w-full.flex-col');
+  var nameEl = card &amp;&amp; card.querySelector('.text-body-s-medium');
+  var creator = nameEl ? nameEl.textContent.trim() : '';
+
+  metricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c){
     var k = c.querySelector('.text-14'),
         v = c.querySelector('.text-20');
     if (!k || !v) return;
@@ -41,7 +48,7 @@
         p = row &amp;&amp; row.querySelector('svg path'),
         pct = row &amp;&amp; row.querySelector('span');
     var dir = p &amp;&amp; p.getAttribute('d') === UP ? '\u2191' : '\u2193';
-    var o = {};
+    var o = { creator: creator };
     o[k.textContent.trim()] = v.textContent.trim();
     o['vs. previous month'] = dir + ' ' + (pct ? pct.textContent.trim() : '');
     console.log(o);
@@ -49,10 +56,10 @@
 })();</code></pre>
 
   <h2>Example output</h2>
-  <pre><code>{ "Affiliate GMV": "$43,029.64", "vs. previous month": "&#x2191; 16.63%" }
-{ "Items sold": "1,586", "vs. previous month": "&#x2191; 47.4%" }
-{ "Est. commissions": "$6,306.22", "vs. previous month": "&#x2191; 29.81%" }
-{ "Direct GMV": "$35,851.93", "vs. previous month": "&#x2191; 13.4%" }
-{ "Videos": "365", "vs. previous month": "&#x2191; 1.96%" }</code></pre>
+  <pre><code>{ creator: "@wizardofdealz", "Affiliate GMV": "$43,029.64", "vs. previous month": "&#x2191; 16.63%" }
+{ creator: "@wizardofdealz", "Items sold": "1,586", "vs. previous month": "&#x2191; 47.4%" }
+{ creator: "@wizardofdealz", "Est. commissions": "$6,306.22", "vs. previous month": "&#x2191; 29.81%" }
+{ creator: "@wizardofdealz", "Direct GMV": "$35,851.93", "vs. previous month": "&#x2191; 13.4%" }
+{ creator: "@wizardofdealz", "Videos": "365", "vs. previous month": "&#x2191; 1.96%" }</code></pre>
 </body>
 </html>
