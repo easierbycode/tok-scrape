@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Key Metrics Bookmarklet</title>
+  <title>Key Metrics & Videos Bookmarklet</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 780px; margin: 40px auto; padding: 0 20px; color: #222; }
     h1 { font-size: 22px; }
@@ -21,11 +21,11 @@
   </style>
 </head>
 <body>
-  <h1>Key Metrics Bookmarklet</h1>
-  <p>Drag the link below to your bookmarks bar. When on a page with the creator selector and Key metrics panel, click it to <code>console.log</code> each metric tagged with the selected creator and vs.&nbsp;previous&nbsp;month trend.</p>
+  <h1>Key Metrics &amp; Videos Bookmarklet</h1>
+  <p>Drag the link below to your bookmarks bar. When on a page with the creator selector, Key metrics panel, and Videos table, click it to <code>console.log</code> each Key metric (tagged with the selected creator and vs.&nbsp;previous&nbsp;month trend) followed by each <strong>active</strong> video in the Videos table.</p>
 
   <p>
-    <a class="bm" href="javascript:(function()%7Bvar%20UP%3D'M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z'%3Bvar%20items%3Ddocument.querySelectorAll('.arco-space-item')%3Bvar%20metricsRoot%3Ditems%5B2%5D%3Bif(!metricsRoot)%7Bconsole.warn('Key%20metrics%20container%20not%20found')%3Breturn%3B%7Dvar%20checked%3Ditems%5B1%5D%26%26items%5B1%5D.querySelector('.arco-radio-checked')%3Bvar%20card%3Dchecked%26%26checked.closest('.flex.w-full.flex-col')%3Bvar%20nameEl%3Dcard%26%26card.querySelector('.text-body-s-medium')%3Bvar%20creator%3DnameEl%3FnameEl.textContent.trim()%3A''%3BmetricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%3Dc.querySelector('.text-14')%2Cv%3Dc.querySelector('.text-20')%3Bif(!k%7C%7C!v)return%3Bvar%20row%3Dv.nextElementSibling%2Cp%3Drow%26%26row.querySelector('svg%20path')%2Cpct%3Drow%26%26row.querySelector('span')%3Bvar%20dir%3Dp%26%26p.getAttribute('d')%3D%3D%3DUP%3F'%E2%86%91'%3A'%E2%86%93'%3Bvar%20o%3D%7Bcreator%3Acreator%7D%3Bo%5Bk.textContent.trim()%5D%3Dv.textContent.trim()%3Bo%5B'vs.%20previous%20month'%5D%3Ddir%2B'%20'%2B(pct%3Fpct.textContent.trim()%3A'')%3Bconsole.log(o)%3B%7D)%3B%7D)()%3B">Log Key Metrics</a>
+    <a class="bm" href="javascript:(function()%7Bvar%20UP%20%3D%20%22M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z%22%3Bvar%20items%20%3D%20document.querySelectorAll('.arco-space-item')%3Bvar%20metricsRoot%20%3D%20items%5B2%5D%3Bvar%20checked%20%3D%20items%5B1%5D%20%26%26%20items%5B1%5D.querySelector('.arco-radio-checked')%3Bvar%20card%20%3D%20checked%20%26%26%20checked.closest('.flex.w-full.flex-col')%3Bvar%20nameEl%20%3D%20card%20%26%26%20card.querySelector('.text-body-s-medium')%3Bvar%20creator%20%3D%20nameEl%20%3F%20nameEl.textContent.trim()%20%3A%20''%3Bif%20(metricsRoot)%20%7BmetricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%20%3D%20c.querySelector('.text-14')%2C%20v%20%3D%20c.querySelector('.text-20')%3Bif%20(!k%20%7C%7C%20!v)%20return%3Bvar%20row%20%3D%20v.nextElementSibling%2C%20p%20%3D%20row%20%26%26%20row.querySelector('svg%20path')%2C%20pct%20%3D%20row%20%26%26%20row.querySelector('span')%3Bvar%20dir%20%3D%20p%20%26%26%20p.getAttribute('d')%20%3D%3D%3D%20UP%20%3F%20'%E2%86%91'%20%3A%20'%E2%86%93'%3Bvar%20o%20%3D%20%7B%20creator%3A%20creator%20%7D%3Bo%5Bk.textContent.trim()%5D%20%3D%20v.textContent.trim()%3Bo%5B'vs.%20previous%20month'%5D%20%3D%20dir%20%2B%20'%20'%20%2B%20(pct%20%3F%20pct.textContent.trim()%20%3A%20'')%3Bconsole.log(o)%3B%7D)%3B%7D%20else%20%7B%20console.warn('Key%20metrics%20container%20not%20found')%3B%20%7Dvar%20videosRoot%20%3D%20items%5Bitems.length%20-%201%5D%3Bif%20(!videosRoot)%20%7B%20console.warn('Videos%20container%20not%20found')%3B%20return%3B%20%7DvideosRoot.querySelectorAll('tr.arco-table-tr').forEach(function(row)%7Bvar%20link%20%3D%20row.querySelector('a.text-12.hover%5C%5C%3Aunderline')%3Bif%20(!link)%20return%3Bvar%20lp%20%3D%20link.parentElement%2C%20lg%20%3D%20lp.parentElement%3Bvar%20nm%20%3D%20lg.querySelector('.overflow-hidden.overflow-ellipsis')%3Bvar%20idD%20%3D%20lp.previousElementSibling%2C%20idE%20%3D%20idD%20%26%26%20idD.querySelector('.text-12')%3Bvar%20pdD%20%3D%20lp.nextElementSibling%2C%20pdE%20%3D%20pdD%20%26%26%20pdD.querySelector('.text-12')%3Bvar%20vid%20%3D%20(idE%20%3F%20idE.textContent%20%3A%20'').replace(%2F%5E%5Cs*Video%20ID%3A%5Cs*%2Fi%2C%20'').trim()%3Bvar%20pdT%20%3D%20(pdE%20%3F%20pdE.textContent%20%3A%20'').replace(%2F%5Cs%2B%2Fg%2C%20'%20').trim()%3Bvar%20m%20%3D%20pdT.match(%2FPosted%3A%5Cs*(%5CS%2B)%5Cs%2BDuration%3A%5Cs*(%5CS%2B)%2F)%3Bvar%20cells%20%3D%20row.querySelectorAll('td.arco-table-td')%3Bvar%20dA%20%3D%20cells%5B8%5D%20%26%26%20cells%5B8%5D.querySelector('a')%3Bvar%20nameText%20%3D%20nm%20%3F%20nm.textContent.replace(%2F%5Cs%2B%2Fg%2C%20'%20')%20%3A%20''%3Bvar%20o%20%3D%20%7B%7D%3Bo%5BnameText%5D%20%3D%20%7B'Video%20ID'%3A%20vid%2C'Link'%3A%20link.href%2C'Posted'%3A%20m%20%3F%20m%5B1%5D%20%3A%20''%2C'Duration'%3A%20m%20%3F%20m%5B2%5D%20%3A%20''%2C'Affiliate%20GMV'%3A%20cells%5B1%5D%20%3F%20cells%5B1%5D.textContent.trim()%20%3A%20''%2C'Items%20sold'%3A%20cells%5B2%5D%20%3F%20cells%5B2%5D.textContent.trim()%20%3A%20''%2C'Est.%20commissions'%3A%20cells%5B3%5D%20%3F%20cells%5B3%5D.textContent.trim()%20%3A%20''%2C'Direct%20GMV'%3A%20cells%5B4%5D%20%3F%20cells%5B4%5D.textContent.trim()%20%3A%20''%2C'RPM'%3A%20cells%5B5%5D%20%3F%20cells%5B5%5D.textContent.trim()%20%3A%20''%2C'Views'%3A%20cells%5B6%5D%20%3F%20cells%5B6%5D.textContent.trim()%20%3A%20''%2C'Completion%20rate'%3A%20cells%5B7%5D%20%3F%20cells%5B7%5D.textContent.trim()%20%3A%20''%2C'details%20link'%3A%20dA%20%3F%20dA.href%20%3A%20''%7D%3Bconsole.log(o)%3B%7D)%3B%7D)()%3B">Log Key Metrics &amp; Videos</a>
   </p>
 
   <h2>Source</h2>
@@ -33,24 +33,61 @@
   var UP = "M2.97731 0.130983C3.11029 -0.0430998 3.37217 -0.0437687 3.50604 0.129632L6.44523 3.93668C6.6144 4.15581 6.45821 4.47372 6.18138 4.47372H4.60189V8.33326C4.60189 8.51735 4.45265 8.66659 4.26855 8.66659H2.26855C2.08446 8.66659 1.93522 8.51735 1.93522 8.33326V4.47372H0.333945C0.057903 4.47372 -0.0985142 4.15739 0.0690572 3.93803L2.97731 0.130983Z";
   var items = document.querySelectorAll('.arco-space-item');
   var metricsRoot = items[2];
-  if (!metricsRoot) { console.warn('Key metrics container not found'); return; }
-
   var checked = items[1] &amp;&amp; items[1].querySelector('.arco-radio-checked');
   var card = checked &amp;&amp; checked.closest('.flex.w-full.flex-col');
   var nameEl = card &amp;&amp; card.querySelector('.text-body-s-medium');
   var creator = nameEl ? nameEl.textContent.trim() : '';
 
-  metricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c){
-    var k = c.querySelector('.text-14'),
-        v = c.querySelector('.text-20');
-    if (!k || !v) return;
-    var row = v.nextElementSibling,
-        p = row &amp;&amp; row.querySelector('svg path'),
-        pct = row &amp;&amp; row.querySelector('span');
-    var dir = p &amp;&amp; p.getAttribute('d') === UP ? '\u2191' : '\u2193';
-    var o = { creator: creator };
-    o[k.textContent.trim()] = v.textContent.trim();
-    o['vs. previous month'] = dir + ' ' + (pct ? pct.textContent.trim() : '');
+  if (metricsRoot) {
+    metricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c){
+      var k = c.querySelector('.text-14'),
+          v = c.querySelector('.text-20');
+      if (!k || !v) return;
+      var row = v.nextElementSibling,
+          p = row &amp;&amp; row.querySelector('svg path'),
+          pct = row &amp;&amp; row.querySelector('span');
+      var dir = p &amp;&amp; p.getAttribute('d') === UP ? '\u2191' : '\u2193';
+      var o = { creator: creator };
+      o[k.textContent.trim()] = v.textContent.trim();
+      o['vs. previous month'] = dir + ' ' + (pct ? pct.textContent.trim() : '');
+      console.log(o);
+    });
+  } else { console.warn('Key metrics container not found'); }
+
+  // Active videos in the last .arco-space-item (Videos table)
+  var videosRoot = items[items.length - 1];
+  if (!videosRoot) { console.warn('Videos container not found'); return; }
+  videosRoot.querySelectorAll('tr.arco-table-tr').forEach(function(row){
+    var link = row.querySelector('a.text-12.hover\\:underline');
+    if (!link) return; // inactive videos have no link — skip
+    var lp = link.parentElement,
+        lg = lp.parentElement;
+    var nm = lg.querySelector('.overflow-hidden.overflow-ellipsis');
+    var idD = lp.previousElementSibling,
+        idE = idD &amp;&amp; idD.querySelector('.text-12');
+    var pdD = lp.nextElementSibling,
+        pdE = pdD &amp;&amp; pdD.querySelector('.text-12');
+    var vid = (idE ? idE.textContent : '').replace(/^\s*Video ID:\s*/i, '').trim();
+    var pdT = (pdE ? pdE.textContent : '').replace(/\s+/g, ' ').trim();
+    var m = pdT.match(/Posted:\s*(\S+)\s+Duration:\s*(\S+)/);
+    var cells = row.querySelectorAll('td.arco-table-td');
+    var dA = cells[8] &amp;&amp; cells[8].querySelector('a');
+    var nameText = nm ? nm.textContent.replace(/\s+/g, ' ') : '';
+    var o = {};
+    o[nameText] = {
+      'Video ID': vid,
+      'Link': link.href,
+      'Posted': m ? m[1] : '',
+      'Duration': m ? m[2] : '',
+      'Affiliate GMV': cells[1] ? cells[1].textContent.trim() : '',
+      'Items sold': cells[2] ? cells[2].textContent.trim() : '',
+      'Est. commissions': cells[3] ? cells[3].textContent.trim() : '',
+      'Direct GMV': cells[4] ? cells[4].textContent.trim() : '',
+      'RPM': cells[5] ? cells[5].textContent.trim() : '',
+      'Views': cells[6] ? cells[6].textContent.trim() : '',
+      'Completion rate': cells[7] ? cells[7].textContent.trim() : '',
+      'details link': dA ? dA.href : ''
+    };
     console.log(o);
   });
 })();</code></pre>
@@ -60,6 +97,20 @@
 { creator: "@wizardofdealz", "Items sold": "1,586", "vs. previous month": "&#x2191; 47.4%" }
 { creator: "@wizardofdealz", "Est. commissions": "$6,306.22", "vs. previous month": "&#x2191; 29.81%" }
 { creator: "@wizardofdealz", "Direct GMV": "$35,851.93", "vs. previous month": "&#x2191; 13.4%" }
-{ creator: "@wizardofdealz", "Videos": "365", "vs. previous month": "&#x2191; 1.96%" }</code></pre>
+{ creator: "@wizardofdealz", "Videos": "365", "vs. previous month": "&#x2191; 1.96%" }
+{ "Zooone Super Yerba Mate #securepayeveryday #tiktokshopspringglowup ": {
+    "Video ID": "7619844508980743438",
+    "Link": "https://www.tiktok.com/@wizardofdealz/video/7619844508980743438",
+    "Posted": "2026/03/21",
+    "Duration": "0min29s",
+    "Affiliate GMV": "$215.52",
+    "Items sold": "7",
+    "Est. commissions": "$14.79",
+    "Direct GMV": "$171.01",
+    "RPM": "$55.09",
+    "Views": "3,104",
+    "Completion rate": "42.82%",
+    "details link": "https://partner.us.tiktokshop.com/compass/video-analysis/detail/7619844508980743438?creator_id=..."
+} }</code></pre>
 </body>
 </html>
