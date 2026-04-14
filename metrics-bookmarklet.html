@@ -22,10 +22,14 @@
 </head>
 <body>
   <h1>Key Metrics Bookmarklet</h1>
-  <p>Drag the link below to your bookmarks bar. When on a page with the creator selector, Key metrics panel, and Videos table, click it to <code>console.log</code> each metric (tagged with the selected creator and vs.&nbsp;previous&nbsp;month trend) and each <em>active</em> creator video with its stats.</p>
+  <p>Drag the link below to your bookmarks bar. When on a page with the creator selector, Key metrics panel, and Videos table, click it to <code>console.log</code>:</p>
+  <ol>
+    <li>Each metric (tagged with the selected creator and vs.&nbsp;previous&nbsp;month trend).</li>
+    <li>A single <code>{ creator, videos: [ { name: { Video&nbsp;ID, Link, Posted, Duration, Affiliate&nbsp;GMV, Items&nbsp;sold, Est.&nbsp;commissions, Direct&nbsp;GMV, RPM, Views, Completion&nbsp;rate, Details } }, ... ] }</code> object for every <em>active</em> creator video. Inactive rows are skipped.</li>
+  </ol>
 
   <p>
-    <a class="bm" href="javascript:(function()%7Bvar%20UP%3D'M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z'%3Bvar%20items%3Ddocument.querySelectorAll('.arco-space-item')%3Bvar%20metricsRoot%3Ditems%5B2%5D%3Bif(!metricsRoot)%7Bconsole.warn('Key%20metrics%20container%20not%20found')%3Breturn%3B%7Dvar%20checked%3Ditems%5B1%5D%26%26items%5B1%5D.querySelector('.arco-radio-checked')%3Bvar%20card%3Dchecked%26%26checked.closest('.flex.w-full.flex-col')%3Bvar%20nameEl%3Dcard%26%26card.querySelector('.text-body-s-medium')%3Bvar%20creator%3DnameEl%3FnameEl.textContent.trim()%3A''%3BmetricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%3Dc.querySelector('.text-14')%2Cv%3Dc.querySelector('.text-20')%3Bif(!k%7C%7C!v)return%3Bvar%20row%3Dv.nextElementSibling%2Cp%3Drow%26%26row.querySelector('svg%20path')%2Cpct%3Drow%26%26row.querySelector('span')%3Bvar%20dir%3Dp%26%26p.getAttribute('d')%3D%3D%3DUP%3F'%5Cu2191'%3A'%5Cu2193'%3Bvar%20o%3D%7Bcreator%3Acreator%7D%3Bo%5Bk.textContent.trim()%5D%3Dv.textContent.trim()%3Bo%5B'vs.%20previous%20month'%5D%3Ddir%2B'%20'%2B(pct%3Fpct.textContent.trim()%3A'')%3Bconsole.log(o)%3B%7D)%3Bvar%20videosRoot%3Ditems%5Bitems.length-1%5D%3Bif(!videosRoot%7C%7CvideosRoot%3D%3D%3DmetricsRoot)return%3BvideosRoot.querySelectorAll('a.text-12.hover%5C%5C%3Aunderline').forEach(function(a)%7Bvar%20linkRow%3Da.parentElement%3Bvar%20idRow%3DlinkRow.previousElementSibling%3Bvar%20pdRow%3DlinkRow.nextElementSibling%3Bvar%20infoBlock%3DlinkRow.parentElement%3Bif(!idRow%7C%7C!pdRow%7C%7C!infoBlock)return%3Bvar%20idEl%3DidRow.querySelector('.text-12')%3Bvar%20pdEl%3DpdRow.querySelector('.text-12')%3Bif(!idEl%7C%7C!pdEl)return%3Bvar%20vid%3DidEl.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20').replace(%2F%5E%5Cs*Video%20ID%3A%5Cs*%2F%2C'').trim()%3Bvar%20pdText%3DpdEl.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20').trim()%3Bvar%20pm%3DpdText.match(%2FPosted%3A%5Cs*(%5CS%2B)%2F)%3Bvar%20dm%3DpdText.match(%2FDuration%3A%5Cs*(%5CS%2B)%2F)%3Bvar%20nm%3DinfoBlock.querySelector('.overflow-hidden.overflow-ellipsis')%3Bvar%20name%3Dnm%3Fnm.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20').trim()%3A''%3Bvar%20tr%3Da.closest('tr')%3Bvar%20tds%3Dtr%3Ftr.querySelectorAll('td')%3A%5B%5D%3Bvar%20cell%3Dfunction(i)%7Breturn%20tds%5Bi%5D%3Ftds%5Bi%5D.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20').trim()%3A''%3B%7D%3Bvar%20detailsA%3Dtds.length%3Ftds%5Btds.length-1%5D.querySelector('a')%3Anull%3Bvar%20o%3D%7B%7D%3Bo%5Bname%5D%3D%7B'Video%20ID'%3Avid%2C'Link'%3Aa.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20').trim()%2C'Posted'%3Apm%3Fpm%5B1%5D%3A''%2CDuration%3Adm%3Fdm%5B1%5D%3A''%2C'Affiliate%20GMV'%3Acell(1)%2C'Items%20sold'%3Acell(2)%2C'Est.%20commissions'%3Acell(3)%2C'Direct%20GMV'%3Acell(4)%2CRPM%3Acell(5)%2CViews%3Acell(6)%2C'Completion%20rate'%3Acell(7)%2CDetails%3AdetailsA%3FdetailsA.href%3A''%7D%3Bconsole.log(o)%3B%7D)%3B%7D)()%3B">Log Key Metrics</a>
+    <a class="bm" href="javascript:(function()%7Bvar%20UP%3D'M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z'%3Bvar%20items%3Ddocument.querySelectorAll('.arco-space-item')%3Bvar%20metricsRoot%3Ditems%5B2%5D%3Bif(!metricsRoot)%7Bconsole.warn('Key%20metrics%20container%20not%20found')%3Breturn%3B%7Dvar%20checked%3Ditems%5B1%5D%26%26items%5B1%5D.querySelector('.arco-radio-checked')%3Bvar%20card%3Dchecked%26%26checked.closest('.flex.w-full.flex-col')%3Bvar%20nameEl%3Dcard%26%26card.querySelector('.text-body-s-medium')%3Bvar%20creator%3DnameEl%3FnameEl.textContent.trim()%3A''%3BmetricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%3Dc.querySelector('.text-14')%2Cv%3Dc.querySelector('.text-20')%3Bif(!k%7C%7C!v)return%3Bvar%20row%3Dv.nextElementSibling%2Cp%3Drow%26%26row.querySelector('svg%20path')%2Cpct%3Drow%26%26row.querySelector('span')%3Bvar%20dir%3Dp%26%26p.getAttribute('d')%3D%3D%3DUP%3F'%5Cu2191'%3A'%5Cu2193'%3Bvar%20o%3D%7Bcreator%3Acreator%7D%3Bo%5Bk.textContent.trim()%5D%3Dv.textContent.trim()%3Bo%5B'vs.%20previous%20month'%5D%3Ddir%2B'%20'%2B(pct%3Fpct.textContent.trim()%3A'')%3Bconsole.log(o)%3B%7D)%3Bvar%20videosRoot%3Ditems%5Bitems.length-1%5D%3Bif(!videosRoot%7C%7CvideosRoot%3D%3D%3DmetricsRoot)return%3Bvar%20rows%3DvideosRoot.querySelectorAll('tbody%20tr.arco-table-tr')%3Bvar%20videos%3D%5B%5D%3Brows.forEach(function(row)%7Bvar%20link%3Drow.querySelector('a.text-12.hover%5C%5C%3Aunderline')%3Bif(!link)return%3Bvar%20href%3Dlink.getAttribute('href')%3Bif(!creator)%7Bvar%20cm%3Dhref%26%26href.match(%2F%40(%5B%5E%2F%5D%2B)%2F)%3Bif(cm)creator%3D'%40'%2Bcm%5B1%5D%3B%7Dvar%20linkParent%3Dlink.parentElement%3Bvar%20infoCol%3DlinkParent.parentElement%3Bvar%20nameContainer%3DinfoCol.querySelector('.whitespace-nowrap.overflow-ellipsis.overflow-hidden')%3Bvar%20nameEl2%3DnameContainer%26%26nameContainer.querySelector('.overflow-hidden.overflow-ellipsis')%3Bvar%20name%3DnameEl2%3FnameEl2.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20').trim()%3A''%3Bvar%20idText%3D''%3Bvar%20idDiv%3DlinkParent.previousElementSibling%3Bif(idDiv)%7Bvar%20idEl%3DidDiv.querySelector('.text-12')%3BidText%3DidEl%3FidEl.textContent.trim().replace(%2F%5EVideo%20ID%3A%5Cs*%2F%2C'')%3A''%3B%7Dvar%20posted%3D''%2Cduration%3D''%3Bvar%20postedDiv%3DlinkParent.nextElementSibling%3Bif(postedDiv)%7Bvar%20pEl%3DpostedDiv.querySelector('.text-12')%3Bif(pEl)%7Bvar%20m%3DpEl.textContent.trim().match(%2FPosted%3A%5Cs*(%5CS%2B)%5Cs%2BDuration%3A%5Cs*(%5CS%2B)%2F)%3Bif(m)%7Bposted%3Dm%5B1%5D%3Bduration%3Dm%5B2%5D%3B%7D%7D%7Dvar%20tds%3Drow.querySelectorAll('td.arco-table-td')%3Bvar%20get%3Dfunction(td)%7Bvar%20inner%3Dtd.querySelector('.arco-table-cell-wrap-value')%3Breturn%20inner%3Finner.textContent.trim()%3A''%3B%7D%3Bvar%20detailsLink%3D''%3Bif(tds%5B8%5D)%7Bvar%20a%3Dtds%5B8%5D.querySelector('a')%3BdetailsLink%3Da%3Fa.getAttribute('href')%3A''%3B%7Dvar%20entry%3D%7B%7D%3Bentry%5Bname%5D%3D%7B'Video%20ID'%3AidText%2C'Link'%3Ahref%2C'Posted'%3Aposted%2C'Duration'%3Aduration%2C'Affiliate%20GMV'%3Atds%5B1%5D%3Fget(tds%5B1%5D)%3A''%2C'Items%20sold'%3Atds%5B2%5D%3Fget(tds%5B2%5D)%3A''%2C'Est.%20commissions'%3Atds%5B3%5D%3Fget(tds%5B3%5D)%3A''%2C'Direct%20GMV'%3Atds%5B4%5D%3Fget(tds%5B4%5D)%3A''%2C'RPM'%3Atds%5B5%5D%3Fget(tds%5B5%5D)%3A''%2C'Views'%3Atds%5B6%5D%3Fget(tds%5B6%5D)%3A''%2C'Completion%20rate'%3Atds%5B7%5D%3Fget(tds%5B7%5D)%3A''%2C'Details'%3AdetailsLink%7D%3Bvideos.push(entry)%3B%7D)%3Bconsole.log(%7Bcreator%3Acreator%2Cvideos%3Avideos%7D)%3B%7D)()%3B">Log Key Metrics</a>
   </p>
 
   <h2>Source</h2>
@@ -40,6 +44,7 @@
   var nameEl = card &amp;&amp; card.querySelector('.text-body-s-medium');
   var creator = nameEl ? nameEl.textContent.trim() : '';
 
+  // 1) Log each Key metric individually, tagged with the selected creator.
   metricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c){
     var k = c.querySelector('.text-14'),
         v = c.querySelector('.text-20');
@@ -54,45 +59,84 @@
     console.log(o);
   });
 
-  // Active creator videos (under the last .arco-space-item)
+  // 2) Collect all active creator videos and log them as one object.
   var videosRoot = items[items.length - 1];
   if (!videosRoot || videosRoot === metricsRoot) return;
-  videosRoot.querySelectorAll('a.text-12.hover\\:underline').forEach(function(a){
-    var linkRow = a.parentElement;
-    var idRow = linkRow.previousElementSibling;
-    var pdRow = linkRow.nextElementSibling;
-    var infoBlock = linkRow.parentElement;
-    if (!idRow || !pdRow || !infoBlock) return;
-    var idEl = idRow.querySelector('.text-12');
-    var pdEl = pdRow.querySelector('.text-12');
-    if (!idEl || !pdEl) return;
-    var vid = idEl.textContent.replace(/\s+/g,' ').replace(/^\s*Video ID:\s*/,'').trim();
-    var pdText = pdEl.textContent.replace(/\s+/g,' ').trim();
-    var pm = pdText.match(/Posted:\s*(\S+)/);
-    var dm = pdText.match(/Duration:\s*(\S+)/);
-    var nm = infoBlock.querySelector('.overflow-hidden.overflow-ellipsis');
-    var name = nm ? nm.textContent.replace(/\s+/g,' ').trim() : '';
-    var tr = a.closest('tr');
-    var tds = tr ? tr.querySelectorAll('td') : [];
-    var cell = function(i){ return tds[i] ? tds[i].textContent.replace(/\s+/g,' ').trim() : ''; };
-    var detailsA = tds.length ? tds[tds.length - 1].querySelector('a') : null;
-    var o = {};
-    o[name] = {
-      'Video ID': vid,
-      'Link': a.textContent.replace(/\s+/g,' ').trim(),
-      'Posted': pm ? pm[1] : '',
-      'Duration': dm ? dm[1] : '',
-      'Affiliate GMV': cell(1),
-      'Items sold': cell(2),
-      'Est. commissions': cell(3),
-      'Direct GMV': cell(4),
-      'RPM': cell(5),
-      'Views': cell(6),
-      'Completion rate': cell(7),
-      'Details': detailsA ? detailsA.href : ''
+  var rows = videosRoot.querySelectorAll('tbody tr.arco-table-tr');
+  var videos = [];
+  rows.forEach(function(row){
+    // Active videos have a TikTok video link with these classes; inactive rows do not.
+    var link = row.querySelector('a.text-12.hover\\:underline');
+    if (!link) return;
+
+    var href = link.getAttribute('href');
+
+    // Fall back to the @handle in the TikTok video URL if the selector didn't provide a creator.
+    if (!creator) {
+      var cm = href &amp;&amp; href.match(/@([^/]+)/);
+      if (cm) creator = '@' + cm[1];
+    }
+
+    var linkParent = link.parentElement;          // .flex.items-center wrapping the link
+    var infoCol   = linkParent.parentElement;     // .ml-6.flex-1.overflow-auto column
+
+    // Video name lives in parent-of-parent of the link.
+    var nameContainer = infoCol.querySelector('.whitespace-nowrap.overflow-ellipsis.overflow-hidden');
+    var nameEl2 = nameContainer &amp;&amp; nameContainer.querySelector('.overflow-hidden.overflow-ellipsis');
+    var name = nameEl2 ? nameEl2.textContent.replace(/\s+/g, ' ').trim() : '';
+
+    // Video ID lives in the sibling div immediately above the link.
+    var idText = '';
+    var idDiv = linkParent.previousElementSibling;
+    if (idDiv) {
+      var idEl = idDiv.querySelector('.text-12');
+      idText = idEl ? idEl.textContent.trim().replace(/^Video ID:\s*/, '') : '';
+    }
+
+    // Posted &amp; Duration live in the sibling div immediately below the link.
+    var posted = '', duration = '';
+    var postedDiv = linkParent.nextElementSibling;
+    if (postedDiv) {
+      var pEl = postedDiv.querySelector('.text-12');
+      if (pEl) {
+        var m = pEl.textContent.trim().match(/Posted:\s*(\S+)\s+Duration:\s*(\S+)/);
+        if (m) { posted = m[1]; duration = m[2]; }
+      }
+    }
+
+    // Per-row table cells: 0=Info, 1=Affiliate GMV, 2=Items sold, 3=Est. commissions,
+    // 4=Direct GMV, 5=RPM, 6=Views, 7=Completion rate, 8=Video details (View link).
+    var tds = row.querySelectorAll('td.arco-table-td');
+    var get = function(td){
+      var inner = td.querySelector('.arco-table-cell-wrap-value');
+      return inner ? inner.textContent.trim() : '';
     };
-    console.log(o);
+
+    var detailsLink = '';
+    if (tds[8]) {
+      var a = tds[8].querySelector('a');
+      detailsLink = a ? a.getAttribute('href') : '';
+    }
+
+    var entry = {};
+    entry[name] = {
+      'Video ID':         idText,
+      'Link':             href,
+      'Posted':           posted,
+      'Duration':         duration,
+      'Affiliate GMV':    tds[1] ? get(tds[1]) : '',
+      'Items sold':       tds[2] ? get(tds[2]) : '',
+      'Est. commissions': tds[3] ? get(tds[3]) : '',
+      'Direct GMV':       tds[4] ? get(tds[4]) : '',
+      'RPM':              tds[5] ? get(tds[5]) : '',
+      'Views':            tds[6] ? get(tds[6]) : '',
+      'Completion rate':  tds[7] ? get(tds[7]) : '',
+      'Details':          detailsLink
+    };
+    videos.push(entry);
   });
+
+  console.log({ creator: creator, videos: videos });
 })();</code></pre>
 
   <h2>Example output</h2>
@@ -102,20 +146,41 @@
 { creator: "@wizardofdealz", "Direct GMV": "$35,851.93", "vs. previous month": "&#x2191; 13.4%" }
 { creator: "@wizardofdealz", "Videos": "365", "vs. previous month": "&#x2191; 1.96%" }
 {
-  "Zooone Super Yerba Mate #securepayeveryday #tiktokshopspringglowup": {
-    "Video ID": "7619844508980743438",
-    "Link": "https://www.tiktok.com/@wizardofdealz/video/7619844508980743438",
-    "Posted": "2026/03/21",
-    "Duration": "0min29s",
-    "Affiliate GMV": "$215.52",
-    "Items sold": "7",
-    "Est. commissions": "$14.79",
-    "Direct GMV": "$171.01",
-    "RPM": "$55.09",
-    "Views": "3,104",
-    "Completion rate": "42.82%",
-    "Details": "https://partner.us.tiktokshop.com/compass/video-analysis/detail/7619844508980743438?creator_id=..."
-  }
+  "creator": "@wizardofdealz",
+  "videos": [
+    {
+      "Zooone Super Yerba Mate #securepayeveryday #tiktokshopspringglowup": {
+        "Video ID":         "7619844508980743438",
+        "Link":             "https://www.tiktok.com/@wizardofdealz/video/7619844508980743438",
+        "Posted":           "2026/03/21",
+        "Duration":         "0min29s",
+        "Affiliate GMV":    "$215.52",
+        "Items sold":       "7",
+        "Est. commissions": "$14.79",
+        "Direct GMV":       "$171.01",
+        "RPM":              "$55.09",
+        "Views":            "3,104",
+        "Completion rate":  "42.82%",
+        "Details":          "https://partner.us.tiktokshop.com/compass/video-analysis/detail/7619844508980743438?creator_id=6983923605470856197&amp;..."
+      }
+    },
+    {
+      "Vivonu Himalayan Shilajit Gummies #tiktokshopholidayhaul": {
+        "Video ID":         "7580895138122190094",
+        "Link":             "https://www.tiktok.com/@wizardofdealz/video/7580895138122190094",
+        "Posted":           "2025/12/06",
+        "Duration":         "0min29s",
+        "Affiliate GMV":    "$225.62",
+        "Items sold":       "9",
+        "Est. commissions": "$75.93",
+        "Direct GMV":       "$82.30",
+        "RPM":              "$39.91",
+        "Views":            "2,062",
+        "Completion rate":  "29.58%",
+        "Details":          "https://partner.us.tiktokshop.com/compass/video-analysis/detail/7580895138122190094?creator_id=6983923605470856197&amp;..."
+      }
+    }
+  ]
 }</code></pre>
 </body>
 </html>
