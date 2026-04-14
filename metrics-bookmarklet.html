@@ -26,6 +26,7 @@
   <pre><code>{
   creator,
   scrapedAt,                 // ISO timestamp of the scrape
+  dateRange: { start, end }, // selected Month date-range picker values
   metrics: [ { name, value, trend } ],
   videos:  [ { "Video ID", "Name", "Link", "Posted", "Duration",
                "Affiliate GMV", "Items sold", "Est. commissions",
@@ -34,7 +35,7 @@
   <p>Inactive video rows are skipped.</p>
 
   <p>
-    <a class="bm" href="javascript:(function()%7Bvar%20UP%3D%22M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z%22%3Bvar%20items%3Ddocument.querySelectorAll('.arco-space-item')%3Bvar%20metricsRoot%3Ditems%5B2%5D%3Bif(!metricsRoot)%7Bconsole.warn('Key%20metrics%20container%20not%20found')%3Breturn%3B%7Dvar%20checked%3Ditems%5B1%5D%26%26items%5B1%5D.querySelector('.arco-radio-checked')%3Bvar%20card%3Dchecked%26%26checked.closest('.flex.w-full.flex-col')%3Bvar%20nameEl%3Dcard%26%26card.querySelector('.text-body-s-medium')%3Bvar%20creator%3DnameEl%3FnameEl.textContent.trim()%3A''%3Bvar%20metrics%3D%5B%5D%3BmetricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%3Dc.querySelector('.text-14')%2Cv%3Dc.querySelector('.text-20')%3Bif(!k%7C%7C!v)return%3Bvar%20row%3Dv.nextElementSibling%2Cp%3Drow%26%26row.querySelector('svg%20path')%2Cpct%3Drow%26%26row.querySelector('span')%3Bvar%20dir%3Dp%26%26p.getAttribute('d')%3D%3D%3DUP%3F'%5Cu2191'%3A'%5Cu2193'%3Bmetrics.push(%7Bname%3Ak.textContent.trim()%2Cvalue%3Av.textContent.trim()%2Ctrend%3Adir%2B'%20'%2B(pct%3Fpct.textContent.trim()%3A'')%7D)%3B%7D)%3Bvar%20videos%3D%5B%5D%3Bvar%20videosRoot%3Ditems%5Bitems.length-1%5D%3Bif(videosRoot%26%26videosRoot!%3D%3DmetricsRoot)%7Bvar%20rows%3DvideosRoot.querySelectorAll('tbody%20tr.arco-table-tr')%3Brows.forEach(function(row)%7Bvar%20link%3Drow.querySelector('a.text-12.hover%5C%5C%3Aunderline')%3Bif(!link)return%3Bvar%20href%3Dlink.getAttribute('href')%3Bif(!creator)%7Bvar%20cm%3Dhref%26%26href.match(%2F%40(%5B%5E%2F%5D%2B)%2F)%3Bif(cm)creator%3D'%40'%2Bcm%5B1%5D%3B%7Dvar%20linkParent%3Dlink.parentElement%3Bvar%20infoCol%3DlinkParent.parentElement%3Bvar%20nameContainer%3DinfoCol.querySelector('.whitespace-nowrap.overflow-ellipsis.overflow-hidden')%3Bvar%20nameEl2%3DnameContainer%26%26nameContainer.querySelector('.overflow-hidden.overflow-ellipsis')%3Bvar%20name%3DnameEl2%3FnameEl2.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20').trim()%3A''%3Bvar%20idText%3D''%3Bvar%20idDiv%3DlinkParent.previousElementSibling%3Bif(idDiv)%7Bvar%20idEl%3DidDiv.querySelector('.text-12')%3BidText%3DidEl%3FidEl.textContent.trim().replace(%2F%5EVideo%20ID%3A%5Cs*%2F%2C'')%3A''%3B%7Dvar%20posted%3D''%2Cduration%3D''%3Bvar%20postedDiv%3DlinkParent.nextElementSibling%3Bif(postedDiv)%7Bvar%20pEl%3DpostedDiv.querySelector('.text-12')%3Bif(pEl)%7Bvar%20m%3DpEl.textContent.trim().match(%2FPosted%3A%5Cs*(%5CS%2B)%5Cs%2BDuration%3A%5Cs*(%5CS%2B)%2F)%3Bif(m)%7Bposted%3Dm%5B1%5D%3Bduration%3Dm%5B2%5D%3B%7D%7D%7Dvar%20tds%3Drow.querySelectorAll('td.arco-table-td')%3Bvar%20get%3Dfunction(td)%7Bvar%20inner%3Dtd.querySelector('.arco-table-cell-wrap-value')%3Breturn%20inner%3Finner.textContent.trim()%3A''%3B%7D%3Bvar%20detailsLink%3D''%3Bif(tds%5B8%5D)%7Bvar%20a%3Dtds%5B8%5D.querySelector('a')%3BdetailsLink%3Da%3Fa.getAttribute('href')%3A''%3B%7Dvideos.push(%7B'Video%20ID'%3AidText%2C'Name'%3Aname%2C'Link'%3Ahref%2C'Posted'%3Aposted%2C'Duration'%3Aduration%2C'Affiliate%20GMV'%3Atds%5B1%5D%3Fget(tds%5B1%5D)%3A''%2C'Items%20sold'%3Atds%5B2%5D%3Fget(tds%5B2%5D)%3A''%2C'Est.%20commissions'%3Atds%5B3%5D%3Fget(tds%5B3%5D)%3A''%2C'Direct%20GMV'%3Atds%5B4%5D%3Fget(tds%5B4%5D)%3A''%2C'RPM'%3Atds%5B5%5D%3Fget(tds%5B5%5D)%3A''%2C'Views'%3Atds%5B6%5D%3Fget(tds%5B6%5D)%3A''%2C'Completion%20rate'%3Atds%5B7%5D%3Fget(tds%5B7%5D)%3A''%2C'Details'%3AdetailsLink%7D)%3B%7D)%3B%7Dconsole.log(%7Bcreator%3Acreator%2CscrapedAt%3Anew%20Date().toISOString()%2Cmetrics%3Ametrics%2Cvideos%3Avideos%7D)%3B%7D)()%3B">Log Key Metrics</a>
+    <a class="bm" href="javascript:(function()%7Bvar%20UP%3D%22M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z%22%3Bvar%20items%3Ddocument.querySelectorAll('.arco-space-item')%3Bvar%20metricsRoot%3Ditems%5B2%5D%3Bif(!metricsRoot)%7Bconsole.warn('Key%20metrics%20container%20not%20found')%3Breturn%3B%7Dvar%20dateRoot%3Ditems%5B0%5D%3Bvar%20dateRange%3D%7Bstart%3A''%2Cend%3A''%7D%3Bif(dateRoot)%7Bvar%20startEl%3DdateRoot.querySelector('input%5Bplaceholder%3D%22Start%20month%22%5D')%3Bvar%20endEl%3DdateRoot.querySelector('input%5Bplaceholder%3D%22End%20month%22%5D')%3BdateRange.start%3DstartEl%3FstartEl.value%3A''%3BdateRange.end%3DendEl%3FendEl.value%3A''%3B%7Dvar%20checked%3Ditems%5B1%5D%26%26items%5B1%5D.querySelector('.arco-radio-checked')%3Bvar%20card%3Dchecked%26%26checked.closest('.flex.w-full.flex-col')%3Bvar%20nameEl%3Dcard%26%26card.querySelector('.text-body-s-medium')%3Bvar%20creator%3DnameEl%3FnameEl.textContent.trim()%3A''%3Bvar%20metrics%3D%5B%5D%3BmetricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c)%7Bvar%20k%3Dc.querySelector('.text-14')%2Cv%3Dc.querySelector('.text-20')%3Bif(!k%7C%7C!v)return%3Bvar%20row%3Dv.nextElementSibling%2Cp%3Drow%26%26row.querySelector('svg%20path')%2Cpct%3Drow%26%26row.querySelector('span')%3Bvar%20dir%3Dp%26%26p.getAttribute('d')%3D%3D%3DUP%3F'%5Cu2191'%3A'%5Cu2193'%3Bmetrics.push(%7Bname%3Ak.textContent.trim()%2Cvalue%3Av.textContent.trim()%2Ctrend%3Adir%2B'%20'%2B(pct%3Fpct.textContent.trim()%3A'')%7D)%3B%7D)%3Bvar%20videos%3D%5B%5D%3Bvar%20videosRoot%3Ditems%5Bitems.length-1%5D%3Bif(videosRoot%26%26videosRoot!%3D%3DmetricsRoot)%7Bvar%20rows%3DvideosRoot.querySelectorAll('tbody%20tr.arco-table-tr')%3Brows.forEach(function(row)%7Bvar%20link%3Drow.querySelector('a.text-12.hover%5C%5C%3Aunderline')%3Bif(!link)return%3Bvar%20href%3Dlink.getAttribute('href')%3Bif(!creator)%7Bvar%20cm%3Dhref%26%26href.match(%2F%40(%5B%5E%2F%5D%2B)%2F)%3Bif(cm)creator%3D'%40'%2Bcm%5B1%5D%3B%7Dvar%20linkParent%3Dlink.parentElement%3Bvar%20infoCol%3DlinkParent.parentElement%3Bvar%20nameContainer%3DinfoCol.querySelector('.whitespace-nowrap.overflow-ellipsis.overflow-hidden')%3Bvar%20nameEl2%3DnameContainer%26%26nameContainer.querySelector('.overflow-hidden.overflow-ellipsis')%3Bvar%20name%3DnameEl2%3FnameEl2.textContent.replace(%2F%5Cs%2B%2Fg%2C'%20').trim()%3A''%3Bvar%20idText%3D''%3Bvar%20idDiv%3DlinkParent.previousElementSibling%3Bif(idDiv)%7Bvar%20idEl%3DidDiv.querySelector('.text-12')%3BidText%3DidEl%3FidEl.textContent.trim().replace(%2F%5EVideo%20ID%3A%5Cs*%2F%2C'')%3A''%3B%7Dvar%20posted%3D''%2Cduration%3D''%3Bvar%20postedDiv%3DlinkParent.nextElementSibling%3Bif(postedDiv)%7Bvar%20pEl%3DpostedDiv.querySelector('.text-12')%3Bif(pEl)%7Bvar%20m%3DpEl.textContent.trim().match(%2FPosted%3A%5Cs*(%5CS%2B)%5Cs%2BDuration%3A%5Cs*(%5CS%2B)%2F)%3Bif(m)%7Bposted%3Dm%5B1%5D%3Bduration%3Dm%5B2%5D%3B%7D%7D%7Dvar%20tds%3Drow.querySelectorAll('td.arco-table-td')%3Bvar%20get%3Dfunction(td)%7Bvar%20inner%3Dtd.querySelector('.arco-table-cell-wrap-value')%3Breturn%20inner%3Finner.textContent.trim()%3A''%3B%7D%3Bvar%20detailsLink%3D''%3Bif(tds%5B8%5D)%7Bvar%20a%3Dtds%5B8%5D.querySelector('a')%3BdetailsLink%3Da%3Fa.getAttribute('href')%3A''%3B%7Dvideos.push(%7B'Video%20ID'%3AidText%2C'Name'%3Aname%2C'Link'%3Ahref%2C'Posted'%3Aposted%2C'Duration'%3Aduration%2C'Affiliate%20GMV'%3Atds%5B1%5D%3Fget(tds%5B1%5D)%3A''%2C'Items%20sold'%3Atds%5B2%5D%3Fget(tds%5B2%5D)%3A''%2C'Est.%20commissions'%3Atds%5B3%5D%3Fget(tds%5B3%5D)%3A''%2C'Direct%20GMV'%3Atds%5B4%5D%3Fget(tds%5B4%5D)%3A''%2C'RPM'%3Atds%5B5%5D%3Fget(tds%5B5%5D)%3A''%2C'Views'%3Atds%5B6%5D%3Fget(tds%5B6%5D)%3A''%2C'Completion%20rate'%3Atds%5B7%5D%3Fget(tds%5B7%5D)%3A''%2C'Details'%3AdetailsLink%7D)%3B%7D)%3B%7Dconsole.log(%7Bcreator%3Acreator%2CscrapedAt%3Anew%20Date().toISOString()%2CdateRange%3AdateRange%2Cmetrics%3Ametrics%2Cvideos%3Avideos%7D)%3B%7D)()%3B">Log Key Metrics</a>
   </p>
 
   <h2>Source</h2>
@@ -43,6 +44,16 @@
   var items = document.querySelectorAll('.arco-space-item');
   var metricsRoot = items[2];
   if (!metricsRoot) { console.warn('Key metrics container not found'); return; }
+
+  // Selected Month date-range picker lives in the first .arco-space-item.
+  var dateRoot = items[0];
+  var dateRange = { start: '', end: '' };
+  if (dateRoot) {
+    var startEl = dateRoot.querySelector('input[placeholder="Start month"]');
+    var endEl   = dateRoot.querySelector('input[placeholder="End month"]');
+    dateRange.start = startEl ? startEl.value : '';
+    dateRange.end   = endEl   ? endEl.value   : '';
+  }
 
   var checked = items[1] &amp;&amp; items[1].querySelector('.arco-radio-checked');
   var card = checked &amp;&amp; checked.closest('.flex.w-full.flex-col');
@@ -146,6 +157,7 @@
   console.log({
     creator:   creator,
     scrapedAt: new Date().toISOString(),
+    dateRange: dateRange,
     metrics:   metrics,
     videos:    videos
   });
@@ -155,6 +167,7 @@
   <pre><code>{
   "creator": "@wizardofdealz",
   "scrapedAt": "2026-04-14T12:34:56.000Z",
+  "dateRange": { "start": "2026-03-01", "end": "2026-03-31" },
   "metrics": [
     { "name": "Affiliate GMV",    "value": "$43,029.64",  "trend": "&#x2191; 16.63%" },
     { "name": "Items sold",       "value": "1,586",       "trend": "&#x2191; 47.4%"  },
