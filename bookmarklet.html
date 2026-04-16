@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="shortcut icon" href="favicon.ico">
+  <title>Key Metrics Bookmarklet</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 780px; margin: 40px auto; padding: 0 20px; color: #222; }
+    h1 { font-size: 22px; }
+    p { line-height: 1.5; }
+    .bm {
+      display: inline-block;
+      padding: 8px 14px;
+      background: #009995;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    pre { background: #f4f4f4; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <h1>Key Metrics Bookmarklet</h1>
+  <p>Drag the link below to your bookmarks bar. When on a page with the creator selector, Key metrics panel, and Videos table, click it to <code>console.log</code> a single object and (if configured) POST it to a Google Sheet:</p>
+  <pre><code>{
+  creator,
+  scrapedAt,                 // ISO timestamp of the scrape
+  dateRange: { start, end }, // selected Month date-range picker values
+  metrics: [ { name, value, trend } ],
+  videos:  [ { "Video ID", "Name", "Link", "Posted", "Duration",
+               "Affiliate GMV", "Items sold", "Est. commissions",
+               "Direct GMV", "RPM", "Views", "Completion rate", "Details" } ]
+}</code></pre>
+  <p>Inactive video rows are skipped. To enable the Google Sheet sync, see <a href="#sheet-setup">Google Sheet setup</a>.</p>
+
+  <p>
+    <a class="bm" href="javascript:%28function%28%29%7Bvar%20ENDPOINT%20%3D%20%27https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2FAKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG%2Fexec%27%3Bvar%20TOKEN%20%20%20%20%3D%20%27%2A%2Adingleding%26%26%27%3Bvar%20UP%20%3D%20%22M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z%22%3Bvar%20items%20%3D%20document.querySelectorAll%28%27.arco-space-item%27%29%3Bvar%20metricsRoot%20%3D%20items%5B2%5D%3Bif%20%28%21metricsRoot%29%20%7B%20console.warn%28%27Key%20metrics%20container%20not%20found%27%29%3B%20return%3B%20%7Dvar%20dateRoot%20%3D%20items%5B0%5D%3Bvar%20dateRange%20%3D%20%7B%20start%3A%20%27%27%2C%20end%3A%20%27%27%20%7D%3Bif%20%28dateRoot%29%20%7Bvar%20startEl%20%3D%20dateRoot.querySelector%28%27input%5Bplaceholder%3D%22Start%20month%22%5D%27%29%3Bvar%20endEl%20%20%20%3D%20dateRoot.querySelector%28%27input%5Bplaceholder%3D%22End%20month%22%5D%27%29%3BdateRange.start%20%3D%20startEl%20%3F%20startEl.value%20%3A%20%27%27%3BdateRange.end%20%20%20%3D%20endEl%20%20%20%3F%20endEl.value%20%20%20%3A%20%27%27%3B%7Dvar%20checked%20%3D%20items%5B1%5D%20%26%26%20items%5B1%5D.querySelector%28%27.arco-radio-checked%27%29%3Bvar%20card%20%3D%20checked%20%26%26%20checked.closest%28%27.flex.w-full.flex-col%27%29%3Bvar%20nameEl%20%3D%20card%20%26%26%20card.querySelector%28%27.text-body-s-medium%27%29%3Bvar%20creator%20%3D%20nameEl%20%3F%20nameEl.textContent.trim%28%29%20%3A%20%27%27%3Bvar%20metrics%20%3D%20%5B%5D%3BmetricsRoot.querySelectorAll%28%27.flex.flex-col.items-start%27%29.forEach%28function%28c%29%7Bvar%20k%20%3D%20c.querySelector%28%27.text-14%27%29%2Cv%20%3D%20c.querySelector%28%27.text-20%27%29%3Bif%20%28%21k%20%7C%7C%20%21v%29%20return%3Bvar%20row%20%3D%20v.nextElementSibling%2Cp%20%3D%20row%20%26%26%20row.querySelector%28%27svg%20path%27%29%2Cpct%20%3D%20row%20%26%26%20row.querySelector%28%27span%27%29%3Bvar%20dir%20%3D%20p%20%26%26%20p.getAttribute%28%27d%27%29%20%3D%3D%3D%20UP%20%3F%20%27%5Cu2191%27%20%3A%20%27%5Cu2193%27%3Bmetrics.push%28%7Bname%3A%20%20k.textContent.trim%28%29%2Cvalue%3A%20v.textContent.trim%28%29%2Ctrend%3A%20dir%20%2B%20%27%20%27%20%2B%20%28pct%20%3F%20pct.textContent.trim%28%29%20%3A%20%27%27%29%7D%29%3B%7D%29%3Bvar%20videos%20%3D%20%5B%5D%3Bvar%20videosRoot%20%3D%20items%5Bitems.length%20-%201%5D%3Bif%20%28videosRoot%20%26%26%20videosRoot%20%21%3D%3D%20metricsRoot%29%20%7Bvar%20rows%20%3D%20videosRoot.querySelectorAll%28%27tbody%20tr.arco-table-tr%27%29%3Brows.forEach%28function%28row%29%7Bvar%20link%20%3D%20row.querySelector%28%27a.text-12.hover%5C%5C%3Aunderline%27%29%3Bif%20%28%21link%29%20return%3Bvar%20href%20%3D%20link.getAttribute%28%27href%27%29%3Bif%20%28%21creator%29%20%7Bvar%20cm%20%3D%20href%20%26%26%20href.match%28%2F%40%28%5B%5E%2F%5D%2B%29%2F%29%3Bif%20%28cm%29%20creator%20%3D%20%27%40%27%20%2B%20cm%5B1%5D%3B%7Dvar%20linkParent%20%3D%20link.parentElement%3Bvar%20infoCol%20%20%20%3D%20linkParent.parentElement%3Bvar%20nameContainer%20%3D%20infoCol.querySelector%28%27.whitespace-nowrap.overflow-ellipsis.overflow-hidden%27%29%3Bvar%20nameEl2%20%3D%20nameContainer%20%26%26%20nameContainer.querySelector%28%27.overflow-hidden.overflow-ellipsis%27%29%3Bvar%20name%20%3D%20nameEl2%20%3F%20nameEl2.textContent.replace%28%2F%5Cs%2B%2Fg%2C%20%27%20%27%29.trim%28%29%20%3A%20%27%27%3Bvar%20idText%20%3D%20%27%27%3Bvar%20idDiv%20%3D%20linkParent.previousElementSibling%3Bif%20%28idDiv%29%20%7Bvar%20idEl%20%3D%20idDiv.querySelector%28%27.text-12%27%29%3BidText%20%3D%20idEl%20%3F%20idEl.textContent.trim%28%29.replace%28%2F%5EVideo%20ID%3A%5Cs%2A%2F%2C%20%27%27%29%20%3A%20%27%27%3B%7Dvar%20posted%20%3D%20%27%27%2C%20duration%20%3D%20%27%27%3Bvar%20postedDiv%20%3D%20linkParent.nextElementSibling%3Bif%20%28postedDiv%29%20%7Bvar%20pEl%20%3D%20postedDiv.querySelector%28%27.text-12%27%29%3Bif%20%28pEl%29%20%7Bvar%20m%20%3D%20pEl.textContent.trim%28%29.match%28%2FPosted%3A%5Cs%2A%28%5CS%2B%29%5Cs%2BDuration%3A%5Cs%2A%28%5CS%2B%29%2F%29%3Bif%20%28m%29%20%7B%20posted%20%3D%20m%5B1%5D%3B%20duration%20%3D%20m%5B2%5D%3B%20%7D%7D%7Dvar%20tds%20%3D%20row.querySelectorAll%28%27td.arco-table-td%27%29%3Bvar%20get%20%3D%20function%28td%29%7Bvar%20inner%20%3D%20td.querySelector%28%27.arco-table-cell-wrap-value%27%29%3Breturn%20inner%20%3F%20inner.textContent.trim%28%29%20%3A%20%27%27%3B%7D%3Bvar%20detailsLink%20%3D%20%27%27%3Bif%20%28tds%5B8%5D%29%20%7Bvar%20a%20%3D%20tds%5B8%5D.querySelector%28%27a%27%29%3BdetailsLink%20%3D%20a%20%3F%20a.getAttribute%28%27href%27%29%20%3A%20%27%27%3B%7Dvideos.push%28%7B%27Video%20ID%27%3A%20%20%20%20%20%20%20%20%20idText%2C%27Name%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20name%2C%27Link%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20href%2C%27Posted%27%3A%20%20%20%20%20%20%20%20%20%20%20posted%2C%27Duration%27%3A%20%20%20%20%20%20%20%20%20duration%2C%27Affiliate%20GMV%27%3A%20%20%20%20tds%5B1%5D%20%3F%20get%28tds%5B1%5D%29%20%3A%20%27%27%2C%27Items%20sold%27%3A%20%20%20%20%20%20%20tds%5B2%5D%20%3F%20get%28tds%5B2%5D%29%20%3A%20%27%27%2C%27Est.%20commissions%27%3A%20tds%5B3%5D%20%3F%20get%28tds%5B3%5D%29%20%3A%20%27%27%2C%27Direct%20GMV%27%3A%20%20%20%20%20%20%20tds%5B4%5D%20%3F%20get%28tds%5B4%5D%29%20%3A%20%27%27%2C%27RPM%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B5%5D%20%3F%20get%28tds%5B5%5D%29%20%3A%20%27%27%2C%27Views%27%3A%20%20%20%20%20%20%20%20%20%20%20%20tds%5B6%5D%20%3F%20get%28tds%5B6%5D%29%20%3A%20%27%27%2C%27Completion%20rate%27%3A%20%20tds%5B7%5D%20%3F%20get%28tds%5B7%5D%29%20%3A%20%27%27%2C%27Details%27%3A%20%20%20%20%20%20%20%20%20%20detailsLink%7D%29%3B%7D%29%3B%7Dvar%20payload%20%3D%20%7Bcreator%3A%20%20%20creator%2CscrapedAt%3A%20new%20Date%28%29.toISOString%28%29%2CdateRange%3A%20dateRange%2Cmetrics%3A%20%20%20metrics%2Cvideos%3A%20%20%20%20videos%7D%3Bconsole.log%28payload%29%3Bif%20%28ENDPOINT%20%26%26%20ENDPOINT.indexOf%28%27PASTE_%27%29%20%21%3D%3D%200%29%20%7Bfetch%28ENDPOINT%2C%20%7Bmethod%3A%20%27POST%27%2Ckeepalive%3A%20true%2Cheaders%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2Cbody%3A%20JSON.stringify%28%7Btoken%3A%20%20%20%20%20TOKEN%2Ccreator%3A%20%20%20payload.creator%2CscrapedAt%3A%20payload.scrapedAt%2CdateRange%3A%20payload.dateRange%2Cmetrics%3A%20%20%20payload.metrics%2Cvideos%3A%20%20%20%20payload.videos%7D%29%7D%29.then%28function%28r%29%7B%20return%20r.json%28%29%3B%20%7D%29.then%28function%28j%29%7B%20console.log%28%27%5Bsheet%5D%27%2C%20j%29%3B%20%7D%29.catch%28function%28e%29%7B%20console.warn%28%27%5Bsheet%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%7D%7D%29%28%29%3B">Log Key Metrics</a>
+  </p>
+
+  <h2>Source</h2>
+  <pre><code>javascript:(function(){
+  // ---- Google Sheets Apps Script Web App (fill these in once) ----
+  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG/exec';
+  var TOKEN    = '**dingleding&amp;&amp;';
+  // ----------------------------------------------------------------
+
+  var UP = "M2.97731 0.130983C3.11029 -0.0430998 3.37217 -0.0437687 3.50604 0.129632L6.44523 3.93668C6.6144 4.15581 6.45821 4.47372 6.18138 4.47372H4.60189V8.33326C4.60189 8.51735 4.45265 8.66659 4.26855 8.66659H2.26855C2.08446 8.66659 1.93522 8.51735 1.93522 8.33326V4.47372H0.333945C0.057903 4.47372 -0.0985142 4.15739 0.0690572 3.93803L2.97731 0.130983Z";
+  var items = document.querySelectorAll('.arco-space-item');
+  var metricsRoot = items[2];
+  if (!metricsRoot) { console.warn('Key metrics container not found'); return; }
+
+  // Selected Month date-range picker lives in the first .arco-space-item.
+  var dateRoot = items[0];
+  var dateRange = { start: '', end: '' };
+  if (dateRoot) {
+    var startEl = dateRoot.querySelector('input[placeholder="Start month"]');
+    var endEl   = dateRoot.querySelector('input[placeholder="End month"]');
+    dateRange.start = startEl ? startEl.value : '';
+    dateRange.end   = endEl   ? endEl.value   : '';
+  }
+
+  var checked = items[1] &amp;&amp; items[1].querySelector('.arco-radio-checked');
+  var card = checked &amp;&amp; checked.closest('.flex.w-full.flex-col');
+  var nameEl = card &amp;&amp; card.querySelector('.text-body-s-medium');
+  var creator = nameEl ? nameEl.textContent.trim() : '';
+
+  // 1) Collect each Key metric as { name, value, trend }.
+  var metrics = [];
+  metricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c){
+    var k = c.querySelector('.text-14'),
+        v = c.querySelector('.text-20');
+    if (!k || !v) return;
+    var row = v.nextElementSibling,
+        p = row &amp;&amp; row.querySelector('svg path'),
+        pct = row &amp;&amp; row.querySelector('span');
+    var dir = p &amp;&amp; p.getAttribute('d') === UP ? '\u2191' : '\u2193';
+    metrics.push({
+      name:  k.textContent.trim(),
+      value: v.textContent.trim(),
+      trend: dir + ' ' + (pct ? pct.textContent.trim() : '')
+    });
+  });
+
+  // 2) Collect all active creator videos as flat objects.
+  var videos = [];
+  var videosRoot = items[items.length - 1];
+  if (videosRoot &amp;&amp; videosRoot !== metricsRoot) {
+    var rows = videosRoot.querySelectorAll('tbody tr.arco-table-tr');
+    rows.forEach(function(row){
+      // Active videos have a TikTok video link with these classes; inactive rows do not.
+      var link = row.querySelector('a.text-12.hover\\:underline');
+      if (!link) return;
+
+      var href = link.getAttribute('href');
+
+      // Fall back to the @handle in the TikTok video URL if the selector didn't provide a creator.
+      if (!creator) {
+        var cm = href &amp;&amp; href.match(/@([^/]+)/);
+        if (cm) creator = '@' + cm[1];
+      }
+
+      var linkParent = link.parentElement;          // .flex.items-center wrapping the link
+      var infoCol   = linkParent.parentElement;     // .ml-6.flex-1.overflow-auto column
+
+      // Video name lives in parent-of-parent of the link.
+      var nameContainer = infoCol.querySelector('.whitespace-nowrap.overflow-ellipsis.overflow-hidden');
+      var nameEl2 = nameContainer &amp;&amp; nameContainer.querySelector('.overflow-hidden.overflow-ellipsis');
+      var name = nameEl2 ? nameEl2.textContent.replace(/\s+/g, ' ').trim() : '';
+
+      // Video ID lives in the sibling div immediately above the link.
+      var idText = '';
+      var idDiv = linkParent.previousElementSibling;
+      if (idDiv) {
+        var idEl = idDiv.querySelector('.text-12');
+        idText = idEl ? idEl.textContent.trim().replace(/^Video ID:\s*/, '') : '';
+      }
+
+      // Posted &amp; Duration live in the sibling div immediately below the link.
+      var posted = '', duration = '';
+      var postedDiv = linkParent.nextElementSibling;
+      if (postedDiv) {
+        var pEl = postedDiv.querySelector('.text-12');
+        if (pEl) {
+          var m = pEl.textContent.trim().match(/Posted:\s*(\S+)\s+Duration:\s*(\S+)/);
+          if (m) { posted = m[1]; duration = m[2]; }
+        }
+      }
+
+      // Per-row table cells: 0=Info, 1=Affiliate GMV, 2=Items sold, 3=Est. commissions,
+      // 4=Direct GMV, 5=RPM, 6=Views, 7=Completion rate, 8=Video details (View link).
+      var tds = row.querySelectorAll('td.arco-table-td');
+      var get = function(td){
+        var inner = td.querySelector('.arco-table-cell-wrap-value');
+        return inner ? inner.textContent.trim() : '';
+      };
+
+      var detailsLink = '';
+      if (tds[8]) {
+        var a = tds[8].querySelector('a');
+        detailsLink = a ? a.getAttribute('href') : '';
+      }
+
+      videos.push({
+        'Video ID':         idText,
+        'Name':             name,
+        'Link':             href,
+        'Posted':           posted,
+        'Duration':         duration,
+        'Affiliate GMV':    tds[1] ? get(tds[1]) : '',
+        'Items sold':       tds[2] ? get(tds[2]) : '',
+        'Est. commissions': tds[3] ? get(tds[3]) : '',
+        'Direct GMV':       tds[4] ? get(tds[4]) : '',
+        'RPM':              tds[5] ? get(tds[5]) : '',
+        'Views':            tds[6] ? get(tds[6]) : '',
+        'Completion rate':  tds[7] ? get(tds[7]) : '',
+        'Details':          detailsLink
+      });
+    });
+  }
+
+  var payload = {
+    creator:   creator,
+    scrapedAt: new Date().toISOString(),
+    dateRange: dateRange,
+    metrics:   metrics,
+    videos:    videos
+  };
+  console.log(payload);
+
+  // 3) Post to Google Sheets via the Apps Script Web App (if configured).
+  if (ENDPOINT &amp;&amp; ENDPOINT.indexOf('PASTE_') !== 0) {
+    fetch(ENDPOINT, {
+      method: 'POST',
+      keepalive: true,
+      // text/plain keeps this a CORS "simple request" so no preflight is sent.
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        token:     TOKEN,
+        creator:   payload.creator,
+        scrapedAt: payload.scrapedAt,
+        dateRange: payload.dateRange,
+        metrics:   payload.metrics,
+        videos:    payload.videos
+      })
+    }).then(function(r){ return r.json(); })
+      .then(function(j){ console.log('[sheet]', j); })
+      .catch(function(e){ console.warn('[sheet] post failed', e); });
+  }
+})();</code></pre>
+
+  <h2>Example output</h2>
+  <pre><code>{
+  "creator": "@wizardofdealz",
+  "scrapedAt": "2026-04-14T12:34:56.000Z",
+  "dateRange": { "start": "2026-03-01", "end": "2026-03-31" },
+  "metrics": [
+    { "name": "Affiliate GMV",    "value": "$43,029.64",  "trend": "&#x2191; 16.63%" },
+    { "name": "Items sold",       "value": "1,586",       "trend": "&#x2191; 47.4%"  },
+    { "name": "Est. commissions", "value": "$6,306.22",   "trend": "&#x2191; 29.81%" },
+    { "name": "Direct GMV",       "value": "$35,851.93",  "trend": "&#x2191; 13.4%"  },
+    { "name": "Videos",           "value": "365",         "trend": "&#x2191; 1.96%"  }
+  ],
+  "videos": [
+    {
+      "Video ID":         "7619844508980743438",
+      "Name":             "Zooone Super Yerba Mate #securepayeveryday #tiktokshopspringglowup",
+      "Link":             "https://www.tiktok.com/@wizardofdealz/video/7619844508980743438",
+      "Posted":           "2026/03/21",
+      "Duration":         "0min29s",
+      "Affiliate GMV":    "$215.52",
+      "Items sold":       "7",
+      "Est. commissions": "$14.79",
+      "Direct GMV":       "$171.01",
+      "RPM":              "$55.09",
+      "Views":            "3,104",
+      "Completion rate":  "42.82%",
+      "Details":          "https://partner.us.tiktokshop.com/compass/video-analysis/detail/7619844508980743438?creator_id=6983923605470856197&amp;..."
+    },
+    {
+      "Video ID":         "7580895138122190094",
+      "Name":             "Vivonu Himalayan Shilajit Gummies #tiktokshopholidayhaul",
+      "Link":             "https://www.tiktok.com/@wizardofdealz/video/7580895138122190094",
+      "Posted":           "2025/12/06",
+      "Duration":         "0min29s",
+      "Affiliate GMV":    "$225.62",
+      "Items sold":       "9",
+      "Est. commissions": "$75.93",
+      "Direct GMV":       "$82.30",
+      "RPM":              "$39.91",
+      "Views":            "2,062",
+      "Completion rate":  "29.58%",
+      "Details":          "https://partner.us.tiktokshop.com/compass/video-analysis/detail/7580895138122190094?creator_id=6983923605470856197&amp;..."
+    }
+  ]
+}</code></pre>
+
+  <h2 id="sheet-setup">Google Sheet setup</h2>
+  <p>The bookmarklet can POST each scrape directly into a Google Sheet via a Google Apps Script Web App. This avoids OAuth in the browser and writes into two tabs:</p>
+  <ul>
+    <li><strong>Metrics</strong> &mdash; one row per metric per scrape (append-only time series, with <code>date_start</code> / <code>date_end</code> from the selected month range).</li>
+    <li><strong>Videos</strong> &mdash; one row per video, <em>upserted by Video ID</em> (re-runs update existing rows; new videos append).</li>
+  </ul>
+  <ol>
+    <li>Create a new Google Sheet. (Tabs <code>Metrics</code> and <code>Videos</code> will be created automatically on first write, or you can create them yourself.)</li>
+    <li>Open <strong>Extensions &rarr; Apps Script</strong> and replace <code>Code.gs</code> with the contents of <a href="apps-script/Code.gs"><code>apps-script/Code.gs</code></a> in this repo. Save.</li>
+    <li>Open <strong>Project Settings &rarr; Script properties</strong> and add property <code>TOKEN</code> with a random shared secret (e.g. <code>openssl rand -hex 16</code>).</li>
+    <li>Click <strong>Deploy &rarr; New deployment</strong>. Choose type <strong>Web app</strong>. Set <em>Execute as: Me</em> and <em>Who has access: Anyone</em>. Copy the <code>/exec</code> URL.</li>
+    <li>In the bookmarklet source above, paste the <code>/exec</code> URL into <code>ENDPOINT</code> and the same shared secret into <code>TOKEN</code>. Re-URL-encode the <code>javascript:</code> source, update the <code>&lt;a class="bm" href="&hellip;"&gt;</code>, and re-drag the bookmark. (If <code>ENDPOINT</code> is left as the placeholder, the bookmarklet silently skips the POST and continues to <code>console.log</code> only.)</li>
+  </ol>
+  <p>Verify end-to-end by clicking the bookmarklet on a TikTok Shop analytics page: DevTools &rarr; Network should show a <code>POST</code> to the <code>/exec</code> URL returning <code>{ok:true, metricsWritten, videosUpserted}</code>, and the Sheet should gain rows. An invalid token returns <code>{ok:false, error:"unauthorized"}</code> and leaves the sheet unchanged.</p>
+
+  <h2>Partner Center</h2>
+  <p><a href="partner-center.html">Partner Center test page</a> &mdash; a saved copy of the TikTok Shop video analysis page for testing the bookmarklet locally.</p>
+
+  <h2 id="graylog-setup">Graylog setup</h2>
+  <p>The bookmarklet also fires a second POST to a local Graylog server via its <strong>GELF HTTP</strong> input. Full install steps (Windows/WSL2, native MongoDB + OpenSearch + Graylog) are in <a href="graylog-local-setup.md"><code>graylog-local-setup.md</code></a>.</p>
+  <ol>
+    <li>Follow <code>graylog-local-setup.md</code> to get Graylog running at <code>http://localhost:9000</code> and a <strong>GELF HTTP</strong> input listening on port <code>12202</code> with CORS enabled.</li>
+    <li>In the bookmarklet source above, set <code>GRAYLOG_ENDPOINT</code> to <code>http://localhost:12202/gelf</code> (or <code>http://&lt;WSL-IP&gt;:12202/gelf</code> if <code>localhost</code> doesn't reach WSL). Leave it as <code>''</code> to disable Graylog posting.</li>
+    <li>Re-URL-encode the source and update the bookmarklet link.</li>
+  </ol>
+  <p>The Graylog message is sent as GELF 1.1 with <code>host: "tiktok-bookmarklet"</code> and these custom fields: <code>_creator</code>, <code>_scrapedAt</code>, <code>_date_start</code>, <code>_date_end</code>, <code>_metrics_count</code>, <code>_videos_count</code>, <code>_metrics_json</code> (stringified array), <code>_videos_json</code> (stringified array). The request uses <code>fetch(..., { mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' } })</code> so it is a CORS "simple request" (no preflight) and the bookmarklet cannot read the response body &mdash; check DevTools &rarr; Network for a <code>202</code>, or search <code>host:tiktok-bookmarklet</code> in the Graylog UI.</p>
+</body>
+</html>
