@@ -1,0 +1,44 @@
+{
+  "name": "tok-scrape",
+  "short_name": "tok-scrape",
+  "description": "Installable companion for the tok-scrape TikTok Shop Key Metrics bookmarklet.",
+  "id": "/tok-scrape/pwa/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait",
+  "theme_color": "#009995",
+  "background_color": "#ffffff",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Setup",
+      "short_name": "Setup",
+      "url": "./index.html#setup",
+      "description": "Personalise the bookmarklet endpoint and token."
+    },
+    {
+      "name": "Docs",
+      "short_name": "Docs",
+      "url": "./index.html#docs",
+      "description": "Google Sheet setup and payload shape."
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="tok-scrape">
+  <!-- full-bleed background so platforms can crop to any shape -->
+  <rect width="512" height="512" fill="#009995"/>
+  <!-- logo kept inside the 80% safe zone (centered 410x410 box: x/y 51..461) -->
+  <path fill="#ffffff" d="M256 176 L344 272 H296 V360 H216 V272 H168 Z"/>
+  <rect x="176" y="152" width="160" height="18" rx="4" fill="#ffffff" opacity="0.9"/>
+</svg>

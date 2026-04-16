@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>tok-scrape</title>
+  <meta name="description" content="Installable PWA companion for the tok-scrape Key Metrics bookmarklet.">
+  <meta name="theme-color" content="#009995">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="tok-scrape">
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #111;
+      --muted: #555;
+      --panel: #f4f4f4;
+      --accent: #009995;
+      --accent-contrast: #fff;
+      --border: #e5e5e5;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111;
+        --fg: #f4f4f4;
+        --muted: #aaa;
+        --panel: #1b1b1b;
+        --border: #2a2a2a;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.5;
+      -webkit-text-size-adjust: 100%;
+    }
+    header {
+      padding: 20px 20px 8px;
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header img { width: 36px; height: 36px; }
+    header h1 { font-size: 20px; margin: 0; }
+    header p { font-size: 13px; color: var(--muted); margin: 0; }
+    main { max-width: 820px; margin: 0 auto; padding: 8px 20px 120px; }
+    nav.tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin: 16px 0 20px;
+      overflow-x: auto;
+    }
+    nav.tabs button {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font: inherit;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+    }
+    nav.tabs button[aria-selected="true"] {
+      color: var(--fg);
+      border-bottom-color: var(--accent);
+    }
+    section[role="tabpanel"] { display: none; }
+    section[role="tabpanel"].active { display: block; }
+    h2 { font-size: 17px; margin: 24px 0 8px; }
+    p { margin: 0 0 12px; }
+    code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    pre {
+      background: var(--panel);
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .bm {
+      display: inline-block;
+      padding: 10px 16px;
+      background: var(--accent);
+      color: var(--accent-contrast);
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .bm:active { transform: translateY(1px); }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+    input[type="text"], input[type="url"], textarea {
+      width: 100%;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--fg);
+    }
+    textarea { min-height: 80px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    button.btn {
+      appearance: none;
+      border: 0;
+      background: var(--accent);
+      color: var(--accent-contrast);
+      padding: 10px 14px;
+      border-radius: 6px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.btn.secondary {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid var(--border);
+    }
+    .muted { color: var(--muted); font-size: 13px; }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 12px 0;
+      background: var(--panel);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    ol, ul { padding-left: 22px; }
+    footer {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      padding: 10px 20px env(safe-area-inset-bottom, 10px);
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    footer button { font-size: 12px; }
+    #offline-banner {
+      display: none;
+      padding: 8px 12px;
+      background: #fff3cd;
+      color: #664d03;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-size: 13px;
+    }
+    body.offline #offline-banner { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="./icon.svg" alt="" aria-hidden="true">
+    <div>
+      <h1>tok-scrape</h1>
+      <p>Installable companion for the Key Metrics bookmarklet.</p>
+    </div>
+  </header>
+
+  <main>
+    <div id="offline-banner">You're offline. Cached content is available; Sheet writes will require a connection.</div>
+
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-install" aria-selected="true" aria-controls="panel-install">Install</button>
+      <button role="tab" id="tab-setup" aria-selected="false" aria-controls="panel-setup">Setup</button>
+      <button role="tab" id="tab-docs" aria-selected="false" aria-controls="panel-docs">Docs</button>
+      <button role="tab" id="tab-about" aria-selected="false" aria-controls="panel-about">About</button>
+    </nav>
+
+    <!-- Install tab -->
+    <section id="panel-install" role="tabpanel" aria-labelledby="tab-install" class="active">
+      <h2>1. Install the app</h2>
+      <p class="muted">
+        Tap <strong>Add to Home Screen</strong> (iOS) or <strong>Install app</strong> (Chrome/Edge) to
+        keep this page a tap away. It works offline once installed.
+      </p>
+      <div class="row">
+        <button class="btn" id="install-btn" disabled>Install app</button>
+        <button class="btn secondary" id="share-btn">Share</button>
+        <span id="install-state" class="badge">checking&hellip;</span>
+      </div>
+
+      <h2>2. Grab the bookmarklet</h2>
+      <p>
+        Drag the link below to your bookmarks bar (desktop) or long-press &rarr; <em>Add bookmark</em>
+        (mobile). It scrapes the TikTok Shop analytics page you're viewing and (optionally) ships the
+        result to a Google Sheet.
+      </p>
+      <p><a class="bm" id="bookmarklet" href="#">Log Key Metrics</a></p>
+      <p class="muted">Personalise the endpoint/token on the <a href="#" data-tab="setup">Setup</a> tab.</p>
+
+      <h2>3. Use it</h2>
+      <ol>
+        <li>Visit <code>partner.us.tiktokshop.com/compass/video-analysis</code>.</li>
+        <li>Select a creator and a month range.</li>
+        <li>Click the <strong>Log Key Metrics</strong> bookmarklet.</li>
+        <li>Open DevTools &rarr; Console to see the payload, or check your Google Sheet.</li>
+      </ol>
+    </section>
+
+    <!-- Setup tab -->
+    <section id="panel-setup" role="tabpanel" aria-labelledby="tab-setup">
+      <h2>Personalise the bookmarklet</h2>
+      <p class="muted">
+        Values are stored locally in this browser only (via <code>localStorage</code>).
+        Tap <em>Generate</em> to refresh the bookmarklet above.
+      </p>
+
+      <label for="endpoint">Apps Script <code>/exec</code> URL</label>
+      <input type="url" id="endpoint" placeholder="https://script.google.com/macros/s/&hellip;/exec">
+
+      <label for="token">Shared TOKEN</label>
+      <input type="text" id="token" placeholder="same value as Script properties &rarr; TOKEN">
+
+      <label for="graylog">Graylog GELF HTTP endpoint (optional; blank to disable)</label>
+      <input type="url" id="graylog" placeholder="http://localhost:12202/gelf">
+
+      <div class="row">
+        <button class="btn" id="generate-btn">Generate bookmarklet</button>
+        <button class="btn secondary" id="reset-btn">Reset to defaults</button>
+        <button class="btn secondary" id="copy-btn">Copy javascript: URL</button>
+      </div>
+
+      <div class="card">
+        <div class="badge">preview</div>
+        <pre id="bookmarklet-preview"></pre>
+      </div>
+    </section>
+
+    <!-- Docs tab -->
+    <section id="panel-docs" role="tabpanel" aria-labelledby="tab-docs">
+      <h2>Payload shape</h2>
+      <pre><code>{
+  creator,
+  scrapedAt,                 // ISO timestamp of the scrape
+  dateRange: { start, end }, // selected Month date-range picker values
+  metrics: [ { name, value, trend } ],
+  videos:  [ { "Video ID", "Name", "Link", "Posted", "Duration",
+               "Affiliate GMV", "Items sold", "Est. commissions",
+               "Direct GMV", "RPM", "Views", "Completion rate", "Details" } ]
+}</code></pre>
+
+      <h2 id="sheet-setup">Google Sheet setup</h2>
+      <p>The bookmarklet can POST each scrape directly into a Google Sheet via a Google Apps Script Web App.</p>
+      <ol>
+        <li>Create a new Google Sheet. Tabs <code>Metrics</code> and <code>Videos</code> are created on first write.</li>
+        <li>Open <strong>Extensions &rarr; Apps Script</strong> and paste the contents of
+          <a href="../apps-script/Code.gs"><code>apps-script/Code.gs</code></a>. Save.</li>
+        <li><strong>Project Settings &rarr; Script properties</strong>: add <code>TOKEN</code> with a random shared secret.</li>
+        <li><strong>Deploy &rarr; New deployment</strong>. Type: <em>Web app</em>. Execute as <em>Me</em>, Access <em>Anyone</em>. Copy the <code>/exec</code> URL.</li>
+        <li>Paste the <code>/exec</code> URL and <code>TOKEN</code> on the <a href="#" data-tab="setup">Setup</a> tab and tap <em>Generate</em>.</li>
+      </ol>
+
+      <h2>Compared to the Cordova version</h2>
+      <ul>
+        <li><strong>No native build.</strong> No <code>config.xml</code>, no Gradle, no Xcode &mdash; publish as static files on GitHub Pages.</li>
+        <li><strong>Installable.</strong> iOS <em>Add to Home Screen</em>, Android/Desktop <em>Install app</em> via <code>beforeinstallprompt</code>.</li>
+        <li><strong>Offline.</strong> Service worker caches the shell (HTML/CSS/JS/icon) with a cache-first strategy; Sheet writes degrade to queued retries when back online.</li>
+        <li><strong>Auto-update.</strong> The service worker picks up new static files on next launch; no store review.</li>
+      </ul>
+    </section>
+
+    <!-- About tab -->
+    <section id="panel-about" role="tabpanel" aria-labelledby="tab-about">
+      <h2>About</h2>
+      <p>
+        <strong>tok-scrape</strong> is a tiny TikTok Shop Partner Center scraper. The scraping
+        itself still runs as a bookmarklet because a PWA can't execute in the TikTok Shop origin
+        &mdash; but this PWA is the installable home for the setup flow, docs, and a local-only
+        endpoint editor.
+      </p>
+      <p class="muted">
+        Repo: <a href="https://github.com/easierbycode/tok-scrape">easierbycode/tok-scrape</a><br>
+        Build: <span id="build-id">&mdash;</span>
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <span id="sw-status">service worker: &hellip;</span>
+    <button class="btn secondary" id="clear-cache">Clear cache</button>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>

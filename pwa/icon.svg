@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="tok-scrape">
+  <rect width="512" height="512" rx="96" ry="96" fill="#009995"/>
+  <!-- stylised up-arrow echoing the bookmarklet "trend up" glyph -->
+  <path fill="#ffffff" d="M256 128 L360 256 H296 V384 H216 V256 H152 Z"/>
+  <!-- tiny "T" mark for TikTok -->
+  <g fill="#ffffff" opacity="0.9">
+    <rect x="152" y="104" width="208" height="20" rx="4"/>
+  </g>
+</svg>
