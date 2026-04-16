@@ -1,0 +1,120 @@
+# Graylog local stack for the TikTok Shop metrics bookmarklet.
+#
+# Usage (from this folder):
+#   docker compose up -d
+#   # wait ~30-60s for Graylog to finish booting, then open:
+#   #   http://localhost:9000   (login: admin / ChangeMeAdmin!)
+#   #
+#   # Create input:  System -> Inputs -> GELF HTTP -> Launch new input
+#   #   Bind address 0.0.0.0, Port 12202, Enable CORS.
+#   #
+#   # Sanity check from the host:
+#   #   curl -v -XPOST http://localhost:12202/gelf \
+#   #     -H 'Content-Type: application/json' \
+#   #     -d '{"version":"1.1","host":"test","short_message":"hello graylog"}'
+#
+# Tear down (keeps volumes):
+#   docker compose down
+# Full reset (deletes logs, indices, Mongo data):
+#   docker compose down -v
+#
+# To change the admin password: set GRAYLOG_ROOT_PASSWORD_SHA2 below to
+#   echo -n 'YourNewPassword' | sha256sum
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: graylog-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  opensearch:
+    image: opensearchproject/opensearch:2.12.0
+    container_name: graylog-opensearch
+    restart: unless-stopped
+    environment:
+      - cluster.name=graylog
+      - node.name=opensearch
+      - discovery.type=single-node
+      - action.auto_create_index=false
+      # Use the image's own env vars to disable security (they become -E flags
+      # internally). Do NOT also pass `plugins.security.disabled=true` — OpenSearch
+      # rejects duplicate -E args with "setting already set".
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      # Required env var in OpenSearch 2.12+ even when security is disabled
+      # (the startup script checks for it before it reads the disable flag).
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Gr@yl0g-Admin-ChangeMe!
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      # Use wait_for_status=yellow so a single-node cluster is considered healthy
+      # (single-node with 1 replica sits yellow, never green).
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' >/dev/null",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  graylog:
+    build:
+      context: ./graylog-branding
+      dockerfile: Dockerfile
+    image: tok-scrape/graylog:7.0.6-lp
+    container_name: graylog
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    environment:
+      # 96-char random string. Regenerate for anything non-local:
+      #   pwgen -N 1 -s 96   (or: openssl rand -hex 48)
+      GRAYLOG_PASSWORD_SECRET: "replace-this-with-a-random-96-char-string-replace-this-with-a-random-96-char-string12"
+      # sha256 of the admin password. Default here is "ChangeMeAdmin!".
+      # To change: echo -n 'YourNewPassword' | sha256sum
+      GRAYLOG_ROOT_PASSWORD_SHA2: "8c2ec2d74710b0e444124a10302bfb2374df38f39c8616d7068daf9ca7ae1a94"
+      GRAYLOG_HTTP_BIND_ADDRESS: "0.0.0.0:9000"
+      GRAYLOG_HTTP_EXTERNAL_URI: "http://localhost:9000/"
+      # Allow the Cordova mobile app's WebView to call the REST API. The app
+      # loads from https://localhost or file:// and would otherwise be blocked
+      # by the same-origin policy. Tighten in production.
+      GRAYLOG_HTTP_ENABLE_CORS: "true"
+      GRAYLOG_HTTP_CORS_ALLOW_ORIGIN: "*"
+      GRAYLOG_MONGODB_URI: "mongodb://mongodb:27017/graylog"
+      GRAYLOG_ELASTICSEARCH_HOSTS: "http://opensearch:9200"
+      # Do NOT pin GRAYLOG_ELASTICSEARCH_VERSION — leaving it unset lets Graylog
+      # probe and detect OpenSearch 2.x. Forcing "7" makes Graylog send
+      # Elasticsearch-7 queries (with a `types` metadata key) that OpenSearch
+      # rejects as: "key [types] is not supported in the metadata section".
+    ports:
+      - "9000:9000"       # Web UI + API
+      - "12202:12202"     # GELF HTTP input (create it in the UI on this port)
+      - "12201:12201/udp" # GELF UDP (optional, handy for local testing)
+      - "1514:1514"       # Syslog TCP (optional)
+      - "1514:1514/udp"   # Syslog UDP (optional)
+    volumes:
+      - graylog_data:/usr/share/graylog/data
+      - graylog_journal:/usr/share/graylog/data/journal
+
+volumes:
+  mongodb_data:
+  opensearch_data:
+  graylog_data:
+  graylog_journal:

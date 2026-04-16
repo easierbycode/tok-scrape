@@ -1,0 +1,24 @@
+{
+  "name": "tok-scrape-dashboard",
+  "displayName": "TokScrape Dashboard",
+  "version": "0.1.0",
+  "description": "Highcharts dashboard for TikTok Shop scrape data stored in Graylog.",
+  "main": "www/index.html",
+  "scripts": {
+    "prepare": "cordova prepare",
+    "build": "cordova build android",
+    "build:release": "cordova build android --release",
+    "run": "cordova run android"
+  },
+  "private": true,
+  "devDependencies": {
+    "cordova": "^12.0.0",
+    "cordova-android": "latest"
+  },
+  "cordova": {
+    "platforms": [
+      "android"
+    ],
+    "plugins": {}
+  }
+}

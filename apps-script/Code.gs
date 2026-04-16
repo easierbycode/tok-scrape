@@ -1,7 +1,7 @@
 /**
  * Google Apps Script Web App backend for the Key Metrics bookmarklet.
  *
- * Receives the JSON payload emitted by metrics-bookmarklet.html and writes
+ * Receives the JSON payload emitted by index.html and writes
  * it into two tabs of the container spreadsheet:
  *
  *   - "Metrics": one row per metric per scrape (time-series, append only)
@@ -13,14 +13,14 @@
  * 2. Extensions -> Apps Script. Replace Code.gs with this file. Save.
  * 3. Project Settings -> Script properties -> Add property:
  *       TOKEN = <a random shared secret>
- *    Paste the same value into the TOKEN constant in metrics-bookmarklet.html.
+ *    Paste the same value into the TOKEN constant in index.html.
  * 4. Deploy -> New deployment -> Select type: Web app.
  *       Execute as: Me
  *       Who has access: Anyone
  *    Copy the /exec URL and paste it into the ENDPOINT constant in
- *    metrics-bookmarklet.html.
+ *    index.html.
  *
- * Payload shape (see metrics-bookmarklet.html):
+ * Payload shape (see index.html):
  *   {
  *     token:     "<shared secret>",
  *     creator:   "@handle",

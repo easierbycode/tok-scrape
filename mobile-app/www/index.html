@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: gap: https://ssl.gstatic.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://code.highcharts.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.highcharts.com; img-src 'self' data: blob: https:; connect-src *;">
+  <title>TokScrape Dashboard</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <span>TokScrape</span>
+    </div>
+    <div class="actions">
+      <select id="rangeSel" aria-label="Time range">
+        <option value="3600">Last hour</option>
+        <option value="86400">Last 24h</option>
+        <option value="604800" selected>Last 7d</option>
+        <option value="2592000">Last 30d</option>
+        <option value="0">All time</option>
+      </select>
+      <button id="refreshBtn" class="btn" title="Refresh">&#x21bb;</button>
+      <button id="settingsBtn" class="btn" title="Settings">&#9881;</button>
+
+      <!-- User menu (dropdown; items populated by app.js based on role) -->
+      <div class="user-menu">
+        <button id="userBtn" class="btn user-btn" aria-haspopup="true" aria-expanded="false" title="Account">
+          <span class="avatar" id="userAvatar">?</span>
+          <span class="user-label" id="userLabel">Sign in</span>
+          <span class="caret">&#x25BE;</span>
+        </button>
+        <div id="userDropdown" class="user-dropdown hidden" role="menu">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Impersonation banner (shown only when an admin uses Login As...) -->
+  <div id="viewAsBanner" class="view-as-banner hidden" role="status">
+    <span>Viewing as <strong id="viewAsName">&mdash;</strong></span>
+    <button class="btn btn-ghost" id="viewAsExit">Return to Admin</button>
+  </div>
+
+  <main id="dashboard" class="grid">
+    <section class="card kpi">
+      <div class="kpi-row">
+        <div class="kpi-cell"><div class="kpi-label">Scrapes</div><div class="kpi-val" id="kpiScrapes">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label" id="kpiCreatorsLabel">Creators</div><div class="kpi-val" id="kpiCreators">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Videos seen</div><div class="kpi-val" id="kpiVideos">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Latest GMV</div><div class="kpi-val" id="kpiGMV">&mdash;</div></div>
+      </div>
+    </section>
+
+    <section class="card chart"><h2>Affiliate GMV over time</h2><div id="chartGmv"></div></section>
+    <section class="card chart"><h2>Items sold over time</h2><div id="chartItems"></div></section>
+    <section class="card chart"><h2>Top videos by GMV</h2><div id="chartTopGmv"></div></section>
+    <section class="card chart"><h2>Top videos by views</h2><div id="chartTopViews"></div></section>
+    <section class="card chart" id="creatorsCard"><h2 id="creatorsChartTitle">Scrapes per creator</h2><div id="chartCreators"></div></section>
+
+    <section class="card">
+      <h2>Recent scrapes</h2>
+      <div class="tablewrap">
+        <table id="scrapesTable">
+          <thead>
+            <tr><th>When</th><th>Creator</th><th>Range</th><th>Videos</th><th>Aff. GMV</th><th>Items</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="emptyState" class="empty hidden">
+    <h2>No data yet</h2>
+    <p id="emptyStateMsg">Set your Graylog URL and API token, then run the bookmarklet from a TikTok Shop analytics page.</p>
+    <button class="btn btn-primary" id="emptySettingsBtn">Open settings</button>
+  </div>
+
+  <div id="errorBanner" class="error-banner hidden"></div>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-card">
+      <h2 id="settingsTitle">Settings</h2>
+      <label>
+        <span>Graylog base URL</span>
+        <input type="url" id="setUrl" placeholder="http://192.168.1.10:9000" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <small>Where Graylog's REST API is reachable from this device. <code>http://localhost</code> only works in an emulator with <code>adb reverse</code>.</small>
+      </label>
+      <label>
+        <span>Graylog API token</span>
+        <input type="password" id="setToken" placeholder="token from System &rarr; Users &rarr; Edit tokens" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <small>Generated in the Graylog UI under your user account. Sent as HTTP Basic auth (<code>token:token</code>).</small>
+      </label>
+      <label>
+        <span>Source filter</span>
+        <input type="text" id="setQuery" placeholder="host:tiktok-bookmarklet" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <small>Lucene query that selects bookmarklet messages. A creator filter is added automatically based on the signed-in user.</small>
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" id="setAutoRefresh">
+        <span>Auto-refresh every 60 seconds</span>
+      </label>
+      <div class="modal-actions">
+        <button class="btn" id="setCancel">Cancel</button>
+        <button class="btn btn-primary" id="setSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sign-in modal (pick a user) -->
+  <div id="signInModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="signInTitle">
+    <div class="modal-card">
+      <h2 id="signInTitle">Sign in</h2>
+      <p class="modal-sub">Pick the user whose dashboard you want to view.</p>
+      <div id="signInList" class="user-list"></div>
+      <div class="modal-actions">
+        <button class="btn" id="signInCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- "Login As..." modal (admin only) -->
+  <div id="loginAsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="loginAsTitle">
+    <div class="modal-card">
+      <h2 id="loginAsTitle">Login As&hellip;</h2>
+      <p class="modal-sub">View the dashboard as one of these members. Your admin login is preserved; return to the admin view any time from the banner or the user menu.</p>
+      <div id="loginAsList" class="user-list"></div>
+      <div class="modal-actions">
+        <button class="btn" id="loginAsCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="cordova.js"></script>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-more.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="js/users.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

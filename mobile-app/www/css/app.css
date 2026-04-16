@@ -1,0 +1,157 @@
+:root {
+  --bg: #0b1220;
+  --bg-soft: #111a2e;
+  --card: #15203a;
+  --card-2: #1a2745;
+  --line: #243456;
+  --text: #e6ecff;
+  --muted: #8aa0c6;
+  --accent: #2ddfb1;
+  --accent-2: #4a8bff;
+  --warn: #ff7a59;
+  --good: #2ddfb1;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; -webkit-font-smoothing: antialiased; }
+body { padding-top: env(safe-area-inset-top); }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; background: var(--bg-soft);
+  position: sticky; top: 0; z-index: 5; border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: .5px; }
+.brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.actions { display: flex; gap: 8px; }
+.btn {
+  background: var(--card); color: var(--text); border: 1px solid var(--line);
+  padding: 8px 12px; border-radius: 8px; font-size: 14px; cursor: pointer;
+  min-width: 40px;
+}
+.btn:active { background: var(--card-2); }
+.btn-primary { background: var(--accent); color: #001a14; border-color: transparent; font-weight: 600; }
+select#rangeSel { background: var(--card); color: var(--text); border: 1px solid var(--line); padding: 8px 10px; border-radius: 8px; font-size: 14px; }
+
+.grid { display: grid; gap: 12px; padding: 12px; grid-template-columns: 1fr; }
+@media (min-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } .card.kpi, .card:last-of-type { grid-column: 1 / -1; } }
+@media (min-width: 1100px) { .grid { grid-template-columns: repeat(3, 1fr); } .card.kpi, .card:last-of-type { grid-column: 1 / -1; } }
+
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px; box-shadow: 0 4px 18px rgba(0,0,0,.25);
+}
+.card h2 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+.card .chart-container, .chart > div:not(h2):not(.kpi-row) { width: 100%; }
+.card.chart > div { min-height: 240px; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 720px) { .kpi-row { grid-template-columns: repeat(4, 1fr); } }
+.kpi-cell { background: var(--card-2); border-radius: 10px; padding: 12px; }
+.kpi-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+.kpi-val { font-size: 22px; font-weight: 700; margin-top: 4px; }
+
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .6px; }
+tbody tr:hover { background: var(--card-2); }
+
+.empty { text-align: center; padding: 40px 24px; color: var(--muted); }
+.empty h2 { color: var(--text); margin-bottom: 8px; }
+.empty .btn { margin-top: 16px; }
+.hidden { display: none !important; }
+
+.error-banner {
+  position: fixed; left: 12px; right: 12px; bottom: 12px;
+  background: #2a1218; color: #ffb4b4; border: 1px solid #5a1f2a;
+  padding: 12px 14px; border-radius: 10px; font-size: 13px; z-index: 50;
+}
+
+/* Modal */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px; z-index: 100; overflow-y: auto; }
+.modal-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; width: 100%; max-width: 480px; }
+.modal-card h2 { margin: 0 0 14px; font-size: 18px; }
+.modal-card label { display: block; margin-bottom: 14px; font-size: 13px; color: var(--muted); }
+.modal-card label > span { display: block; color: var(--text); margin-bottom: 6px; font-weight: 600; font-size: 13px; }
+.modal-card input[type="url"], .modal-card input[type="password"], .modal-card input[type="text"] {
+  width: 100%; padding: 10px 12px; background: var(--bg-soft); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; font-size: 14px;
+  -webkit-appearance: none; appearance: none;
+}
+.modal-card small { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+.modal-card label.checkbox { display: flex; align-items: center; gap: 10px; }
+.modal-card label.checkbox span { margin-bottom: 0; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+
+/* ---- User menu / dropdown -------------------------------------- */
+.user-menu { position: relative; }
+.user-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px; min-width: auto;
+}
+.user-btn .caret { font-size: 10px; color: var(--muted); }
+.user-btn .user-label { font-size: 13px; font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, #f57a1b 0%, #ffb156 100%);
+  color: #1b0f00; font-weight: 800; font-size: 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  letter-spacing: .2px; flex: 0 0 auto;
+}
+
+.user-dropdown {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  min-width: 240px; box-shadow: 0 14px 40px rgba(0,0,0,.5);
+  padding: 6px; z-index: 40;
+}
+.user-dd-header { padding: 10px 12px 8px; }
+.user-dd-name { font-weight: 700; }
+.user-dd-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.user-dd-meta.impersonating { color: var(--warn); margin-top: 6px; font-weight: 600; }
+.user-dd-divider { height: 1px; background: var(--line); margin: 6px 2px; }
+.user-dd-item {
+  display: block; width: 100%; text-align: left;
+  padding: 10px 12px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text); font-size: 14px; cursor: pointer;
+}
+.user-dd-item:hover, .user-dd-item:focus { background: var(--card-2); outline: none; }
+.user-dd-item.active { color: var(--accent); font-weight: 600; }
+
+/* ---- View-as (impersonation) banner ---------------------------- */
+.view-as-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; margin: 0;
+  background: linear-gradient(90deg, rgba(245,122,27,.18) 0%, rgba(245,122,27,.08) 100%);
+  border-bottom: 1px solid rgba(245,122,27,.35);
+  color: #ffcf9c; font-size: 13px;
+}
+.view-as-banner strong { color: #fff; font-weight: 700; }
+.btn.btn-ghost {
+  background: transparent; border: 1px solid rgba(245,122,27,.55); color: #ffcf9c;
+  padding: 6px 10px; font-size: 12px; min-width: auto;
+}
+.btn.btn-ghost:active { background: rgba(245,122,27,.12); }
+
+/* ---- Sign-in / Login-As user picker ---------------------------- */
+.modal-sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.user-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.user-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; background: var(--bg-soft);
+  border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  text-align: left; color: var(--text); font: inherit;
+}
+.user-row:hover { background: var(--card-2); }
+.user-row .avatar { width: 34px; height: 34px; font-size: 13px; }
+.user-row-text { display: flex; flex-direction: column; min-width: 0; }
+.user-row-name { font-weight: 600; }
+.user-row-meta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Highcharts dark theme overrides via CSS (Highcharts has a global theme; this just paints the container) */
+.highcharts-background { fill: transparent !important; }
+.highcharts-title, .highcharts-axis-title, .highcharts-axis-labels text, .highcharts-legend-item text { fill: var(--text) !important; color: var(--text) !important; }
+.highcharts-grid-line { stroke: var(--line) !important; }
+.highcharts-tooltip-box { fill: var(--bg-soft) !important; stroke: var(--line) !important; }
