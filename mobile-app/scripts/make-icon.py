@@ -143,7 +143,25 @@ def write_splashes():
     return out
 
 
+# Android 12+ system SplashScreen API expects a 1024x1024 source asset whose
+# foreground occupies the inner ~66% (the system masks to a 240dp circle on a
+# 432dp canvas). Render with a transparent background so the configured
+# AndroidWindowSplashScreenIconBackgroundColor shows through.
+def write_splash_icon():
+    out = os.path.join(OUT_BASE, "screen", "android")
+    os.makedirs(out, exist_ok=True)
+    size = 1024
+    inner = int(size * 0.60)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    logo = render_master(inner)
+    canvas.alpha_composite(logo, ((size - inner) // 2, (size - inner) // 2))
+    path = os.path.join(out, "splash-icon.png")
+    canvas.save(path, "PNG", optimize=True)
+    return path
+
+
 if __name__ == "__main__":
-    print("Master:  ", write_master())
-    print("Icons:   ", write_android_icons())
-    print("Splashes:", write_splashes())
+    print("Master:    ", write_master())
+    print("Icons:     ", write_android_icons())
+    print("Splashes:  ", write_splashes())
+    print("SplashIcon:", write_splash_icon())
