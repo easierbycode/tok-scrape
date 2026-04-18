@@ -1,0 +1,234 @@
+@theme {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-highlight: var(--highlight);
+	--color-highlight-foreground: var(--highlight-foreground);
+	--radius-lg: var(--radius);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-sm: calc(var(--radius) - 4px);
+
+	--shadow-card-primary: 3px 5px 30px 0 rgb(0 0 0 / 0.22), 0 0 0 1px rgb(232 101 10 / 0.3);
+
+	--animation-accordion-down: accordion-down 0.2s ease-out;
+	--animation-accordion-up: accordion-up 0.2s ease-out;
+	--animation-scale-in: scaleIn 0.3s ease-out;
+
+	@keyframes accordion-down {
+		from {
+			height: 0;
+		}
+		to {
+			height: var(--radix-accordion-content-height);
+		}
+	}
+	@keyframes accordion-up {
+		from {
+			height: var(--radix-accordion-content-height);
+		}
+		to {
+			height: 0;
+		}
+	}
+	@keyframes scaleIn {
+		0% {
+			transform: scale(0);
+			opacity: 0;
+		}
+		100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+}
+
+@layer base {
+	:root {
+		/* Warm Professional - Light Theme (Cursor base) */
+		--background: #f2f1ed;
+		--foreground: #26251e;
+		--card: #fbfaf6;
+		--card-foreground: #26251e;
+		--popover: #fbfaf6;
+		--popover-foreground: #26251e;
+		
+		/* Borders & inputs */
+		--border: rgba(38, 37, 30, 0.1);
+		--input: rgba(38, 37, 30, 0.2);
+		--ring: #e8650a;
+		
+		/* Primary - rich deep orange */
+		--primary: #e8650a;
+		--primary-foreground: #ffffff;
+		/* Secondary - deep navy-charcoal */
+		--secondary: #1a1a2e;
+		--secondary-foreground: #ffffff;
+		
+		/* Muted areas */
+		--muted: #ebeae5;
+		--muted-foreground: color-mix(in oklch, var(--foreground) 55%, transparent);
+		
+		/* Accent - warm cream */
+		--accent: #fef0e6;
+		--accent-foreground: #26251e;
+		
+		/* Status colors */
+		--destructive: #ef4444;
+		--destructive-foreground: #ffffff;
+		--success: #22c55e;
+		--success-foreground: #ffffff;
+		--warning: #ca8a04;
+		--warning-foreground: #ffffff;
+		
+		/* Highlights */
+		--highlight: #e8650a;
+		--highlight-foreground: #ffffff;
+		
+		--radius: 0.5rem;
+
+		--card-shadow: 0 1px 2px rgb(38 37 30 / 0.06), 0 0 0 1px rgb(38 37 30 / 0.08);
+
+		/* Elevation (light) — align --shadow-flat with card resting state */
+		--shadow-flat: 0 1px 2px rgb(38 37 30 / 0.06), 0 0 0 1px rgb(38 37 30 / 0.08);
+		--shadow-raised: 0 1px 3px rgb(38 37 30 / 0.08), 0 0 0 1px rgb(38 37 30 / 0.06),
+			inset 0 1px 0 rgb(255 255 255 / 0.5);
+		--shadow-elevated: 0 4px 10px rgb(38 37 30 / 0.08), 0 0 0 1px rgb(38 37 30 / 0.07),
+			inset 0 1px 0 rgb(255 255 255 / 0.75);
+		--shadow-elevated-desktop: 0 14px 28px rgb(38 37 30 / 0.11), 0 0 0 1px rgb(38 37 30 / 0.08),
+			inset 0 1px 0 rgb(255 255 255 / 0.85);
+		--shadow-overlay: 0 22px 44px rgb(38 37 30 / 0.13), 0 0 0 1px rgb(38 37 30 / 0.08);
+		--shadow-modal: 0 28px 56px rgb(38 37 30 / 0.18), 0 0 0 1px rgb(38 37 30 / 0.1),
+			inset 0 1px 0 rgb(255 255 255 / 0.55);
+		--shadow-modal-desktop: 0 48px 96px rgb(38 37 30 / 0.2), 0 0 0 1px rgb(38 37 30 / 0.1),
+			inset 0 1px 0 rgb(255 255 255 / 0.85);
+		--shadow-brand-glow: 0 8px 22px rgb(232 101 10 / 0.22), 0 0 0 1px rgb(232 101 10 / 0.28),
+			inset 0 1px 0 rgb(255 255 255 / 0.45);
+		--shadow-brand-glow-desktop: 0 0 36px rgb(232 101 10 / 0.2), 0 14px 36px rgb(38 37 30 / 0.1),
+			0 0 0 1px rgb(232 101 10 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.55);
+
+		/* fumadocs */
+		--fd-banner-height: 4.5rem;
+	}
+
+	.dark {
+		/* Warm Professional - Dark Theme */
+		--background: #1a1916;
+		--foreground: #f2f1ed;
+		--card: #232220;
+		--card-foreground: #f2f1ed;
+		--popover: #232220;
+		--popover-foreground: #f2f1ed;
+		
+		/* Borders & inputs */
+		--border: rgba(242, 241, 237, 0.1);
+		--input: rgba(242, 241, 237, 0.2);
+		--ring: #e8650a;
+		
+		/* Primary - warm orange (brighter on dark for contrast) */
+		--primary: #f54e00;
+		--primary-foreground: #ffffff;
+		/* Secondary - lighter navy for contrast against dark bg */
+		--secondary: #24243a;
+		--secondary-foreground: #f2f1ed;
+		
+		/* Muted areas */
+		--muted: #232220;
+		--muted-foreground: color-mix(in oklch, var(--foreground) 60%, transparent);
+		
+		/* Accent */
+		--accent: #aeadad;
+		--accent-foreground: #f8fafc;
+		
+		/* Status colors */
+		--destructive: #ef4444;
+		--destructive-foreground: #ffffff;
+		--success: #39a561;
+		--success-foreground: #ffffff;
+		--warning: #fbbf24;
+		--warning-foreground: #1a1916;
+		
+		/* Highlights */
+		--highlight: #e8650a;
+		--highlight-foreground: #ffffff;
+
+		--card-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(242 241 237 / 0.08);
+
+		--shadow-card-primary: 3px 5px 30px 0 rgb(0 0 0 / 0.5), 0 0 0 1px rgb(245 78 0 / 0.4);
+
+		/* Elevation (dark) — softer orange glow, stronger black shadows */
+		--shadow-flat: 0 1px 2px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(242 241 237 / 0.08);
+		--shadow-raised: 0 1px 4px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(242 241 237 / 0.08),
+			inset 0 1px 0 rgb(255 255 255 / 0.04);
+		--shadow-elevated: 0 6px 14px rgb(0 0 0 / 0.48), 0 0 0 1px rgb(242 241 237 / 0.09),
+			inset 0 1px 0 rgb(255 255 255 / 0.04);
+		--shadow-elevated-desktop: 0 16px 38px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(242 241 237 / 0.1),
+			inset 0 1px 0 rgb(255 255 255 / 0.04);
+		--shadow-overlay: 0 22px 48px rgb(0 0 0 / 0.52), 0 0 0 1px rgb(242 241 237 / 0.1);
+		--shadow-modal: 0 28px 56px rgb(0 0 0 / 0.58), 0 0 0 1px rgb(242 241 237 / 0.1),
+			inset 0 1px 0 rgb(255 255 255 / 0.04);
+		--shadow-modal-desktop: 0 48px 96px rgb(0 0 0 / 0.62), 0 0 0 1px rgb(242 241 237 / 0.12),
+			inset 0 1px 0 rgb(255 255 255 / 0.04);
+		--shadow-brand-glow: 0 8px 26px rgb(245 78 0 / 0.26), 0 0 0 1px rgb(245 78 0 / 0.34),
+			inset 0 1px 0 rgb(255 255 255 / 0.04);
+		--shadow-brand-glow-desktop: 0 0 42px rgb(245 78 0 / 0.2), 0 14px 36px rgb(0 0 0 / 0.48),
+			0 0 0 1px rgb(245 78 0 / 0.38), inset 0 1px 0 rgb(255 255 255 / 0.04);
+	}
+
+	*,
+	::after,
+	::before,
+	::backdrop,
+	::file-selector-button {
+		@apply border-border;
+	}
+}
+
+@utility container {
+	margin-inline: auto;
+	padding-inline: 1.5rem;
+	width: 100%;
+	max-width: var(--container-7xl);
+}
+
+@utility no-scrollbar {
+	&::-webkit-scrollbar {
+		display: none;
+	}
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+@utility animate-scale-in {
+	animation: var(--animation-scale-in);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}

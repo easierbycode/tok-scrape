@@ -1,0 +1,2910 @@
+📘 COMPREHENSIVE ADMIN DASHBOARD DATA & UI AUDIT
+Unified Master Technical Specification (Part 1 / 🟦X)
+
+Merged and de-duplicated from Full Audit + Phase 1–5 documents
+
+Table of Contents
+
+Introduction
+
+System Overview
+
+2.1 Platform Context
+
+2.2 High-Level Architecture
+
+2.3 Core Principles
+
+Data Architecture
+
+3.1 Core Models (Supabase/Supastarter)
+
+3.2 Extended Lifepreneur Models
+
+3.3 New Admin-Specific Models
+
+3.4 Data Relationships Overview
+
+3.5 Schema Considerations & Observations
+
+Business Rules & Domain Logic
+
+4.1 User Lifecycle Rules
+
+4.2 Subscription, Billing & Access Control Rules
+
+4.3 Referral & Attribution Logic
+
+4.4 Content Management Logic
+
+4.5 Affiliate Program Logic
+
+Admin API Architecture
+
+5.1 ORPC/Next.js Backend Pattern
+
+5.2 Public vs Protected vs Admin Procedure Types
+
+5.3 Request Validation & Error Surface
+
+5.4 Permission & Role Model
+
+5.5 Observed Gaps & Architectural Themes
+
+UI Architecture & Component Library
+
+6.1 Admin Navigation Layer
+
+6.2 Data Display Components
+
+6.3 Form, Modal & Interaction Components
+
+6.4 Patterns: Tables, Filters, Status Indicators
+
+6.5 UI Consistency & Design System Notes
+
+Admin Dashboard Functional Specification
+
+7.1 Core Administrative Capabilities
+
+7.2 Proposed Admin Sections
+
+7.3 Data Requirements Per Section
+
+Analytics & KPI Framework
+
+8.1 KPI Categories
+
+8.2 Metric Definitions
+
+8.3 Data Sources & Aggregation
+
+8.4 Real-Time vs Cached Data
+
+Subscription Lifecycle Architecture
+
+9.1 Lifecycle State Machine
+
+9.2 Stripe Event Model
+
+9.3 Handling Grace Periods
+
+9.4 Edge Cases & Recovery
+
+Notification & Email Architecture
+
+10.1 Email Types
+
+10.2 Trigger Events
+
+10.3 Webhook → Email Mapping
+
+Audit Logging & Observability
+
+11.1 Admin Action Logging Model
+
+11.2 User-Facing Logs
+
+11.3 Error Tracking & Alerting
+
+Non-Functional Requirements
+
+12.1 Performance
+
+12.2 Security
+
+12.3 Maintainability
+
+12.4 Scalability
+
+Appendices
+
+<a name="introduction"></a> 1. Introduction
+
+This document provides a unified, de-duplicated, system-wide technical specification for the Lifepreneur Admin Dashboard and supporting application infrastructure. It merges and synthesizes all material from the previously separate audits:
+
+Full Audit (overall system inventory)
+
+Phase 1 (Data model and schema audit)
+
+Phase 2 (Admin API and permission logic)
+
+Phase 3 (UI architecture and component library)
+
+Phase 4 (Analytics/KPI layer)
+
+Phase 5 (Subscription lifecycle and notifications)
+
+The purpose of this specification is to describe the current state, desired state, and functional expectations of the admin subsystem in a format suitable for a model (Claude) to use as the basis for generating actionable implementation plans.
+
+This document is intentionally descriptive, not prescriptive—it outlines system behavior, structures, components, and logic without providing direct implementation commands.
+
+<a name="system-overview"></a> 2. System Overview
+2.1 Platform Context
+
+Lifepreneur's web platform is built on a modern full-stack architecture consisting of:
+
+Next.js App Router for frontend and server routes
+
+Supabase/PostgreSQL for data storage
+
+Supastarter boilerplate for authentication, billing, and admin scaffolding
+
+Stripe for subscription management
+
+ORPC (OpenRPC-like typed procedures) for backend endpoints
+
+A component-driven UI system using ShadCN, TanStack Table, and custom components
+
+The platform supports:
+
+User authentication and profile handling
+
+Subscription and billing flows
+
+Content delivery
+
+Affiliate attribution
+
+Administrative oversight
+
+Discord integration
+
+AI-chat (deprecated)
+
+2.1.1 Critical Configuration Settings
+
+From config/index.ts:
+
+App Identity:
+- appName: "LifePreneur"
+
+Organizations (DISABLED):
+- organizations.enable: false
+- organizations.enableBilling: false
+- Note: Supastarter feature disabled via config; tables exist in schema but unused
+
+User Features (ENABLED):
+- users.enableBilling: true
+- users.enableOnboarding: true
+
+Auth Features:
+- auth.enableSignup: true
+- auth.enableMagicLink: true
+- auth.enableSocialLogin: true
+- auth.enablePasskeys: true
+- auth.redirectAfterSignIn: "/app"
+
+Payment Plans:
+- Free plan (isFree: true)
+- Pro plan (Monthly: $29, Yearly: $290)
+- Lifetime plan ($799)
+- Enterprise plan (custom)
+
+Email:
+- mails.from: "auth@lifepreneur.io"
+
+2.1.2 Development Tools System
+
+From apps/web/lib/dev-tools.ts:
+
+FEATURE_FLAGS object controls:
+- AFFILIATE_ENABLED: boolean
+- DEV_TOOLS_ENABLED: boolean
+- SUBSCRIPTION_OVERRIDE: 'active' | 'grace_period' | 'cancelled' | 'none'
+- DISCORD_CONNECTED: boolean
+- MOCK_USER: 'admin' | 'regular'
+
+DevToolsPanel component (components/dev-tools-panel.tsx):
+- Appears in bottom-right corner (dev mode only)
+- Toggle subscription status
+- Toggle Discord connection
+- Switch between user roles
+- Enable/disable affiliate dashboard
+
+DevScenarioBadge component:
+- Shows current scenario in PageHeader
+- Displays subscription and Discord status
+- Only visible in development
+
+This system allows frontend development without backend integration.
+
+2.1.3 Import Path Aliases
+
+From tsconfig.json:
+
+@repo/* → packages/*
+  - @repo/auth → packages/auth
+  - @repo/database → packages/database
+  - @repo/config → config
+  - @repo/payments → packages/payments
+
+@/* → apps/web/* (local aliases)
+  - @/lib → apps/web/lib
+  - @/modules → apps/web/modules
+
+@saas/* → apps/web/modules/saas/*
+  - @saas/admin → modules/saas/admin
+  - @saas/auth → modules/saas/auth
+  - @saas/payments → modules/saas/payments
+
+@shared/* → apps/web/modules/shared/*
+@ui/* → apps/web/modules/ui/*
+
+These aliases appear throughout the codebase and are critical for understanding import statements.
+
+The admin dashboard is intended to provide centralized visibility and control over:
+
+Users
+
+Purchases & subscription states
+
+Affiliate activity
+
+Content management
+
+System metrics
+
+Lifecycle events
+
+Emails & notifications
+
+Audit logs
+
+2.2 High-Level Architecture
+
+The system consists of the following layers:
+
+Client/UI Layer
+
+Next.js React components
+
+Admin-only routes guarded by role checks
+
+Uses shared UI library for data tables, forms, modals, badges
+
+TanStack Table for data presentation
+
+Client/server components depending on fetch type
+
+Application Layer (ORPC Procedures)
+
+Structured into:
+
+publicProcedure
+
+protectedProcedure
+
+adminProcedure
+
+Performs:
+
+validation
+
+database access
+
+auth enforcement
+
+writes & mutations
+
+Domain Layer
+
+Subscription lifecycle rules
+
+Affiliate attribution propagation
+
+Video content organization
+
+User onboarding & engagement logic
+
+Data Layer
+
+PostgreSQL via Prisma
+
+Prisma schema defines:
+
+Supastarter default models
+
+Lifepreneur-extending models
+
+Admin-specific models
+
+Integration Layer
+
+Stripe for billing
+
+Discord integration hooks
+
+Email provider for transactional messaging
+
+2.3 Core System Principles
+
+The admin system adheres to several design principles:
+
+1. Single source of truth for user state
+
+All user access decisions derive from:
+
+user.role
+
+subscription status
+
+purchase history
+
+account flags
+
+2. Strong separation of public vs admin behaviors
+
+Admin-only actions require:
+
+elevated role
+
+secure ORPC procedures
+
+explicit audit logging (planned)
+
+3. Declarative and observable subscription lifecycle
+
+Subscription transitions are modeled as:
+
+discrete states
+
+timestamped events
+
+deterministic updates based on Stripe webhook events
+
+4. A uniform UI/UX pattern
+
+Admin UI should be:
+
+navigable
+
+searchable
+
+filterable
+
+paginated
+
+5. Extensibility for future modules
+
+Admin dashboard should accommodate:
+
+new data models
+
+additional metrics
+
+new content categories
+
+new affiliate features
+
+<a name="data-architecture"></a> 3. Data Architecture
+
+This section integrates all data model details from the Full Audit and Phase 1.
+
+3.1 Core Models (Supastarter)
+User
+
+Represents an authenticated platform user, including identity, profile, and account state.
+
+Key Fields:
+
+id
+
+email
+
+name
+
+emailVerified
+
+username / displayUsername
+
+role
+
+banned / banReason / banExpires
+
+twoFactorEnabled
+
+onboardingComplete
+
+paymentsCustomerId
+
+locale
+
+createdAt / updatedAt
+
+Relationships:
+
+Sessions
+
+Accounts (OAuth)
+
+Purchases
+
+Members (organizations — deprecated)
+
+TwoFactor configs
+
+Passkeys
+
+Session
+
+Tracks login sessions.
+
+Key properties include IP, userAgent, token, impersonation metadata, and expiration.
+
+Account
+
+OAuth or password-based login records.
+
+Contains access/refresh tokens, expiration, providerId, and related metadata.
+
+Purchase
+
+Represents subscriptions and one-time Stripe purchases.
+
+Notable fields:
+
+type (subscription vs one-time) - PurchaseType enum: SUBSCRIPTION | ONE_TIME
+
+customerId - Stripe customer ID (String)
+
+subscriptionId - Stripe subscription ID (String?, unique, nullable)
+
+productId - Stripe price ID (String)
+
+status (String?, nullable) - ⚠️ CRITICAL: This is a freeform string field, NOT an enum
+
+createdAt / updatedAt - Timestamps
+
+⚠️ Purchase.status Field Details:
+
+Type: String? (nullable string, not type-safe enum)
+
+Stripe-provided values include:
+- 'active' - Subscription is current and paid
+- 'canceled' - Subscription has been terminated
+- 'past_due' - Payment failed, Stripe retrying
+- 'trialing' - User is in free trial period
+- 'incomplete' - Subscription awaiting initial payment
+- 'incomplete_expired' - Initial payment failed and expired
+- 'unpaid' - Stripe considers subscription unpaid
+- 'paused' - Subscription paused (Stripe feature)
+
+Custom Lifepreneur values (to be added):
+- 'grace_period' - Custom state for payment failure buffer
+
+Impact: Being a freeform string means:
+1. No type safety at compile time
+2. Requires explicit filtering in queries
+3. Source of the critical bug in helper.ts (see Section 5.5)
+
+Used for:
+
+subscription state tracking
+
+billing history
+
+account access decisions (MUST filter by status)
+
+Other Supastarter Models
+
+(Organization, Invitation, Member, Passkey, TwoFactor, Verification, AiChat)
+
+These exist, but for Lifepreneur:
+
+Organizations are not used
+
+AiChat is deprecated
+
+Invitations are irrelevant
+
+Passkey/TwoFactor remain for security
+
+3.2 Extended Lifepreneur Models
+
+These models extend profile, billing, referral, and user lifecycle information.
+
+Extended User Fields
+
+(additions planned or referenced in multiple phases)
+
+Referral Attribution:
+
+referredBy
+
+referredBySlug
+
+referralSource
+
+referredAt
+
+Discord Integration:
+
+discordId
+
+discordConnected
+
+discordConnectedAt
+
+discordSyncErrors
+
+Payment Failure Tracking:
+
+paymentFailureCount
+
+gracePeriodUsedCount
+
+lastPaymentFailureDate
+
+Support Context:
+
+supportNotes
+
+supportTags
+
+supportTicketCount
+
+lastSupportContact
+
+Lifecycle:
+
+firstPurchaseDate
+
+lastLoginAt
+
+deletedAt
+
+deletionReason
+
+anonymizedAt
+
+Extended Purchase Fields
+
+Subscription Management:
+
+currentPeriodEnd
+
+variantId
+
+cancelAtPeriodEnd
+
+cancelledAt
+
+cancelledBy
+
+Cancellation Feedback:
+
+cancellationReason
+
+cancellationFeedback
+
+Referral Attribution:
+
+referralCode
+
+rewardfulReferralId
+
+Promo Codes:
+
+couponCode
+
+couponSlug
+
+discountAmount
+
+discountType
+
+3.3 New Admin-Specific Models
+
+These models are not yet implemented but appear across the audits.
+
+ContentVideo
+
+Represents training or course videos.
+
+Fields: id, title, description, videoUrl, category, isMock, orderIndex, duration, published, viewCount.
+
+Affiliate
+
+Represents a user enrolled in the affiliate system.
+
+Fields include: userId (unique), rewardfulAffiliateId, customLinkSlug, totalReferrals, totalEarnings, payoutMethod, payoutEmail.
+
+AdminUser
+
+Represents admin-only permissions separate from basic user.role.
+
+Fields: userId, role (super_admin, admin, content_publisher), createdAt.
+
+EmailLog
+
+Stores outgoing emails, statuses, metadata, and timestamps.
+
+AdminAction (Audit Log)
+
+Captures admin actions, enabling traceability.
+
+Order
+
+Represents one-time purchases separate from the Purchase model.
+
+3.4 Data Relationships Overview
+
+Across all models, the key relationship themes are:
+
+Users link to sessions, purchases, accounts, affiliates, and support data.
+
+Purchases reference both Stripe and internal subscription states.
+
+Affiliate records map 1:1 to users.
+
+Content videos are independent entities with ordering rules.
+
+Email logs and admin actions provide system observability.
+
+3.5 Schema Considerations & Observations
+
+(Merged from Phase 1 analysis)
+
+1. Indexing Considerations
+
+Some fields benefit from additional indexes not present by default:
+
+Recommended indexes for performance:
+- purchase.userId (for user subscription queries)
+- purchase.status (for status filtering)
+- purchase.currentPeriodEnd (for grace period queries)
+- purchase.referralCode (for affiliate lookups)
+- user.referredBy (for referral analysis)
+- user.discordId (for Discord integration)
+- user.lastLoginAt (for active user queries)
+- user.deletedAt (for soft-delete filtering)
+
+Index syntax example:
+```prisma
+@@index([userId, status])  // Composite index
+@@index([referralCode])    // Single field index
+```
+
+2. Nullable Fields & Data Integrity
+
+Certain foreign keys are nullable by design, allowing unusual states:
+
+Purchase Model:
+- userId and organizationId both nullable
+- Design allows: user purchases OR organization purchases
+- Lifepreneur use: userId always set, organizationId always null
+- Implication: Queries must handle null cases
+
+Status Field:
+- Purchase.status is String? (nullable)
+- Can be null on initial creation
+- Should always have value after webhook processing
+- Queries must handle null status edge case
+
+3. Consistency Across Models
+
+Inconsistent naming conventions across models:
+
+Field Name Patterns:
+- Supastarter defaults: camelCase (emailVerified, createdAt)
+- Database mapping: snake_case with @map (email_verified, created_at)
+- Some models inconsistent within themselves
+
+Example Inconsistency:
+```prisma
+model User {
+  emailVerified Boolean        // No @map
+  onboardingComplete Boolean @default(false)  // No @map
+  paymentsCustomerId String?  // No @map
+  
+  // Extended fields use @map:
+  discordId String? @map("discord_id")
+  referredBy String? @map("referred_by")
+}
+```
+
+Timestamp Naming:
+- createdAt / updatedAt (most models)
+- created_at / updated_at (some models with @map)
+- Inconsistent across different tables
+
+Foreign Key Naming:
+- userId (User relation)
+- user_id (with @map in some models)
+- Mixed usage across schema
+
+4. Migration Order Sensitivity
+
+The extended models introduce dependencies requiring careful ordering:
+
+Dependency Chain:
+1. User model extensions (must come first)
+2. Purchase model extensions (depends on User)
+3. New models (ContentVideo, Affiliate, etc.)
+4. Relations and foreign keys
+5. Indexes for performance
+
+Circular Dependency Risk:
+- User → Affiliate (one-to-one)
+- Affiliate → User (reverse relation)
+- Must define both sides correctly
+
+Migration Strategy:
+- Extend existing tables before adding new tables
+- Add fields before adding relations
+- Add indexes after data structure is stable
+- Test migrations on development database first
+
+5. Type Safety Issues
+
+Several type safety concerns identified:
+
+String? vs Nullable Types:
+- Purchase.status is String? (no compile-time safety)
+- Should ideally be enum but Stripe sends various values
+- Requires runtime validation
+
+Enum vs String:
+- PurchaseType uses proper enum (SUBSCRIPTION | ONE_TIME) ✓
+- Purchase.status uses String? (not type-safe) ✗
+- Cancellation reasons could use enum ✗
+
+JSON Fields:
+- metadata fields use Json type
+- No type safety for JSON content
+- Requires manual parsing and validation
+
+6. Data Integrity Patterns
+
+Observed patterns for maintaining data integrity:
+
+Cascade Deletes:
+- User deletion cascades to: Sessions, Accounts, Purchases, etc.
+- Prevents orphaned records
+- Correctly implemented via onDelete: Cascade
+
+Unique Constraints:
+- User.email @unique
+- User.username @unique
+- Purchase.subscriptionId @unique
+- Prevents duplicate critical data
+
+Default Values:
+- Boolean fields often have @default(false)
+- Timestamps use @default(now())
+- Counters use @default(0)
+- Ensures consistent initial state
+
+<a name="business-rules--domain-logic"></a> 4. Business Rules & Domain Logic
+
+This section merges all lifecycle, rules-based, and domain-specific behavior definitions from the full audit and all phases.
+
+4.1 User Lifecycle Rules
+
+The user lifecycle incorporates:
+
+Identity & Authentication
+
+A user may sign up with OAuth or password credentials.
+
+A user may have multiple “Account” records, one per OAuth provider.
+
+Email verification affects certain features but not basic access.
+
+Onboarding
+
+onboardingComplete indicates whether the user has passed the initial onboarding funnel.
+
+Admin interfaces may use this to segment users.
+
+Account Locking & Restrictions
+
+banned, banReason, and banExpires control user access.
+
+Temporary bans depend on banExpires.
+
+Permanently banned users have no removal of the restriction unless explicitly cleared.
+
+2FA & Passkeys
+
+twoFactorEnabled and associated TwoFactor or Passkey records define enhanced authentication status.
+
+Impacts admin workflows involving account takeover/impersonation.
+
+Lifecycle Timestamps
+
+firstPurchaseDate
+
+lastLoginAt
+
+deletedAt
+
+anonymizedAt
+
+These define where the user is in their engagement lifecycle.
+
+Data Removal & GDPR
+
+deletedAt marks soft deletion.
+
+anonymizedAt marks PII removal.
+
+deletionReason may be stored for internal analysis.
+
+4.2 Subscription, Billing & Access Control Rules
+Subscription Types
+
+Subscription and one-time purchases coexist.
+
+Purchase.type determines billing behavior.
+
+Platform Access Based on Subscription
+
+Subscription status determines user eligibility for:
+
+premium content
+
+Discord perks
+
+dashboard sections
+
+certain admin flows
+
+Subscription Status States
+
+States include:
+
+active
+
+trialing
+
+past_due
+
+grace_period (custom state)
+
+canceled
+
+incomplete
+
+incomplete_expired
+
+unpaid
+
+These states may be derived from Stripe webhooks and local Purchase.status.
+
+Lifecycle Transitions
+
+Transitions occur based on:
+
+Stripe billing actions
+
+payment method updates
+
+webhook events
+
+admin overrides
+
+Grace Period Logic
+
+Grace periods allow continued access while payment issues resolve.
+
+Attributes include:
+
+paymentFailureCount
+
+gracePeriodUsedCount
+
+lastPaymentFailureDate
+
+Promo Codes & Discounts
+
+promoCode, discountType, couponSlug, and related fields affect subscription price but not the lifecycle rules.
+
+4.3 Referral & Attribution Logic
+
+Referral logic appears in extended user and purchase models.
+
+Referral Sources
+
+organic
+
+affiliate
+
+manual
+
+Referral Relationships
+
+A user may be linked to:
+
+referredBy (userId)
+
+referredBySlug
+
+rewardfulReferralId
+
+referralCode (captured during purchase)
+
+These do not directly affect access but affect analytics and affiliate payouts.
+
+4.4 Content Management Logic
+
+Content videos follow structured metadata:
+
+Category defines grouping.
+
+isMock differentiates placeholder/training videos.
+
+orderIndex defines ordering within UI sections.
+
+Videos track:
+
+published (visibility)
+
+viewCount (engagement metrics)
+
+These fields provide analytics and content control but do not impact subscription behavior.
+
+4.5 Affiliate Program Logic
+
+Affiliate users have:
+
+affiliate-linked userId
+
+custom link slug
+
+totalReferrals
+
+totalEarnings
+
+payoutMethod / payoutEmail
+
+Affiliate logic includes:
+
+tracking rewardful IDs
+
+recording referrals and earnings
+
+associating purchases with affiliates via rewardfulReferralId and referralCode fields
+
+The affiliate model does not directly affect subscription or access control.
+
+<a name="admin-api-architecture"></a> 5. Admin API Architecture
+
+This section merges backend architectural insights from Phase 2 and the Full Audit.
+
+5.1 ORPC/Next.js Backend Pattern
+
+The backend uses typed ORPC procedures grouped by access level:
+
+Public Procedures (publicProcedure)
+
+Accessible without authentication.
+
+Used for shared read-only data.
+
+Protected Procedures (protectedProcedure)
+
+Requires authentication.
+
+Used for private user operations.
+
+Admin Procedures (adminProcedure)
+
+Requires elevated role (admin or super_admin).
+
+Used for admin-only endpoints.
+
+Procedure Structure
+
+Most procedures follow the pattern:
+
+input validation
+
+permission verification
+
+database query
+
+optional side effects (emails, events)
+
+return typed response
+
+5.2 Public vs Protected vs Admin Procedure Types
+Public
+
+Limited scope
+
+Often used for metadata, not user-specific information
+
+Protected
+
+Used for tasks like:
+
+updating user profile
+
+fetching user subscriptions
+
+accessing user content
+
+Admin
+
+Used for tasks like:
+
+listing users
+
+impersonation
+
+banning/unbanning
+
+changing user roles
+
+fetching subscription details
+
+interacting with affiliate data
+
+Only this procedure type is allowed in the admin dashboard’s backend.
+
+5.3 Request Validation & Error Surface
+
+Across phases, the audit identifies:
+
+variation in input validation patterns
+
+potential error propagation issues
+
+inconsistent use of try/catch
+
+some procedures not sanitizing inputs
+
+occasional unhandled promise cases
+
+inconsistent validation schemas for emails, roles, IDs
+
+This section identifies the architectural characteristics—not directives for improvement.
+
+5.4 Permission & Role Model
+
+Admin permissions use:
+
+User.role ("admin")
+
+Planned AdminUser table (super_admin, admin, content_publisher)
+
+5.4.1 Better-Auth Admin Plugin
+
+From packages/auth/auth.ts (line 206):
+
+plugins: [
+  admin(),  // Provides admin-specific auth methods
+  username(),
+  passkey(),
+  magicLink({ ... }),
+  organization({ ... }),
+  openAPI(),
+  invitationOnlyPlugin(),
+  twoFactor(),
+]
+
+The admin() plugin adds to authClient.admin:
+- authClient.admin.impersonateUser({ userId })
+- authClient.admin.removeUser({ userId })
+- authClient.admin.setRole({ userId, role })
+- authClient.admin.revokeRole({ userId })
+
+These methods are already used in UserList.tsx.
+
+5.4.2 Role System - Current vs Planned
+
+CURRENT IMPLEMENTATION:
+
+User.role field (String?, nullable):
+- null (default, regular user)
+- "admin" (admin access)
+- Any other string (no meaning currently)
+
+Access Check Pattern:
+if (context.user.role !== "admin") {
+  throw new ORPCError("FORBIDDEN");
+}
+
+Current Admin Auth Implementation:
+
+1. adminProcedure in packages/api/orpc/procedures.ts:
+   - ✅ Checks: context.user.role === 'admin'
+   - ✅ Throws FORBIDDEN if not admin
+   - ✅ WORKING CODE (actively enforced)
+
+2. Admin Layout in apps/web/app/(saas)/app/(account)/admin/layout.tsx:
+   - ⚠️ Role check IS commented out (lines 16-26)
+   - Comment states: "AUTH CHECK DISABLED FOR WEEKS 1-3 DEVELOPMENT"
+   - This is the route-level guard that's disabled, not the API procedure
+
+3. Security Impact:
+   - ✅ API procedures ARE protected (backend enforcement active)
+   - ⚠️ UI routes ARE NOT protected (temporarily, for development)
+   - Before production: MUST uncomment layout.tsx auth check
+
+PLANNED IMPLEMENTATION (Not Built Yet):
+
+AdminUser table with granular roles:
+- "super_admin" → Full access
+- "admin" → User + subscription + content management  
+- "content_publisher" → Content management only
+
+Migration Path:
+1. Keep User.role for backward compatibility
+2. Add AdminUser table for granular permissions
+3. AdminUser.role overrides User.role if present
+4. Query: Check AdminUser first, fall back to User.role
+
+Observed Limitations
+
+No granular permission model (only binary admin/non-admin)
+
+No separation between system admin and content admin
+
+No audit logging of admin actions (planned but not implemented)
+
+Impersonation features rely on elevated privileges but lack audit trail
+
+Some procedures may overexpose data if role checks are bypassed
+
+5.5 Observed Gaps & Architectural Themes
+
+Merged findings include:
+
+⚠️ CRITICAL BUG IDENTIFIED - SUBSCRIPTION STATUS FILTERING
+
+Location: packages/payments/src/lib/helper.ts, lines 13-16
+
+Current Code:
+```typescript
+const subscriptionPurchase = purchases?.find(
+  (purchase) => purchase.type === "SUBSCRIPTION",
+);
+```
+
+Issue: Returns FIRST subscription regardless of status, including canceled subscriptions.
+
+Root Cause: Purchase.status is not filtered, so function returns:
+- Active subscriptions ✓
+- Canceled subscriptions ✗ (SHOULD BE EXCLUDED)
+- Past due subscriptions ✗ (SHOULD BE EXCLUDED)
+- Expired subscriptions ✗ (SHOULD BE EXCLUDED)
+
+Impact: Users with canceled subscriptions may incorrectly retain access to:
+- Premium content
+- Discord perks
+- Dashboard sections
+- Affiliate features
+
+Security Severity: HIGH - Direct access control bypass
+
+Required Fix:
+```typescript
+const subscriptionPurchase = purchases?.find(
+  (purchase) => 
+    purchase.type === "SUBSCRIPTION" &&
+    (purchase.status === "active" || purchase.status === "grace_period")
+);
+```
+
+This bug exists because Purchase.status is a freeform string (String?, not enum).
+
+Additional Architectural Issues:
+
+1. Inconsistent Role Enforcement
+
+Some endpoints enforce admin status; others do not.
+
+2. Leakage of Sensitive Information
+
+Some procedures expose tokens or unnecessary user details.
+
+3. Missing Input Sanitization
+
+A few procedures accept raw strings without schema validation.
+
+4. Variation in Response Shapes
+
+Different admin endpoints return inconsistent data structure patterns.
+
+5. Risk of User Self-Escalation
+
+Depending on how procedures ingest user IDs, there may be scenarios where malicious requests escalate privileges without proper safeguards.
+
+6. Lack of Idempotency in Webhook Handlers
+
+Stripe may send duplicate webhook events; handlers should verify idempotency.
+
+7. No Rate Limiting on Admin Endpoints
+
+Admin procedures lack rate limiting, potentially allowing abuse.
+
+<a name="ui-architecture--component-library"></a> 6. UI Architecture & Component Library
+
+This section merges all UI, UX, and component-level insights from the Full Audit and Phase 3.
+
+6.1 Admin Navigation Layer
+
+The admin section uses a dedicated layout with:
+
+Sidebar navigation
+
+Header with title/subtitle and optional actions
+
+Route-level role checking
+
+Page-based modular content
+
+Navigation Items (Current Examples)
+
+Users
+
+Organizations (deprecated)
+
+Additional admin sections (future):
+
+Subscriptions
+
+Affiliates
+
+Content
+
+Metrics/Dashboard
+
+Audit Logs
+
+Emails
+
+Navigation Characteristics
+
+Left-aligned vertical sidebar
+
+Icon + label format
+
+Role-guarded route groups
+
+Reusable <PageHeader> component for consistency
+
+6.2 Data Display Components
+
+Several reusable components power admin data views.
+
+Tables (TanStack Table Integration)
+
+Key features:
+
+Pagination
+
+Sorting
+
+Filtering
+
+Debounced search inputs
+
+Row-level action menus
+
+Loading skeletons
+
+Cards
+
+Used for:
+
+Metric tiles
+
+Grouping content
+
+Highlighting sections
+
+Badges
+
+Status indicators used throughout the admin.
+
+Examples:
+
+SubscriptionStatusBadge maps states to colors
+
+Role or engagement badges
+
+Verification status indicators
+
+Avatars
+
+Display user profile pictures or initials.
+
+Skeletons
+
+Placeholder elements used for loading states.
+
+6.3 Form, Modal & Interaction Components
+
+Admin interactions rely on consistent patterns.
+
+Dialog
+
+For confirmation or detailed editing experiences.
+
+AlertDialog
+
+For destructive or high-risk actions.
+
+Sheet
+
+Slide-out panel for:
+
+detailed user information
+
+editing content
+
+advanced filters
+
+DropdownMenu
+
+Typically attached to:
+
+row actions in tables
+
+admin actions (ban, impersonate, change role)
+
+Input / Textarea / Select
+
+Standard form elements styled via the design system.
+
+6.4 Patterns: Tables, Filters, Status Indicators
+Tables
+
+Admin-facing tables typically contain:
+
+Avatar or primary identifier
+
+Secondary details (email, username, role, status)
+
+Created date or activity date
+
+Action column with dropdown
+
+Filters
+
+Expected patterns include:
+
+Search by email or name
+
+Filter by role or subscription state
+
+Date range filters
+
+Status filters
+
+Status Indicators
+
+Used widely:
+
+Subscription state (via badges)
+
+Email verified status
+
+Ban/unban status
+
+Affiliate status indicators
+
+Content publishing status
+
+6.5 UI Consistency & Design System Notes
+
+(From Phase 3)
+
+Spacing & Layout
+
+Consistent spacing patterns (e.g., 16/24px grid) matter for:
+
+cards
+
+tables
+
+content sections
+
+Typography
+
+Themes include:
+
+Title
+
+Subtitle
+
+Body text
+
+Badge text
+
+Phase 3 documented inconsistencies in typography usage across admin routes.
+
+Button & Interaction Patterns
+
+Observed issues include:
+
+inconsistent button sizes
+
+variant mismatches (primary/secondary/destructive)
+
+disabled state inconsistencies
+
+Color System
+
+Badge colors vary based on semantic meaning:
+
+Green: active
+
+Red: canceled
+
+Yellow: warning/past_due
+
+Blue: info/trial
+
+Design system consistency was identified as an opportunity area.
+
+<a name="admin-dashboard-functional-specification"></a> 7. Admin Dashboard Functional Specification
+
+This section merges expected admin capabilities from the Full Audit and all Phase documents.
+
+The admin dashboard acts as a central control system for platform oversight and management.
+
+7.1 Core Administrative Capabilities
+User Management
+
+Admin users should be able to:
+
+View paginated user lists
+
+Search by name or email
+
+Filter by role, subscription status, ban status
+
+View detailed user profile and lifecycle metadata
+
+View sessions and authentication details
+
+View payment history
+
+Manage roles
+
+Manage bans
+
+Impersonate users
+
+Subscription Oversight
+
+Admin users should be able to:
+
+View individual user subscription states
+
+Identify past_due, grace_period, and canceled accounts
+
+See promo codes or referral attribution
+
+Understand mapped Stripe subscription IDs
+
+View period end dates and renewal timelines
+
+Affiliate Management
+
+Includes:
+
+View affiliate accounts
+
+Track referral codes
+
+View attributed purchases
+
+Review earnings and referral counts
+
+Content Management
+
+Admins should be able to:
+
+View all content videos
+
+See metadata (category, published status, order index)
+
+Monitor engagement (viewCount)
+
+Email & Notification Review
+
+Admin visibility into:
+
+email sending history (EmailLog)
+
+status (sent, failed, bounced)
+
+timestamps and metadata
+
+Audit Logging (Planned)
+
+Admin actions should be loggable:
+
+actionType
+
+adminUserId
+
+targetUserId
+
+previousValue
+
+newValue
+
+metadata
+
+7.2 Proposed Admin Sections
+
+Integrated across all audits, the system identifies seven major admin sections:
+
+Users
+
+Subscriptions
+
+Affiliates
+
+Content
+
+Analytics Dashboard
+
+Email Logs
+
+Audit Logs
+
+Each section ties to specific data models and UI patterns.
+
+7.3 Data Requirements Per Section
+1. Users Section
+
+Requires:
+
+user table data
+
+session data
+
+purchases and subscription states
+
+affiliate linkage
+
+lifecycle metadata
+
+referral data
+
+support context fields
+
+2. Subscriptions Section
+
+Requires:
+
+Purchase model data
+
+extended subscription metadata
+
+Stripe status mapping
+
+billing timeline fields
+
+3. Affiliates Section
+
+Requires:
+
+Affiliate model
+
+rewardfulReferralId
+
+referralCode mapping
+
+purchase attribution
+
+4. Content Section
+
+Requires:
+
+ContentVideo model
+
+category taxonomy
+
+engagement counters
+
+5. Analytics Dashboard
+
+Requires aggregated metrics (Section 8).
+
+6. Email Logs
+
+Requires EmailLog model.
+
+7. Audit Logs
+
+Requires AdminAction model.
+
+<a name="analytics--kpi-framework"></a> 8. Analytics & KPI Framework
+
+This section merges all analytic insights from Phase 4 and the Full Audit into a unified analytics specification.
+It defines what metrics exist, what they represent, and how they conceptually relate to the underlying data models—without specifying how they must be implemented.
+
+8.1 KPI Categories
+
+Admin analytics cover multiple domains, grouped into the following high-level categories:
+
+1. User Metrics
+
+Derived from the User model, Sessions model, onboarding fields, and extended lifecycle metadata.
+
+2. Subscription & Billing Metrics
+
+Derived from Purchase records, extended subscription metadata, and Stripe webhook event history.
+
+3. Content Metrics
+
+Derived from ContentVideo model fields (published videos, engagement, categories).
+
+4. Affiliate Metrics
+
+Derived from Affiliate model, referral fields, and attributed purchases.
+
+5. Support & Lifecycle Metrics
+
+Derived from extended user support fields, payment failure counters, and related lifecycle timestamps.
+
+8.2 Metric Definitions
+
+(Merged from Phase 4 definitions and Full Audit lists)
+
+User Metrics
+
+Total Users: Count of all active (non-deleted) users.
+
+New Users (Last 7/30 Days): Users with createdAt within time window.
+
+Active Users: Users with lastLoginAt in past 30 days.
+
+Onboarding Completion Rate: Percentage with onboardingComplete = true.
+
+Email Verification Rate: Email-verified users over total users.
+
+Discord Connection Rate: Users with discordConnected = true.
+
+Users by Referral Source: Distribution over referralSource field.
+
+Subscription Metrics
+
+Active Subscriptions
+
+New Subscriptions (Last 7/30 Days)
+
+Canceled Subscriptions (Last 7/30 Days)
+
+Trialing Subscriptions
+
+Past Due Subscriptions
+
+Grace Period Subscriptions
+
+MRR (Monthly Recurring Revenue)
+
+ARR (Annual Recurring Revenue)
+
+Average Subscription Length
+
+Trial Conversion Rate
+
+Churn Rate
+
+Reactivation Rate
+
+These are conceptually tied to:
+
+purchase.type
+
+purchase.status
+
+variantId
+
+extended period fields (currentPeriodEnd)
+
+cancellation fields
+
+Content Metrics
+
+Total Published Videos
+
+Videos by Category
+
+Most Viewed Videos
+
+Total Video Views
+
+Mock vs Real Content Ratio
+
+All derived from the ContentVideo model.
+
+Affiliate Metrics
+
+Total Affiliates
+
+Active Affiliates (referrals > 0)
+
+Total Referrals
+
+Total Commissionable Purchases
+
+Total Commissions Paid
+
+Pending Commissions
+
+Top Affiliates (by earnings/referrals)
+
+Conversion Rate by Affiliate
+
+These relate to:
+
+Affiliate model
+
+Purchase referral fields
+
+Extended purchase fields: referralCode, rewardfulReferralId
+
+Support Metrics
+
+Support Ticket Count
+
+Users With Support Notes
+
+VIP Users (supportTags)
+
+At-Risk Users (payment failures, grace periods)
+
+Users With Payment Failure History
+
+Derived from extended user fields:
+
+supportNotes
+
+supportTags
+
+supportTicketCount
+
+paymentFailureCount
+
+8.3 Data Sources & Aggregation
+
+All analytics derive from one or more of the following:
+
+1. Raw Tables
+
+User
+
+Purchase
+
+Affiliate
+
+ContentVideo
+
+Session
+
+EmailLog
+
+2. Extended Metadata Fields
+
+Such as referralSource, gracePeriodUsedCount, etc.
+
+3. Derived Temporal Data
+
+Using timestamp fields:
+
+createdAt
+
+updatedAt
+
+lastLoginAt
+
+cancelledAt
+
+referredAt
+
+4. Stripe Events (Indirect Influence)
+
+Metrics related to subscription transitions depend on prior webhook events, already stored in Purchase and related fields.
+
+8.4 Real-Time vs Cached Data
+
+Analytics may logically fall into:
+
+Real-Time Values
+
+Total users
+
+Active subscriptions
+
+Current past_due count
+
+Real-time view of subscription statuses
+
+Cached / Aggregated Values
+
+For improved performance and historical accuracy:
+
+MRR
+
+ARR
+
+Churn
+
+Daily active users
+
+Weekly signup counts
+
+Cached values are useful for dashboards, while real-time values support detail-level views.
+
+<a name="subscription-lifecycle-architecture"></a> 9. Subscription Lifecycle Architecture
+
+This section merges Phase 5's deep lifecycle audit with the Full Audit’s subscription overview.
+
+9.1 Subscription Lifecycle State Machine
+
+Subscription status transitions are largely driven by Stripe events and mapped into local Purchase.status and extended fields.
+
+Primary States
+
+trialing
+
+active
+
+past_due
+
+grace_period (Lifepreneur custom state)
+
+canceled
+
+incomplete
+
+incomplete_expired
+
+unpaid
+
+Each state influences what content a user should be able to access.
+
+9.2 Stripe Event Model - Detailed
+
+The following Stripe events influence subscription state:
+
+CURRENTLY HANDLED (packages/payments/provider/stripe/index.ts):
+
+✅ checkout.session.completed
+   - Creates ONE_TIME Purchase
+   - Sets customerId on entity
+   - Fires on: One-time product purchases
+
+✅ customer.subscription.created  
+   - Creates SUBSCRIPTION Purchase
+   - Sets initial status from Stripe
+   - Links to user via metadata.user_id
+   - Sets subscriptionId for future updates
+
+✅ customer.subscription.updated
+   - Updates Purchase.status
+   - Updates Purchase.productId (if plan changed)
+   - Requires existing Purchase lookup by subscriptionId
+   - Fires on: Plan changes, status changes, cancellations
+
+✅ customer.subscription.deleted
+   - Deletes Purchase record entirely via deletePurchaseBySubscriptionId()
+   - ⚠️ No soft-delete, immediate removal from database
+   - Fires on: Subscription end, immediate cancellation
+
+NOT HANDLED (Need to Add):
+
+❌ invoice.payment_failed
+   - Should trigger grace_period status
+   - Should increment paymentFailureCount on User
+   - Should send grace period warning email
+   - Should log EmailLog entry
+
+❌ invoice.paid
+   - Should send payment confirmation email
+   - Should reset payment failure counters
+   - Should update lastPaymentDate
+   - Should log successful payment
+
+❌ invoice.upcoming
+   - Could send renewal reminder email
+   - Fires 7 days before renewal (configurable)
+
+❌ charge.refunded
+   - Should log refund event
+   - May need to adjust subscription status
+   - Should trigger admin notification
+
+⚠️ Event Handling Characteristics:
+
+- Unhandled events return 200 status (logged but ignored)
+- No idempotency checks (Stripe may retry)
+- No event ordering guarantees
+- Webhook secret validation is enforced
+- Errors return 400 with message
+
+The admin system depends on correct interpretation of:
+
+period_end - For currentPeriodEnd field
+
+status - For Purchase.status updates
+
+cancellation flags - For cancelAtPeriodEnd tracking
+
+payment failure indicators - For grace period logic
+
+metadata fields - For user/organization attribution
+
+9.3 Handling Grace Periods
+
+Grace periods represent a temporary buffer after payment failure during which:
+
+The user maintains full or limited access
+
+System tracks failure counts
+
+Extended metadata fields update:
+
+Fields involved:
+
+paymentFailureCount
+
+gracePeriodUsedCount
+
+lastPaymentFailureDate
+
+Grace periods help prevent immediate churn while billing issues resolve.
+
+9.4 Edge Cases & Recovery
+
+Merged from Phase 5’s detailed findings, several edge-case scenarios exist:
+
+1. Payment Method Issues
+
+expired cards
+
+insufficient funds
+
+missing default payment methods
+
+2. Invoice/Subscription Desync
+
+Events may occur in a different order than expected or be delayed.
+
+3. Duplicate Events
+
+Stripe sends retries; idempotency must be logically ensured.
+
+4. Out-of-Order Webhook Delivery
+
+Subscriptions may temporarily enter incorrect intermediate states until later reconciliation.
+
+5. Manual Cancellation from Dashboard
+
+Admin or user cancellations trigger different states and metadata patterns.
+
+6. Coupon Conflicts
+
+Some coupon states interact unpredictably with extensions or proration.
+
+7. Failures to Update Email Notifications
+
+EmailLog should eventually store all outgoing attempts and capture failures.
+
+These behaviors are described here conceptually, without directives.
+
+<a name="notification--email-architecture"></a> 10. Notification & Email Architecture
+
+This section synthesizes all email, webhook, lifecycle-triggered notification behavior described in Phase 5 and the Full Audit.
+
+10.1 Email Types
+
+Lifepreneur's platform uses transactional emails that correlate to user actions, subscription state changes, and lifecycle events.
+
+EXISTING EMAIL TEMPLATES (packages/mail/emails/):
+
+✅ NewUser.tsx - Welcome email
+   - Sent: After account creation
+   - Context: User name, account details
+
+✅ MagicLink.tsx - Magic link login
+   - Sent: When user requests passwordless login
+   - Context: Magic link URL, expiration time
+
+✅ EmailVerification.tsx - Verify email address
+   - Sent: After signup or email change
+   - Context: Verification link, email address
+
+✅ ForgotPassword.tsx - Password reset
+   - Sent: When user requests password reset
+   - Context: Reset link, expiration time
+
+✅ OrganizationInvitation.tsx - Organization invite (UNUSED)
+   - Note: Organizations feature disabled (config.organizations.enable = false)
+   - Kept for Supastarter compatibility
+
+MISSING TEMPLATES (Need to Create):
+
+❌ GracePeriod.tsx - Payment failure warning
+   - Should send: When invoice.payment_failed webhook received
+   - Context: Grace period end date, payment update link, support contact
+   - Priority: HIGH - Critical for subscription retention
+
+❌ PurchaseConfirmation.tsx - Successful payment
+   - Should send: When invoice.paid webhook received
+   - Context: Amount paid, next billing date, receipt link
+
+❌ DiscordReminder.tsx - Discord connection prompt
+   - Should send: After subscription activation, if Discord not connected
+   - Context: Discord connection link, benefits of connecting
+
+❌ SubscriptionCanceled.tsx - Cancellation confirmation
+   - Should send: When user cancels subscription
+   - Context: Cancellation date, access end date, feedback request
+
+❌ TrialEnding.tsx - Trial expiration notice
+   - Should send: 3 days before trial ends
+   - Context: Trial end date, payment method setup link
+
+❌ SubscriptionReactivated.tsx - Reactivation confirmation
+   - Should send: When past_due subscription becomes active
+   - Context: Reactivation date, next billing date
+
+User Account Emails (Categories):
+
+Welcome email ✅
+Email verification ✅
+Password reset ✅
+2FA setup (uses auth system emails)
+Profile updates (not implemented)
+
+Subscription Emails (Categories):
+
+Trial starting (not implemented)
+Trial ending soon ❌ (need TrialEnding.tsx)
+Successful payment confirmation ❌ (need PurchaseConfirmation.tsx)
+Upcoming invoice notification (not implemented)
+Payment failure ❌ (need GracePeriod.tsx)
+Grace period notification ❌ (need GracePeriod.tsx)
+Subscription canceled ❌ (need SubscriptionCanceled.tsx)
+Subscription reactivated ❌ (need SubscriptionReactivated.tsx)
+
+Support & System Emails (Future):
+
+Internal alerts to admins
+Broadcast notifications
+Maintenance notifications
+
+Affiliate Emails (Future):
+
+Referral received
+Commission earned
+Payout sent
+
+Email Provider Configuration:
+
+From packages/mail/src/provider/:
+- Resend (recommended for production)
+- Postmark
+- Mailgun
+- Nodemailer
+- Plunk
+- Console (dev mode)
+
+Current setting: Configured via environment variables
+
+10.2 Trigger Events
+
+Email flows depend on:
+
+Direct User Actions
+
+signing up
+
+resetting password
+
+changing email
+
+updating profile
+
+Subscription & Billing Events
+
+Stripe-triggered events mapped to local Purchase updates:
+
+invoice.payment_failed → Payment failure email
+
+customer.subscription.updated with cancelAtPeriodEnd → Cancellation email
+
+invoice.paid → Payment confirmation email
+
+Lifecycle Events
+
+Extended user metadata such as:
+
+gracePeriodUsedCount
+
+lastPaymentFailureDate
+
+These drive internal notifications (e.g., “approaching grace limit”).
+
+10.3 Webhook → Email Mapping
+
+Webhook events influence both:
+
+The Purchase model (status, timestamps, metadata)
+
+The EmailLog model (record of outgoing messages)
+
+Typical flow:
+
+Stripe Webhook → Local Subscription Update → Potential Email Trigger → EmailLog entry
+
+
+Emails should be associated with:
+
+userId
+
+emailType
+
+sentAt
+
+status
+
+metadata
+
+These relationships establish an audit trail for subscription-related messaging.
+
+<a name="audit-logging--observability"></a> 11. Audit Logging & Observability
+
+This section merges observability expectations from Full Audit and future-facing models described in Phase 2 and Phase 5.
+
+11.1 Admin Action Logging Model
+
+The planned AdminAction model describes behavior for internal accountability:
+
+AdminAction Fields
+
+id
+
+adminUserId
+
+adminEmail
+
+actionType
+
+targetUserId
+
+previousValue
+
+newValue
+
+metadata
+
+timestamp
+
+ipAddress
+
+Purpose
+
+trace administrative changes
+
+understand access-level actions
+
+identify misuse or unintended effects
+
+Example Events Captured
+
+role changes
+
+bans/unbans
+
+subscription overrides
+
+content modifications
+
+impersonation events
+
+affiliate adjustments
+
+The model is described but not implemented; this document remains descriptive.
+
+11.2 User-Facing Logs
+
+Potential future needs include:
+
+user event logs (login, subscription transitions, support interactions)
+
+content interaction logs (video views, engagement metadata)
+
+Some of these exist in partial form via:
+
+Session records
+
+ContentVideo.viewCount
+
+11.3 Error Tracking & Alerting
+
+Observability may include:
+
+webhook delivery failures
+
+failed email sends
+
+inconsistent subscription states
+
+affiliate payout anomalies
+
+Sources of truth:
+
+EmailLog
+
+extended Purchase fields
+
+Stripe event debugging
+
+These represent conceptual observability elements without dictating implementation.
+
+<a name="non-functional-requirements"></a> 12. Non-Functional Requirements
+
+This merged section describes cross-cutting concerns that appear in the audits, particularly in the context of admin operations.
+
+12.1 Performance
+Admin Queries
+
+Admin operations must efficiently handle:
+
+large user lists
+
+search queries
+
+dashboard queries (aggregated metrics)
+
+Indexing noted earlier supports this.
+
+Subscription & Metrics
+
+Some metrics require aggregating large volumes of data; caching may be relevant.
+
+12.2 Security
+
+Security expectations across phases include:
+
+strict separation of admin vs non-admin actions
+
+input validation for ORPC procedures
+
+safe handling of tokens and secrets
+
+protection against privilege escalation
+
+consistent role checks
+
+session impersonation auditability
+
+These behaviors are descriptive of system expectations.
+
+12.3 Maintainability
+
+The system should favor:
+
+uniform response shape across endpoints
+
+consistent naming conventions
+
+modular UI components
+
+shared validation schemas
+
+reusable table and form patterns
+
+Future maintainability improves with:
+
+centralized logs
+
+well-defined models
+
+consistent architectural patterns
+
+12.4 Scalability
+
+Scalability requirements include:
+
+ability to support growth in user count
+
+subscription volume expansion
+
+affiliate program scaling
+
+content library growth
+
+Admin dashboard performance should remain stable under load due to:
+
+optimized database queries
+
+appropriate indexing
+
+efficient UI rendering through virtualization or pagination
+
+<a name="appendices"></a> 13. Appendices
+
+This section provides auxiliary material derived from various phases—conceptual references, not implementation steps.
+
+13.1 Model Summary Tables
+
+A consolidated summary of all major data models referenced in the system:
+
+Core Supastarter Models
+Model	Purpose
+User	Identity, authentication, lifecycle metadata
+Session	Active logins and impersonation metadata
+Account	OAuth/password provider storage
+Purchase	Subscription & one-time billing records
+Verification	Temporary verification records
+TwoFactor	2FA settings
+Passkey	WebAuthn credential storage
+Organization / Member / Invitation	Present but not used
+AiChat	Deprecated
+Extended Lifepreneur Models
+Model	Purpose
+Extended User Fields	Referrals, Discord sync, lifecycle timestamps, support metadata
+Extended Purchase Fields	Enhanced subscription metadata, coupons, cancellation data
+ContentVideo	Platform training & course videos
+Affiliate	Affiliate tracking, earnings, referral attribution
+AdminUser	Roles beyond simple “admin” flag
+EmailLog	Record of all outgoing emails
+AdminAction	Record of admin operations
+Order	One-time orders separate from subscriptions
+13.2 Subscription State Definitions
+
+For clarity, the conceptual definitions of all subscription states used across the audit:
+
+State	Meaning
+trialing	User is in free trial period
+active	Subscription is paid and current
+past_due	Payment attempt failed; Stripe retrying
+grace_period	Custom: giving user buffer despite failure
+canceled	Subscription terminated
+incomplete	Subscription awaiting initial confirmation or payment
+incomplete_expired	First payment failed and expired
+unpaid	Stripe considers subscription unpaid
+13.3 Common Stripe Event Interpretations
+Stripe Event	Conceptual Role
+customer.subscription.created	New subscription initiated
+customer.subscription.updated	Billing period renewed or settings changed
+customer.subscription.deleted	Subscription canceled
+invoice.payment_failed	Payment method failed; may trigger grace logic
+invoice.paid	Successful renewal
+charge.refunded	Refund activity
+
+These events feed into local Purchase model updates.
+
+13.4 Common UI Patterns Summary
+Component	Purpose
+DataTable (TanStack)	Main list for users, purchases, affiliates
+Badge	Visual state indicators
+Card / Metric Tile	KPI display and grouping
+Avatar	User profile renders
+Skeleton	Loading placeholders
+DropdownMenu	Row-level actions
+Dialog / AlertDialog	Confirmations, edits
+Sheet	Slide-out detail views
+13.5 Admin Page Structure Template
+
+The typical admin page follows this pattern:
+
+<PageHeader title="..." description="..." />
+
+<SearchInput />
+
+<DataTable
+  columns=[...]
+  data=[...]
+  pagination
+  filters
+  rowActions
+/>
+
+
+This template is repeated across users, subscriptions, affiliates, and content sections.
+
+13.6 Complete File Path Reference
+
+This section provides exact file locations for all components referenced in the audit.
+
+ADMIN UI COMPONENTS:
+└─ apps/web/
+   ├─ app/(saas)/app/(account)/admin/
+   │  ├─ layout.tsx (admin wrapper with auth check - line 16-26 commented)
+   │  ├─ page.tsx (overview dashboard - to be created)
+   │  ├─ users/page.tsx (user list - exists, functional)
+   │  └─ organizations/
+   │     ├─ page.tsx (list - exists but disabled via config)
+   │     └─ [id]/page.tsx (detail - exists but disabled)
+   └─ modules/saas/admin/component/
+      ├─ users/UserList.tsx (main user management table)
+      ├─ organizations/OrganizationList.tsx (exists but unused)
+      ├─ organizations/OrganizationForm.tsx (exists but unused)
+      └─ EmailVerified.tsx (verification status badge)
+
+ADMIN API PROCEDURES:
+└─ packages/api/
+   ├─ orpc/
+   │  ├─ procedures.ts (publicProcedure, protectedProcedure, adminProcedure)
+   │  └─ router.ts (main API router)
+   ├─ modules/admin/
+   │  ├─ router.ts (admin routes definition)
+   │  └─ procedures/
+   │     ├─ list-users.ts (user list with search/pagination)
+   │     ├─ list-organizations.ts (org list - unused)
+   │     └─ find-organization.ts (org detail - unused)
+   └─ index.ts (exports combined router)
+
+UI COMPONENT LIBRARY:
+└─ apps/web/modules/ui/components/
+   ├─ table.tsx (TanStack Table wrapper)
+   ├─ badge.tsx (status indicators)
+   ├─ card.tsx (containers with header/content/footer)
+   ├─ button.tsx (all button variants)
+   ├─ dialog.tsx (modal dialogs)
+   ├─ alert-dialog.tsx (confirmation dialogs)
+   ├─ dropdown-menu.tsx (action menus)
+   ├─ input.tsx (form inputs)
+   ├─ select.tsx (dropdowns)
+   ├─ textarea.tsx (multiline inputs)
+   ├─ avatar.tsx (user avatars)
+   ├─ skeleton.tsx (loading placeholders)
+   ├─ sheet.tsx (slide-out panels)
+   ├─ tabs.tsx (tab navigation)
+   ├─ form.tsx (form wrapper)
+   ├─ label.tsx (form labels)
+   ├─ checkbox.tsx (checkboxes)
+   ├─ progress.tsx (progress bars)
+   ├─ tooltip.tsx (tooltips)
+   ├─ toast.tsx (notifications)
+   ├─ alert.tsx (inline alerts)
+   ├─ accordion.tsx (expandable sections)
+   ├─ input-otp.tsx (OTP inputs)
+   └─ password-input.tsx (password fields with visibility toggle)
+
+SHARED SAAS COMPONENTS:
+└─ apps/web/modules/saas/
+   ├─ start/components/StatsTile.tsx (KPI metric tile)
+   ├─ settings/components/
+   │  ├─ SubscriptionStatusBadge.tsx (subscription status display)
+   │  ├─ CustomerPortalButton.tsx (Stripe portal link)
+   │  └─ [other settings components]
+   ├─ payments/components/
+   │  ├─ ActivePlan.tsx (current plan display)
+   │  └─ PricingTable.tsx (plan selection)
+   ├─ shared/components/
+   │  ├─ PageHeader.tsx (page titles)
+   │  ├─ Pagination.tsx (pagination controls)
+   │  ├─ NavBar.tsx (navigation)
+   │  ├─ Footer.tsx (page footer)
+   │  └─ UserMenu.tsx (user dropdown menu)
+   ├─ community/components/
+   │  ├─ community-hub.tsx (community dashboard)
+   │  ├─ announcements-tab.tsx (announcements list)
+   │  └─ platforms-tab.tsx (Discord integration)
+   ├─ affiliate/components/
+   │  ├─ affiliate-dashboard.tsx (affiliate overview)
+   │  ├─ overview-tab.tsx (stats display)
+   │  ├─ earnings-tab.tsx (earnings history)
+   │  └─ [other affiliate components]
+   └─ content/components/
+      ├─ streaming-library.tsx (video library)
+      └─ video-grid.tsx (video display)
+
+DATABASE & SCHEMA:
+└─ packages/database/
+   ├─ prisma/
+   │  ├─ schema.prisma (⚠️ data models - critical file)
+   │  ├─ generated/ (auto-generated Prisma client)
+   │  └─ zod/ (auto-generated Zod schemas)
+   └─ index.ts (database exports)
+
+PAYMENT PROVIDERS:
+└─ packages/payments/
+   ├─ src/lib/
+   │  ├─ helper.ts (⚠️ contains critical bug - line 13-16)
+   │  └─ customer.ts (customer management)
+   ├─ provider/
+   │  ├─ stripe/index.ts (Stripe webhook handlers)
+   │  ├─ lemonsqueezy/index.ts (LemonSqueezy provider)
+   │  ├─ polar/index.ts (Polar provider)
+   │  ├─ creem/index.ts (Creem provider)
+   │  └─ dodopayments/index.ts (Dodo Payments provider)
+   └─ types.ts (payment types)
+
+AUTHENTICATION:
+└─ packages/auth/
+   ├─ auth.ts (better-auth configuration with admin() plugin)
+   ├─ client.ts (client-side auth utilities)
+   ├─ lib/
+   │  ├─ helper.ts (auth helper functions)
+   │  └─ organization.ts (org helpers - unused)
+   └─ plugins/
+      └─ invitation-only.ts (custom auth plugin)
+
+EMAIL SYSTEM:
+└─ packages/mail/
+   ├─ emails/
+   │  ├─ NewUser.tsx ✅
+   │  ├─ MagicLink.tsx ✅
+   │  ├─ EmailVerification.tsx ✅
+   │  ├─ ForgotPassword.tsx ✅
+   │  ├─ OrganizationInvitation.tsx (unused)
+   │  └─ NewsletterSignup.tsx
+   ├─ src/provider/
+   │  ├─ resend.ts (Resend integration)
+   │  ├─ postmark.ts (Postmark integration)
+   │  ├─ mailgun.ts (Mailgun integration)
+   │  ├─ nodemailer.ts (SMTP integration)
+   │  ├─ plunk.ts (Plunk integration)
+   │  └─ console.ts (dev mode logging)
+   └─ src/util/
+      ├─ send.ts (email sending logic)
+      └─ templates.ts (template rendering)
+
+CONFIGURATION:
+└─ config/
+   ├─ index.ts (⚠️ main app configuration - critical)
+   └─ types.ts (config type definitions)
+
+DEVELOPMENT TOOLS:
+└─ apps/web/
+   ├─ lib/
+   │  ├─ dev-tools.ts (FEATURE_FLAGS, dev utilities)
+   │  ├─ mock-data.ts (mock data for development)
+   │  └─ mock-api.ts (mock API functions)
+   └─ components/
+      ├─ dev-tools-panel.tsx (dev panel UI)
+      └─ dev-scenario-badge.tsx (scenario indicator)
+
+MOCK DATA:
+└─ apps/web/lib/mock-data.ts
+   (Contains all mock entities for development)
+
+13.7 Current Mock Data Inventory
+
+From apps/web/lib/mock-data.ts:
+
+✅ IMPLEMENTED:
+- mockUser (single user object with all fields)
+- mockUsers (admin + regular user for role testing)
+- mockPurchase (subscription example with all fields)
+- mockSubscriptionStates (4 states: active, grace_period, canceled, none)
+- mockVideos (10 training videos with categories)
+- mockCommissions (8 commission records for earnings display)
+- mockTrackingLinks (3 affiliate links with stats)
+- mockPayoutRequests (5 payout history items with statuses)
+- mockAffiliate (detailed affiliate profile with earnings breakdown)
+- mockReferrals (12 referral records with conversion funnel)
+- mockAdminUsers (4 user records for admin testing)
+- videoCategories (9 categories with counts)
+- mockPlatforms (Discord integration object)
+- mockAnnouncements (5 announcements with priority levels)
+
+❌ MISSING (Need to Create for Admin Dashboard):
+- mockAdminOverviewStats (KPI dashboard data with trends)
+- mockAdminUserList (20+ users with subscription status, Discord status, referral source)
+- mockAdminSubscriptions (50+ varied subscriptions across all statuses)
+- mockAdminVideos (admin-specific video metadata with unpublished videos)
+- mockAdminAffiliates (20+ affiliates with varied earnings)
+- mockAdminReferrals (100+ referrals for aggregate views)
+- mockAdminAnnouncements (with analytics: viewCount, readCount, clickCount)
+- mockAdminActions (100+ audit log entries for all action types)
+- ADMIN_ACTION_TYPES (enum/const of all admin action types)
+- mockEmailLogs (email history with sent/failed statuses)
+
+Mock Data Characteristics:
+- Uses realistic data patterns (masked emails, varied dates)
+- Includes edge cases (past_due subscriptions, payment failures)
+- Supports dev scenarios (FEATURE_FLAGS toggle states)
+- Timestamps use relative dates (Date.now() - offset)
+- Maintains referential integrity (userIds match across records)
+
+13.8 Terminology Standardization
+
+This section clarifies term usage across different system layers to maintain consistency.
+
+Subscription Status Terms (Use Consistently):
+
+DATABASE LAYER:
+- Purchase.status (the actual field name)
+- Purchase.type (SUBSCRIPTION vs ONE_TIME enum)
+- purchase.userId (foreign key to user)
+
+API LAYER (Response Objects):
+- subscriptionStatus (in API responses)
+- purchaseStatus (when querying purchases)
+- activePlan (helper function return value)
+- hasSubscription (boolean check function)
+
+UI LAYER (User-Facing):
+- "Subscription Status" (label in UI)
+- "Active" / "Inactive" (simplified binary states)
+- "Grace Period" (user-friendly term for grace_period)
+- "Past Due" (payment issue indicator)
+
+BUSINESS LOGIC (Function Names):
+- hasActiveSubscription() (access check function)
+- getSubscriptionStatus() (status retrieval)
+- subscription state (lifecycle context)
+- billing cycle (renewal timing)
+
+AVOID INCONSISTENT TERMS:
+- ❌ Mixing "purchase" and "subscription" without context
+- ❌ Using "plan" when you mean "status" (plan = pricing tier, status = current state)
+- ❌ "Member" vs "User" vs "Subscriber" (use "User" for database, "Subscriber" for active users)
+- ❌ "Organization" (feature disabled, don't use in Lifepreneur context)
+
+Naming Convention Standards:
+
+1. Database Schema:
+   - Table names: snake_case (user, purchase, content_videos)
+   - Field names: camelCase in TypeScript, snake_case in database with @map
+   - Foreign keys: userId, subscriptionId (camelCase)
+   - Indexes: @map for snake_case storage
+
+2. API Response Keys:
+   - Prefer camelCase for consistency with TypeScript
+   - Avoid snake_case in API responses
+   - Use descriptive names: currentPeriodEnd not periodEnd
+
+3. TypeScript Types:
+   - Interface names: PascalCase (PurchaseSchema, UserModel)
+   - Property names: camelCase (emailVerified, onboardingComplete)
+   - Use optional (?) for nullable fields
+   - Use | null explicitly where needed
+
+4. Function Naming:
+   - Prefix queries with get: getUserById(), getPurchasesByUserId()
+   - Prefix checks with has: hasActiveSubscription(), hasAccess()
+   - Prefix creates with create: createPurchase(), createUser()
+   - Prefix updates with update: updatePurchase(), updateUser()
+
+5. Component Naming:
+   - PascalCase: UserList, SubscriptionStatusBadge
+   - Suffix with type: ...Table, ...Form, ...Dialog, ...Badge
+   - Use descriptive names: AdminUserList not UserListAdmin
+
+13.9 Naming Consistency Issues Identified
+
+Observed Inconsistencies Requiring Documentation:
+
+1. Database Field Naming:
+   - Supastarter models: inconsistent camelCase/snake_case
+   - Some fields use @map, others don't
+   - createdAt vs created_at varies by model
+
+2. API Endpoint Paths:
+   - Some use: /admin/users
+   - Others use: /api/admin/users
+   - No consistent pattern for versioning
+
+3. Component File Names:
+   - Some: kebab-case (streaming-library.tsx)
+   - Others: PascalCase (UserList.tsx)
+   - Mixed within same directory
+
+4. Import Alias Usage:
+   - Sometimes: @repo/database
+   - Sometimes: @repo/database/prisma
+   - Inconsistent depth of imports
+
+Recommendation: Document expected convention per layer in style guide.
+
+13.10 Quick Reference Card
+
+ONE-LINERS FOR AI CONTEXT:
+
+Q: Where is user authentication handled?
+A: packages/auth/auth.ts (better-auth with admin() plugin)
+
+Q: Where is the admin user list component?
+A: apps/web/modules/saas/admin/component/users/UserList.tsx
+
+Q: Where is the admin user list page?
+A: apps/web/app/(saas)/app/(account)/admin/users/page.tsx
+
+Q: How do I check if a user has active access?
+A: Query Purchase where type='SUBSCRIPTION' AND status IN ('active', 'grace_period')
+
+Q: Where are UI components defined?
+A: apps/web/modules/ui/components/ (Shadcn UI library)
+
+Q: Where is the critical subscription bug?
+A: packages/payments/src/lib/helper.ts line 13-16 (missing status filter)
+
+Q: Where is mock data stored?
+A: apps/web/lib/mock-data.ts (all development mock entities)
+
+Q: Where are admin API endpoints defined?
+A: packages/api/modules/admin/procedures/ (list-users.ts, etc.)
+
+Q: How does subscription status update?
+A: Stripe webhook → packages/payments/provider/stripe/index.ts → updatePurchase() → Purchase.status
+
+Q: Where is the database schema?
+A: packages/database/prisma/schema.prisma (⚠️ critical file)
+
+Q: Where are email templates?
+A: packages/mail/emails/ (NewUser.tsx, MagicLink.tsx, etc.)
+
+Q: How do I add a new admin procedure?
+A: 1) Create in packages/api/modules/admin/procedures/
+   2) Add to packages/api/modules/admin/router.ts
+   3) Use adminProcedure for auth enforcement
+
+Q: Where is app configuration?
+A: config/index.ts (organizations disabled, billing enabled, etc.)
+
+Q: Where are dev tools defined?
+A: apps/web/lib/dev-tools.ts (FEATURE_FLAGS object)
+
+Q: What payment providers are supported?
+A: Stripe (primary), LemonSqueezy, Polar, Creem, Dodo Payments
+
+Q: Where are webhook handlers?
+A: packages/payments/provider/[provider]/index.ts (webhookHandler export)
+
+Q: How do I check admin permissions?
+A: Use adminProcedure in API, checks context.user.role === 'admin'
+
+Q: Where are Prisma types generated?
+A: packages/database/prisma/generated/ (auto-generated, don't edit)
+
+Q: How do I run database migrations?
+A: cd packages/database && pnpm run migrate
+
+Q: Where is the Stripe integration?
+A: packages/payments/provider/stripe/index.ts (webhooks, subscriptions)
+
+CRITICAL FILES TO KNOW:
+1. packages/database/prisma/schema.prisma (data models)
+2. packages/payments/src/lib/helper.ts (subscription helpers with bug)
+3. config/index.ts (app configuration)
+4. packages/auth/auth.ts (authentication setup)
+5. apps/web/lib/mock-data.ts (development data)
+6. packages/api/orpc/procedures.ts (auth middleware)
+7. apps/web/app/(saas)/app/(account)/admin/layout.tsx (admin wrapper)
+
+COMMON TASKS:
+- Add new model: Edit schema.prisma → pnpm run migrate
+- Add admin page: Create in app/(account)/admin/[name]/page.tsx
+- Add admin API: Create procedure → add to admin router
+- Add UI component: Create in modules/ui/components/
+- Add email template: Create in packages/mail/emails/
+- Add mock data: Add to apps/web/lib/mock-data.ts
+
+ERROR DEBUGGING:
+- "FORBIDDEN" API error → Check user.role === 'admin'
+- Subscription access issue → Check Purchase.status filter
+- Import not found → Check tsconfig.json path aliases
+- Webhook not working → Verify STRIPE_WEBHOOK_SECRET env var
+- Email not sending → Check email provider config in .env
+
+📘 Final Consolidated Overview
+
+This final section summarizes the merged insights into a cohesive conceptual understanding of the system.
+
+Overall System Description
+
+Lifepreneur’s platform uses Supastarter as a foundation for authentication, billing, and admin scaffolding, extending it with Lifepreneur-specific models for:
+
+affiliate tracking
+
+content management
+
+lifecycle metadata
+
+extended subscription fields
+
+admin actions
+
+email logging
+
+The admin dashboard integrates these models into a unified interface enabling:
+
+oversight of users
+
+subscription monitoring
+
+affiliate program visibility
+
+content management
+
+system analytics
+
+lifecycle and billing event analysis
+
+observability of admin actions and email transmissions
+
+Key Architectural Themes
+1. Strong centralization of administrative capabilities
+
+The admin area acts as a unified operational control center.
+
+2. Reliance on consistent UI patterns
+
+Tables, status badges, and card-based interfaces establish a common admin design language.
+
+3. Separation of concerns
+
+Distinct data domains:
+
+identity
+
+subscription
+
+affiliate
+
+content
+
+lifecycle
+
+notifications
+
+analytics
+
+4. Lifecycle-first design for subscriptions
+
+Subscription state transitions are fundamental to platform behavior.
+
+5. Extended metadata is core to platform insight
+
+The extended user and purchase fields provide contextual insight for:
+
+support
+
+billing recovery
+
+user segmentation
+
+analytics
+
+admin review
+
+6. Admin operations require transparent observability
+
+AdminAction and EmailLog models support accountability and troubleshooting.
+
+Relationship Between Phases
+
+This unified document incorporates:
+
+Phase 1: Data schema & structural foundation
+
+Phase 2: Admin APIs, permissions, maturity of backend architecture
+
+Phase 3: UI architecture, reusable patterns, visual consistency
+
+Phase 4: Analytics & KPI design
+
+Phase 5: Subscription lifecycle & notification architecture
+
+Full Audit: System-wide overview + combined model inventory
+
+Together, these provide a complete descriptive picture of the admin system’s expected functional, data, UI, and lifecycle behavior—sufficient for Claude to produce an actionable implementation roadmap.
