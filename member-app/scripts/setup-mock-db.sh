@@ -28,8 +28,13 @@ echo "🔧 DATABASE_URL = $DATABASE_URL"
 have() { command -v "$1" >/dev/null 2>&1; }
 
 psql_admin() {
-  # Run a psql command as the OS "postgres" superuser.
-  if have sudo; then
+  # Run a psql command as a Postgres superuser.
+  # On macOS (Homebrew) there is no "postgres" OS user — connect as the current
+  # user against the Postgres "postgres" role instead. On Linux the conventional
+  # path is `sudo -u postgres psql`.
+  if [[ "$(uname)" == "Darwin" ]]; then
+    psql -U postgres -v ON_ERROR_STOP=1 "$@"
+  elif have sudo; then
     sudo -u postgres psql -v ON_ERROR_STOP=1 "$@"
   else
     psql -U postgres -v ON_ERROR_STOP=1 "$@"
