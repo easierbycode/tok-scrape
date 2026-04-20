@@ -1,6 +1,11 @@
 # Graylog local stack for the TikTok Shop metrics bookmarklet.
 #
 # Usage (from this folder):
+#   # Recommended — brings up the stack, opens an ngrok tunnel, and prints
+#   # the public Graylog URL + API token for the mobile app:
+#   NGROK_AUTHTOKEN=<your-token> ./scripts/up.sh
+#
+#   # Or directly (no public URL, no token printed):
 #   docker compose up -d
 #   # wait ~30-60s for Graylog to finish booting, then open:
 #   #   http://localhost:9000   (login: admin / ChangeMeAdmin!)
@@ -112,6 +117,30 @@ services:
     volumes:
       - graylog_data:/usr/share/graylog/data
       - graylog_journal:/usr/share/graylog/data/journal
+
+  ngrok:
+    # Exposes the Graylog REST API publicly so the Cordova mobile app can
+    # reach it from a phone outside the LAN. The public URL is assigned on
+    # every start (random unless you have a paid reserved domain), so the
+    # mobile app's Settings must be updated each time the stack restarts.
+    #
+    # Requires a free ngrok account: https://dashboard.ngrok.com/signup
+    # Grab the authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+    # and export it before `docker compose up` (or put it in a .env file):
+    #   export NGROK_AUTHTOKEN=2abc...xyz
+    image: ngrok/ngrok:3
+    container_name: graylog-ngrok
+    restart: unless-stopped
+    depends_on:
+      - graylog
+    environment:
+      NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN:?set NGROK_AUTHTOKEN (see https://dashboard.ngrok.com/get-started/your-authtoken)}"
+    # --host-header=rewrite makes ngrok forward with Host: graylog:9000 so
+    # Graylog's virtual-host checks (and any reverse-proxy assumptions)
+    # don't reject requests whose Host header is the random ngrok subdomain.
+    command: ["http", "--host-header=rewrite", "graylog:9000"]
+    ports:
+      - "4040:4040" # local inspector + API used by scripts/up.sh
 
 volumes:
   mongodb_data:

@@ -175,7 +175,35 @@ If the WSL native stack is too heavy (or you'd rather not run three systemd serv
 
 Prereq: **Docker Desktop** (with WSL2 backend enabled) installed on Windows.
 
-From PowerShell or the Ubuntu shell, in this folder:
+### Recommended: one-command bring-up with public URL
+
+`scripts/up.sh` brings up the stack, opens an **ngrok** public tunnel to the Graylog REST API (so the Cordova mobile app can hit it from a phone off-LAN), mints a Graylog API token, and prints both values.
+
+```bash
+# Free ngrok account + authtoken: https://dashboard.ngrok.com/get-started/your-authtoken
+export NGROK_AUTHTOKEN=2abc...xyz
+
+./scripts/up.sh
+```
+
+You'll see something like:
+
+```
+=====================================================
+ TokScrape / Graylog is up.
+ Paste these into the mobile app Settings screen:
+=====================================================
+  Graylog URL:   https://<random>.ngrok-free.app
+  API token:     1abcd...xyz
+  Lucene query:  host:tiktok-bookmarklet
+=====================================================
+```
+
+Paste those three values into the mobile app's Settings screen and hit Save. The URL rotates on every restart unless you have a paid ngrok reserved domain, so re-run the script after a reboot and re-paste the new URL.
+
+### Manual bring-up (no public URL)
+
+If you only need local access:
 
 ```bash
 docker compose up -d
