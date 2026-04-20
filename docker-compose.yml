@@ -204,23 +204,48 @@ services:
           sleep 2
         done
 
-        echo "[bootstrap] creating API token '$$GRAYLOG_TOKEN_NAME'..."
-        CREATE_JSON=$$(curl -s -u "$$GRAYLOG_ADMIN_USER:$$GRAYLOG_ADMIN_PASSWORD" \
+        # Graylog 6+ requires the admin user's UUID (not the username) in the
+        # token endpoint path, so look it up first.
+        USER_JSON=$$(curl -s -u "$$GRAYLOG_ADMIN_USER:$$GRAYLOG_ADMIN_PASSWORD" \
+                      -H 'X-Requested-By: bootstrap' \
+                      "http://graylog:9000/api/users/$$GRAYLOG_ADMIN_USER" || true)
+        USER_ID=$$(echo "$$USER_JSON" | jq -r '.id // empty' 2>/dev/null || true)
+        if [ -z "$$USER_ID" ]; then
+          echo "[bootstrap] failed to look up admin user id:" >&2
+          echo "$$USER_JSON" >&2
+          USER_ID="$$GRAYLOG_ADMIN_USER"   # fall back; may still work on older versions
+        fi
+
+        echo "[bootstrap] creating API token '$$GRAYLOG_TOKEN_NAME' for user $$USER_ID..."
+        CREATE_BODY=$$(curl -s -o /tmp/gl_create.json -w '%{http_code}' \
+                        -u "$$GRAYLOG_ADMIN_USER:$$GRAYLOG_ADMIN_PASSWORD" \
                         -H 'X-Requested-By: bootstrap' \
                         -H 'Content-Type: application/json' \
-                        -X POST "http://graylog:9000/api/users/$$GRAYLOG_ADMIN_USER/tokens/$$GRAYLOG_TOKEN_NAME" \
-                        -d '{}' || true)
-        TOKEN=$$(echo "$$CREATE_JSON" | jq -r '.token // empty' 2>/dev/null || true)
+                        -X POST "http://graylog:9000/api/users/$$USER_ID/tokens/$$GRAYLOG_TOKEN_NAME" \
+                        -d '{"token_ttl":"P90D"}' || true)
+        TOKEN=""
+        if [ "$$CREATE_BODY" = "200" ] || [ "$$CREATE_BODY" = "201" ]; then
+          TOKEN=$$(jq -r '.token // empty' </tmp/gl_create.json 2>/dev/null || true)
+        else
+          echo "[bootstrap] token POST returned HTTP $$CREATE_BODY:" >&2
+          cat /tmp/gl_create.json >&2 || true
+          echo >&2
+        fi
 
         if [ -z "$$TOKEN" ]; then
           # Token with that name may already exist — list them and pick it out.
           LIST_JSON=$$(curl -s -u "$$GRAYLOG_ADMIN_USER:$$GRAYLOG_ADMIN_PASSWORD" \
                         -H 'X-Requested-By: bootstrap' \
-                        "http://graylog:9000/api/users/$$GRAYLOG_ADMIN_USER/tokens" || true)
+                        "http://graylog:9000/api/users/$$USER_ID/tokens" || true)
           TOKEN=$$(echo "$$LIST_JSON" \
                    | jq -r ".tokens[]? | select(.name==\"$$GRAYLOG_TOKEN_NAME\") | .token" \
                    | head -n1)
+          if [ -z "$$TOKEN" ] && [ -n "$$LIST_JSON" ]; then
+            echo "[bootstrap] existing tokens list:" >&2
+            echo "$$LIST_JSON" >&2
+          fi
         fi
+        rm -f /tmp/gl_create.json
 
         printf '\n'
         printf '=====================================================\n'
