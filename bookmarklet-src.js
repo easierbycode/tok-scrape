@@ -3,7 +3,11 @@
   var ENDPOINT = 'https://script.google.com/macros/s/AKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG/exec';
   var TOKEN    = '**dingleding&&';
   // ---- Local Graylog GELF HTTP input (set to '' to disable) ----
+  // The `bookmarklet-sync` sidecar in docker-compose.yml rewrites
+  // GRAYLOG_ENDPOINT (ngrok public URL of the :12202 GELF tunnel) and
+  // GRAYLOG_TOKEN (admin API token) on every `docker compose up`.
   var GRAYLOG_ENDPOINT = 'http://localhost:12202/gelf';
+  var GRAYLOG_TOKEN    = '';
   var GRAYLOG_HOST     = 'tiktok-bookmarklet';
   // ----------------------------------------------------------------
 
@@ -153,7 +157,8 @@
       _metrics_count: metrics.length,
       _videos_count:  videos.length,
       _metrics_json:  JSON.stringify(metrics),
-      _videos_json:   JSON.stringify(videos)
+      _videos_json:   JSON.stringify(videos),
+      _graylog_key:   GRAYLOG_TOKEN
     };
     fetch(GRAYLOG_ENDPOINT, {
       method: 'POST',

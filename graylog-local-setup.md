@@ -175,15 +175,16 @@ If the WSL native stack is too heavy (or you'd rather not run three systemd serv
 
 Prereq: **Docker Desktop** (with WSL2 backend enabled) installed on Windows.
 
-### Recommended: one-command bring-up with public URL
+### One-command bring-up with public URLs
 
-`scripts/up.sh` brings up the stack, opens an **ngrok** public tunnel to the Graylog REST API (so the Cordova mobile app can hit it from a phone off-LAN), mints a Graylog API token, and prints both values.
+`docker compose up` brings up MongoDB + OpenSearch + Graylog, opens two **ngrok** tunnels (`graylog-api` → `:9000` and `graylog-gelf` → `:12202`), and then a one-shot `bookmarklet-sync` sidecar mints a Graylog admin API token, rewrites `bookmarklet-src.js` + `index.html` with the current GELF ngrok URL + token, and prints the mobile-app settings summary.
 
 ```bash
 # Free ngrok account + authtoken: https://dashboard.ngrok.com/get-started/your-authtoken
 export NGROK_AUTHTOKEN=2abc...xyz
 
-./scripts/up.sh
+docker compose up -d
+docker compose logs -f bookmarklet-sync    # Ctrl+C once you see the summary below
 ```
 
 You'll see something like:
@@ -193,25 +194,21 @@ You'll see something like:
  TokScrape / Graylog is up.
  Paste these into the mobile app Settings screen:
 =====================================================
-  Graylog URL:   https://<random>.ngrok-free.app
-  API token:     1abcd...xyz
-  Lucene query:  host:tiktok-bookmarklet
+  Graylog URL:    https://<random>.ngrok-free.app
+  API token:      1abcd...xyz
+  Lucene query:   host:tiktok-bookmarklet
 =====================================================
+
+Bookmarklet (GELF HTTP via ngrok):
+  GELF endpoint:  https://<other-random>.ngrok-free.app/gelf
+  Bookmarklet:    updated (index.html + bookmarklet-src.js)
 ```
 
-Paste those three values into the mobile app's Settings screen and hit Save. The URL rotates on every restart unless you have a paid ngrok reserved domain, so re-run the script after a reboot and re-paste the new URL.
+Paste the three mobile-app values into the app's Settings screen and hit Save. The bookmarklet is updated in place — open `index.html` and re-drag the **Log Key Metrics** link. Both ngrok URLs rotate on every restart unless you have paid reserved domains, so re-run `docker compose up -d` after a reboot.
 
-### Manual bring-up (no public URL)
+### GELF HTTP input (one-time)
 
-If you only need local access:
-
-```bash
-docker compose up -d
-# watch it come up:
-docker compose logs -f graylog    # Ctrl+C once you see "Graylog server up and running"
-```
-
-Then:
+The `bookmarklet-sync` sidecar does not create the GELF HTTP input for you — do it once via the UI:
 
 1. Open **http://localhost:9000** — log in as `admin` / `ChangeMeAdmin!` (the default SHA256 baked into the compose file).
 2. **System → Inputs → Select input → `GELF HTTP` → Launch new input**, bind `0.0.0.0`, port `12202`, check **Enable CORS**, Save.
@@ -222,8 +219,6 @@ Then:
      -H "Content-Type: application/json" `
      -d '{\"version\":\"1.1\",\"host\":\"test\",\"short_message\":\"hello graylog\"}'
    ```
-
-4. Plug `http://localhost:12202/gelf` into the bookmarklet's `GRAYLOG_ENDPOINT` (same as step 6 above).
 
 Port map exposed by the compose file:
 

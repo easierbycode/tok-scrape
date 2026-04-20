@@ -1,22 +1,24 @@
 # Graylog local stack for the TikTok Shop metrics bookmarklet.
 #
 # Usage (from this folder):
-#   # Recommended — brings up the stack, opens an ngrok tunnel, and prints
-#   # the public Graylog URL + API token for the mobile app:
-#   NGROK_AUTHTOKEN=<your-token> ./scripts/up.sh
-#
-#   # Or directly (no public URL, no token printed):
+#   export NGROK_AUTHTOKEN=<your-token>   # https://dashboard.ngrok.com/get-started/your-authtoken
 #   docker compose up -d
-#   # wait ~30-60s for Graylog to finish booting, then open:
-#   #   http://localhost:9000   (login: admin / ChangeMeAdmin!)
-#   #
-#   # Create input:  System -> Inputs -> GELF HTTP -> Launch new input
-#   #   Bind address 0.0.0.0, Port 12202, Enable CORS.
-#   #
-#   # Sanity check from the host:
-#   #   curl -v -XPOST http://localhost:12202/gelf \
-#   #     -H 'Content-Type: application/json' \
-#   #     -d '{"version":"1.1","host":"test","short_message":"hello graylog"}'
+#   docker compose logs -f bookmarklet-sync   # wait for the summary block
+#
+# The `bookmarklet-sync` sidecar waits for ngrok + Graylog, mints a Graylog
+# admin API token, rewrites bookmarklet-src.js + index.html with the current
+# GELF ngrok URL + token, then exits. It prints the public Graylog URL and
+# the API token to stdout (copy them into the mobile app Settings screen).
+#
+# You still need to create the GELF HTTP input once in the Graylog UI:
+#   http://localhost:9000  (login: admin / ChangeMeAdmin!)
+#   System -> Inputs -> GELF HTTP -> Launch new input
+#   Bind address 0.0.0.0, Port 12202, Enable CORS.
+#
+# Local sanity check:
+#   curl -v -XPOST http://localhost:12202/gelf \
+#     -H 'Content-Type: application/json' \
+#     -d '{"version":"1.1","host":"test","short_message":"hello graylog"}'
 #
 # Tear down (keeps volumes):
 #   docker compose down
@@ -119,10 +121,13 @@ services:
       - graylog_journal:/usr/share/graylog/data/journal
 
   ngrok:
-    # Exposes the Graylog REST API publicly so the Cordova mobile app can
-    # reach it from a phone outside the LAN. The public URL is assigned on
-    # every start (random unless you have a paid reserved domain), so the
-    # mobile app's Settings must be updated each time the stack restarts.
+    # Exposes Graylog publicly via two tunnels (defined in ./ngrok.yml):
+    #   graylog-api   -> graylog:9000  (REST API + web UI, for the mobile app)
+    #   graylog-gelf  -> graylog:12202 (GELF HTTP input, for the bookmarklet)
+    # Both URLs are random on every start (unless you have a paid reserved
+    # domain). The `bookmarklet-sync` sidecar below reads them from the local
+    # ngrok inspector API, injects the GELF URL + Graylog API token into
+    # bookmarklet-src.js, and re-encodes the bookmarklet href in index.html.
     #
     # Requires a free ngrok account: https://dashboard.ngrok.com/signup
     # Grab the authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
@@ -135,12 +140,34 @@ services:
       - graylog
     environment:
       NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN:?set NGROK_AUTHTOKEN (see https://dashboard.ngrok.com/get-started/your-authtoken)}"
-    # --host-header=rewrite makes ngrok forward with Host: graylog:9000 so
-    # Graylog's virtual-host checks (and any reverse-proxy assumptions)
-    # don't reject requests whose Host header is the random ngrok subdomain.
-    command: ["http", "--host-header=rewrite", "graylog:9000"]
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml:ro
+    command: ["start", "--all", "--config", "/etc/ngrok.yml"]
     ports:
-      - "4040:4040" # local inspector + API used by scripts/up.sh
+      - "4040:4040" # local inspector + API used by bookmarklet-sync
+
+  bookmarklet-sync:
+    # One-shot sidecar: waits for ngrok + Graylog, mints a Graylog admin API
+    # token, and rewrites bookmarklet-src.js + index.html in the mounted repo
+    # with the current GELF ngrok URL + token. Prints the mobile-app settings
+    # summary to stdout, then exits. See scripts/sync-bookmarklet.py.
+    image: python:3.12-alpine
+    container_name: graylog-bookmarklet-sync
+    depends_on:
+      - graylog
+      - ngrok
+    environment:
+      NGROK_API: "http://ngrok:4040/api/tunnels"
+      GRAYLOG_BASE: "http://graylog:9000"
+      GRAYLOG_ADMIN_USER: "admin"
+      GRAYLOG_ADMIN_PASSWORD: "ChangeMeAdmin!"
+      GRAYLOG_TOKEN_NAME: "mobile-app"
+      WORKSPACE: "/workspace"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    restart: "no"
+    command: ["python3", "/workspace/scripts/sync-bookmarklet.py"]
 
 volumes:
   mongodb_data:
