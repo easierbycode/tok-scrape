@@ -1,24 +1,24 @@
 # Graylog local stack for the TikTok Shop metrics bookmarklet.
 #
 # Usage (from this folder):
-#   # Put your ngrok authtoken in .env (or export it), then:
-#   #   NGROK_AUTHTOKEN=2abc...xyz  <-- .env
-#   docker compose up
+#   export NGROK_AUTHTOKEN=<your-token>   # https://dashboard.ngrok.com/get-started/your-authtoken
+#   docker compose up -d
+#   docker compose logs -f bookmarklet-sync   # wait for the summary block
 #
-#   # The `bootstrap` service runs last; once it finishes it prints the
-#   # public Graylog URL and an API token for the mobile app. If you ran
-#   # with `-d`, fetch the banner with:
-#   #   docker compose logs bootstrap
-#   #
-#   # Web UI (local LAN): http://localhost:9000   (login: admin / ChangeMeAdmin!)
-#   #
-#   # Create input:  System -> Inputs -> GELF HTTP -> Launch new input
-#   #   Bind address 0.0.0.0, Port 12202, Enable CORS.
-#   #
-#   # Sanity check from the host:
-#   #   curl -v -XPOST http://localhost:12202/gelf \
-#   #     -H 'Content-Type: application/json' \
-#   #     -d '{"version":"1.1","host":"test","short_message":"hello graylog"}'
+# The `bookmarklet-sync` sidecar waits for ngrok + Graylog, mints a Graylog
+# admin API token, rewrites bookmarklet-src.js + index.html with the current
+# GELF ngrok URL + token, then exits. It prints the public Graylog URL and
+# the API token to stdout (copy them into the mobile app Settings screen).
+#
+# You still need to create the GELF HTTP input once in the Graylog UI:
+#   http://localhost:9000  (login: admin / ChangeMeAdmin!)
+#   System -> Inputs -> GELF HTTP -> Launch new input
+#   Bind address 0.0.0.0, Port 12202, Enable CORS.
+#
+# Local sanity check:
+#   curl -v -XPOST http://localhost:12202/gelf \
+#     -H 'Content-Type: application/json' \
+#     -d '{"version":"1.1","host":"test","short_message":"hello graylog"}'
 #
 # Tear down (keeps volumes):
 #   docker compose down
@@ -121,10 +121,13 @@ services:
       - graylog_journal:/usr/share/graylog/data/journal
 
   ngrok:
-    # Exposes the Graylog REST API publicly so the Cordova mobile app can
-    # reach it from a phone outside the LAN. The public URL is assigned on
-    # every start (random unless you have a paid reserved domain), so the
-    # mobile app's Settings must be updated each time the stack restarts.
+    # Exposes Graylog publicly via two tunnels (defined in ./ngrok.yml):
+    #   graylog-api   -> graylog:9000  (REST API + web UI, for the mobile app)
+    #   graylog-gelf  -> graylog:12202 (GELF HTTP input, for the bookmarklet)
+    # Both URLs are random on every start (unless you have a paid reserved
+    # domain). The `bookmarklet-sync` sidecar below reads them from the local
+    # ngrok inspector API, injects the GELF URL + Graylog API token into
+    # bookmarklet-src.js, and re-encodes the bookmarklet href in index.html.
     #
     # Requires a free ngrok account: https://dashboard.ngrok.com/signup
     # Grab the authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
@@ -137,129 +140,34 @@ services:
       - graylog
     environment:
       NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN:?set NGROK_AUTHTOKEN (see https://dashboard.ngrok.com/get-started/your-authtoken)}"
-    # --host-header=rewrite makes ngrok forward with Host: graylog:9000 so
-    # Graylog's virtual-host checks (and any reverse-proxy assumptions)
-    # don't reject requests whose Host header is the random ngrok subdomain.
-    command: ["http", "--host-header=rewrite", "graylog:9000"]
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml:ro
+    command: ["start", "--all", "--config", "/etc/ngrok.yml"]
     ports:
-      - "4040:4040" # local inspector + API queried by the bootstrap service
+      - "4040:4040" # local inspector + API used by bookmarklet-sync
 
-  bootstrap:
-    # One-shot helper that runs after graylog + ngrok come up. It:
-    #   1. Polls the ngrok inspector API for the public https URL.
-    #   2. Polls Graylog until the REST API accepts admin auth.
-    #   3. Creates (or reuses) a long-lived API token on the admin user.
-    #   4. Prints a banner with the public URL + token so you can paste
-    #      them into the mobile app's Settings screen.
-    #
-    # Logic lives inline here (not in a mounted shell script) so Windows
-    # CRLF line endings on the host can't break it. The container runs
-    # Linux with LF and restarts on failure are disabled.
-    image: alpine:3.19
-    container_name: graylog-bootstrap
-    restart: "no"
+  bookmarklet-sync:
+    # One-shot sidecar: waits for ngrok + Graylog, mints a Graylog admin API
+    # token, and rewrites bookmarklet-src.js + index.html in the mounted repo
+    # with the current GELF ngrok URL + token. Prints the mobile-app settings
+    # summary to stdout, then exits. See scripts/sync-bookmarklet.py.
+    image: python:3.12-alpine
+    container_name: graylog-bookmarklet-sync
     depends_on:
-      graylog:
-        condition: service_started
-      ngrok:
-        condition: service_started
+      - graylog
+      - ngrok
     environment:
+      NGROK_API: "http://ngrok:4040/api/tunnels"
+      GRAYLOG_BASE: "http://graylog:9000"
       GRAYLOG_ADMIN_USER: "admin"
       GRAYLOG_ADMIN_PASSWORD: "ChangeMeAdmin!"
       GRAYLOG_TOKEN_NAME: "mobile-app"
-    # Dollar signs that should be shell variables (not compose interpolation)
-    # are doubled as `$$`. `jq` and `curl` are installed at run time so we
-    # don't need a custom image.
-    entrypoint: ["/bin/sh", "-eu", "-c"]
-    command:
-      - |
-        apk add --no-cache curl jq >/dev/null
-
-        echo "[bootstrap] waiting for ngrok tunnel..."
-        URL=""
-        i=0
-        while [ $$i -lt 60 ]; do
-          URL=$$(curl -sf http://ngrok:4040/api/tunnels 2>/dev/null \
-                 | jq -r '.tunnels[]? | select(.proto=="https") | .public_url' \
-                 | head -n1 || true)
-          if [ -n "$$URL" ] && [ "$$URL" != "null" ]; then break; fi
-          URL=""
-          i=$$((i + 1))
-          sleep 2
-        done
-        if [ -z "$$URL" ]; then
-          echo "[bootstrap] ngrok tunnel never came up - see 'docker compose logs ngrok'" >&2
-          exit 1
-        fi
-
-        echo "[bootstrap] waiting for Graylog API..."
-        i=0
-        while [ $$i -lt 180 ]; do
-          if curl -sf -u "$$GRAYLOG_ADMIN_USER:$$GRAYLOG_ADMIN_PASSWORD" \
-               -H 'X-Requested-By: bootstrap' \
-               http://graylog:9000/api/system/lbstatus >/dev/null 2>&1; then
-            break
-          fi
-          i=$$((i + 1))
-          sleep 2
-        done
-
-        # Graylog 6+ requires the admin user's UUID (not the username) in the
-        # token endpoint path, so look it up first.
-        USER_JSON=$$(curl -s -u "$$GRAYLOG_ADMIN_USER:$$GRAYLOG_ADMIN_PASSWORD" \
-                      -H 'X-Requested-By: bootstrap' \
-                      "http://graylog:9000/api/users/$$GRAYLOG_ADMIN_USER" || true)
-        USER_ID=$$(echo "$$USER_JSON" | jq -r '.id // empty' 2>/dev/null || true)
-        if [ -z "$$USER_ID" ]; then
-          echo "[bootstrap] failed to look up admin user id:" >&2
-          echo "$$USER_JSON" >&2
-          USER_ID="$$GRAYLOG_ADMIN_USER"   # fall back; may still work on older versions
-        fi
-
-        echo "[bootstrap] creating API token '$$GRAYLOG_TOKEN_NAME' for user $$USER_ID..."
-        CREATE_BODY=$$(curl -s -o /tmp/gl_create.json -w '%{http_code}' \
-                        -u "$$GRAYLOG_ADMIN_USER:$$GRAYLOG_ADMIN_PASSWORD" \
-                        -H 'X-Requested-By: bootstrap' \
-                        -H 'Content-Type: application/json' \
-                        -X POST "http://graylog:9000/api/users/$$USER_ID/tokens/$$GRAYLOG_TOKEN_NAME" \
-                        -d '{"token_ttl":"P90D"}' || true)
-        TOKEN=""
-        if [ "$$CREATE_BODY" = "200" ] || [ "$$CREATE_BODY" = "201" ]; then
-          TOKEN=$$(jq -r '.token // empty' </tmp/gl_create.json 2>/dev/null || true)
-        else
-          echo "[bootstrap] token POST returned HTTP $$CREATE_BODY:" >&2
-          cat /tmp/gl_create.json >&2 || true
-          echo >&2
-        fi
-
-        if [ -z "$$TOKEN" ]; then
-          # Token with that name may already exist — list them and pick it out.
-          LIST_JSON=$$(curl -s -u "$$GRAYLOG_ADMIN_USER:$$GRAYLOG_ADMIN_PASSWORD" \
-                        -H 'X-Requested-By: bootstrap' \
-                        "http://graylog:9000/api/users/$$USER_ID/tokens" || true)
-          TOKEN=$$(echo "$$LIST_JSON" \
-                   | jq -r ".tokens[]? | select(.name==\"$$GRAYLOG_TOKEN_NAME\") | .token" \
-                   | head -n1)
-          if [ -z "$$TOKEN" ] && [ -n "$$LIST_JSON" ]; then
-            echo "[bootstrap] existing tokens list:" >&2
-            echo "$$LIST_JSON" >&2
-          fi
-        fi
-        rm -f /tmp/gl_create.json
-
-        printf '\n'
-        printf '=====================================================\n'
-        printf ' TokScrape / Graylog is up.\n'
-        printf ' Paste these into the mobile app Settings screen:\n'
-        printf '=====================================================\n'
-        printf '  Graylog URL:   %s\n' "$$URL"
-        printf '  API token:     %s\n' "$${TOKEN:-<token creation failed>}"
-        printf '  Lucene query:  host:tiktok-bookmarklet\n'
-        printf '=====================================================\n'
-        printf '\n'
-        printf 'Local URLs:\n'
-        printf '  Web UI + API:  http://localhost:9000   (login %s / %s)\n' "$$GRAYLOG_ADMIN_USER" "$$GRAYLOG_ADMIN_PASSWORD"
-        printf '  GELF HTTP in:  http://localhost:12202/gelf\n\n'
+      WORKSPACE: "/workspace"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    restart: "no"
+    command: ["python3", "/workspace/scripts/sync-bookmarklet.py"]
 
 volumes:
   mongodb_data:
