@@ -7,11 +7,14 @@
   <title>TokScrape Dashboard</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
-<body>
+<body data-route="home">
   <header class="topbar">
-    <div class="brand">
+    <div class="topbar-main">
       <span class="dot"></span>
-      <span>TokScrape</span>
+      <div class="topbar-copy">
+        <span class="brand-text">Tok<span class="brand-text-accent">Scrape</span></span>
+        <h1 class="title">Dashboard</h1>
+      </div>
     </div>
     <div class="actions">
       <select id="rangeSel" aria-label="Time range">
@@ -21,8 +24,18 @@
         <option value="2592000">Last 30d</option>
         <option value="0">All time</option>
       </select>
-      <button id="refreshBtn" class="btn" title="Refresh">&#x21bb;</button>
-      <button id="settingsBtn" class="btn" title="Settings">&#9881;</button>
+      <button id="refreshBtn" class="btn btn-icon" title="Refresh" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+          <path d="M21 3v6h-6"></path>
+        </svg>
+      </button>
+      <button id="settingsBtn" class="btn btn-icon" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.21 7.2a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .66.39 1.26 1 1.51.16.06.33.09.51.09H21a2 2 0 0 1 0 4h-.09c-.18 0-.35.03-.51.09-.61.25-1 .85-1 1.51z"></path>
+        </svg>
+      </button>
 
       <!-- User menu (dropdown; items populated by app.js based on role) -->
       <div class="user-menu">
@@ -45,7 +58,7 @@
   </div>
 
   <main id="dashboard" class="grid">
-    <section class="card kpi">
+    <section class="card kpi" id="overviewSection">
       <div class="kpi-row">
         <div class="kpi-cell"><div class="kpi-label">Scrapes</div><div class="kpi-val" id="kpiScrapes">&mdash;</div></div>
         <div class="kpi-cell"><div class="kpi-label" id="kpiCreatorsLabel">Creators</div><div class="kpi-val" id="kpiCreators">&mdash;</div></div>
@@ -54,13 +67,13 @@
       </div>
     </section>
 
-    <section class="card chart"><h2>Affiliate GMV over time</h2><div id="chartGmv"></div></section>
+    <section class="card chart" id="campaignsSection"><h2>Affiliate GMV over time</h2><div id="chartGmv"></div></section>
     <section class="card chart"><h2>Items sold over time</h2><div id="chartItems"></div></section>
     <section class="card chart"><h2>Top videos by GMV</h2><div id="chartTopGmv"></div></section>
     <section class="card chart"><h2>Top videos by views</h2><div id="chartTopViews"></div></section>
     <section class="card chart" id="creatorsCard"><h2 id="creatorsChartTitle">Scrapes per creator</h2><div id="chartCreators"></div></section>
 
-    <section class="card">
+    <section class="card" id="goalsSection">
       <h2>Recent scrapes</h2>
       <div class="tablewrap">
         <table id="scrapesTable">
@@ -72,6 +85,51 @@
       </div>
     </section>
   </main>
+
+  <nav class="bottomnav" aria-label="Dashboard navigation">
+    <div class="bottomnav-inner">
+      <button type="button" class="item" data-route="home" aria-label="Go to Home">
+        <span class="nav-chip" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M3 10.5 12 3l9 7.5"></path>
+            <path d="M5 9.9V21h14V9.9"></path>
+          </svg>
+        </span>
+        <span class="nav-label">Home</span>
+      </button>
+      <button type="button" class="item" data-route="campaigns" aria-label="Go to Campaigns">
+        <span class="nav-chip" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 19h16"></path>
+            <path d="M7 16V9"></path>
+            <path d="M12 16V5"></path>
+            <path d="M17 16v-3"></path>
+          </svg>
+        </span>
+        <span class="nav-label">Campaigns</span>
+      </button>
+      <button type="button" class="item" data-route="goals" aria-label="Go to Goals">
+        <span class="nav-chip" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8"></circle>
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 4v4"></path>
+            <path d="M20 12h-4"></path>
+          </svg>
+        </span>
+        <span class="nav-label">Goals</span>
+      </button>
+      <button type="button" class="item" data-route="profile" aria-label="Open Profile">
+        <span class="nav-chip" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M20 21a8 8 0 0 0-16 0"></path>
+            <circle cx="12" cy="8" r="4"></circle>
+          </svg>
+        </span>
+        <span class="nav-label">Profile</span>
+      </button>
+    </div>
+  </nav>
 
   <div id="emptyState" class="empty hidden">
     <h2>No data yet</h2>

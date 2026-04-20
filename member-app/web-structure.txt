@@ -1,0 +1,215 @@
+web
+├── app
+│   ├── (marketing)
+│   │   └── [locale]
+│   ├── (saas)
+│   │   ├── app
+│   │   ├── choose-plan
+│   │   ├── layout.tsx
+│   │   ├── new-organization
+│   │   ├── onboarding
+│   │   └── organization-invitation
+│   ├── api
+│   │   ├── [[...rest]]
+│   │   └── docs-search
+│   ├── auth
+│   │   ├── forgot-password
+│   │   ├── layout.tsx
+│   │   ├── login
+│   │   ├── reset-password
+│   │   ├── signup
+│   │   └── verify
+│   ├── docs-source.ts
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── icon.png
+│   ├── image-proxy
+│   │   └── [...path]
+│   ├── layout.tsx
+│   ├── robots.ts
+│   └── sitemap.ts
+├── biome.json
+├── components.json
+├── content
+│   ├── docs
+│   │   ├── getting-started
+│   │   ├── index.de.mdx
+│   │   ├── index.mdx
+│   │   └── meta.json
+│   ├── legal
+│   │   ├── privacy-policy.de.md
+│   │   ├── privacy-policy.md
+│   │   ├── terms.de.md
+│   │   └── terms.md
+│   └── posts
+│       ├── first-post.de.mdx
+│       ├── first-post.mdx
+│       └── second-post.mdx
+├── content-collections.ts
+├── global.d.ts
+├── modules
+│   ├── analytics
+│   │   ├── index.tsx
+│   │   └── provider
+│   ├── i18n
+│   │   ├── lib
+│   │   ├── request.ts
+│   │   └── routing.ts
+│   ├── marketing
+│   │   ├── blog
+│   │   ├── changelog
+│   │   ├── home
+│   │   └── shared
+│   ├── saas
+│   │   ├── admin
+│   │   ├── ai
+│   │   ├── auth
+│   │   ├── onboarding
+│   │   ├── organizations
+│   │   ├── payments
+│   │   ├── settings
+│   │   ├── shared
+│   │   └── start
+│   ├── shared
+│   │   ├── components
+│   │   ├── hooks
+│   │   └── lib
+│   └── ui
+│       ├── components
+│       └── lib
+├── next-env.d.ts
+├── next.config.ts
+├── node_modules
+│   ├── @ai-sdk
+│   │   └── react
+│   ├── @aws-sdk
+│   │   └── client-s3
+│   ├── @biomejs
+│   │   └── biome
+│   ├── @bprogress
+│   │   └── next
+│   ├── @content-collections
+│   │   ├── core
+│   │   ├── mdx
+│   │   └── next
+│   ├── @fumadocs
+│   │   └── content-collections
+│   ├── @hookform
+│   │   └── resolvers
+│   ├── @mdx-js
+│   │   └── mdx
+│   ├── @next
+│   │   └── third-parties
+│   ├── @orpc
+│   │   ├── client
+│   │   └── tanstack-query
+│   ├── @playwright
+│   │   └── test
+│   ├── @prisma
+│   │   └── nextjs-monorepo-workaround-plugin
+│   ├── @radix-ui
+│   │   ├── react-accordion
+│   │   ├── react-alert-dialog
+│   │   ├── react-avatar
+│   │   ├── react-dialog
+│   │   ├── react-dropdown-menu
+│   │   ├── react-icons
+│   │   ├── react-label
+│   │   ├── react-progress
+│   │   ├── react-select
+│   │   ├── react-slot
+│   │   ├── react-tabs
+│   │   └── react-tooltip
+│   ├── @repo
+│   │   ├── api
+│   │   ├── auth
+│   │   ├── config
+│   │   ├── database
+│   │   ├── i18n
+│   │   ├── logs
+│   │   ├── mail
+│   │   ├── payments
+│   │   ├── storage
+│   │   ├── tailwind-config
+│   │   ├── tsconfig
+│   │   └── utils
+│   ├── @shikijs
+│   │   └── rehype
+│   ├── @sindresorhus
+│   │   └── slugify
+│   ├── @tailwindcss
+│   │   └── postcss
+│   ├── @tanstack
+│   │   ├── react-query
+│   │   └── react-table
+│   ├── @types
+│   │   ├── js-cookie
+│   │   ├── mdx
+│   │   ├── node
+│   │   ├── nprogress
+│   │   ├── react
+│   │   ├── react-dom
+│   │   └── uuid
+│   ├── ai
+│   ├── autoprefixer
+│   ├── better-auth
+│   ├── boring-avatars
+│   ├── class-variance-authority
+│   ├── clsx
+│   ├── cropperjs
+│   ├── date-fns
+│   ├── deepmerge
+│   ├── dotenv
+│   ├── es-toolkit
+│   ├── fumadocs-core
+│   ├── fumadocs-ui
+│   ├── hono
+│   ├── input-otp
+│   ├── js-cookie
+│   ├── lucide-react
+│   ├── mdx
+│   ├── mdx-bundler
+│   ├── next
+│   ├── next-intl
+│   ├── next-themes
+│   ├── nprogress
+│   ├── nuqs
+│   ├── oslo
+│   ├── pg
+│   ├── postcss
+│   ├── prettier
+│   ├── react
+│   ├── react-cropper
+│   ├── react-dom
+│   ├── react-dropzone
+│   ├── react-hook-form
+│   ├── react-qr-code
+│   ├── server-only
+│   ├── sharp
+│   ├── slugify
+│   ├── sonner
+│   ├── start-server-and-test
+│   ├── tailwind-merge
+│   ├── tailwindcss
+│   ├── typescript
+│   ├── ufo
+│   ├── usehooks-ts
+│   ├── uuid
+│   └── zod
+├── package.json
+├── playwright.config.ts
+├── postcss.config.cjs
+├── proxy.ts
+├── public
+│   └── images
+│       ├── blog
+│       ├── docs
+│       ├── hero-dark.svg
+│       ├── hero-image-dark.png
+│       ├── hero-image.png
+│       ├── hero.svg
+│       ├── supastarter-logo-dark.svg
+│       └── supastarter-logo-light.svg
+├── tests
+│   └── home.spec.ts
+└── tsconfig.json

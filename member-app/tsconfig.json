@@ -1,0 +1,7 @@
+{
+	"extends": "@repo/tsconfig/base.json",
+	"compilerOptions": {
+		"noEmit": true
+	},
+	"exclude": ["node_modules", "dist", ".next", "build", "docs"]
+}

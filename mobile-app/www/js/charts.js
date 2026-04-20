@@ -44,30 +44,48 @@
 
   // ---- Highcharts global theme ----------------------------------------
 
+  function cssVar(name, fallback) {
+    var value = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return value ? value.trim() : fallback;
+  }
+
   function applyTheme() {
     if (!global.Highcharts) return;
     Highcharts.setOptions({
-      colors: ['#2ddfb1', '#4a8bff', '#ff7a59', '#c084fc', '#f5d142', '#ff5d8f', '#22d3ee'],
+      colors: [
+        cssVar('--primary', '#f54e00'),
+        cssVar('--secondary', '#24243a'),
+        cssVar('--success', '#39a561'),
+        cssVar('--warning', '#fbbf24'),
+        cssVar('--destructive', '#ef4444'),
+        cssVar('--accent', '#aeadad')
+      ],
       chart: {
         backgroundColor: 'transparent',
-        style: { fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, sans-serif' },
+        style: { fontFamily: cssVar('--font-sans', '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif') },
         spacing: [10, 8, 10, 8]
       },
       title: { text: '' },
       credits: { enabled: false },
-      legend: { itemStyle: { color: '#e6ecff' }, itemHoverStyle: { color: '#fff' } },
+      legend: {
+        itemStyle: { color: cssVar('--foreground', '#f2f1ed') },
+        itemHoverStyle: { color: cssVar('--foreground', '#ffffff') }
+      },
       xAxis: {
-        labels: { style: { color: '#8aa0c6' } },
-        lineColor: '#243456', tickColor: '#243456', gridLineColor: '#243456'
+        labels: { style: { color: cssVar('--muted-foreground', 'rgba(242,241,237,.6)') } },
+        lineColor: cssVar('--border', 'rgba(242,241,237,.1)'),
+        tickColor: cssVar('--border', 'rgba(242,241,237,.1)'),
+        gridLineColor: cssVar('--border', 'rgba(242,241,237,.1)')
       },
       yAxis: {
-        labels: { style: { color: '#8aa0c6' } },
-        gridLineColor: '#243456', title: { style: { color: '#8aa0c6' } }
+        labels: { style: { color: cssVar('--muted-foreground', 'rgba(242,241,237,.6)') } },
+        gridLineColor: cssVar('--border', 'rgba(242,241,237,.1)'),
+        title: { style: { color: cssVar('--muted-foreground', 'rgba(242,241,237,.6)') } }
       },
       tooltip: {
-        backgroundColor: '#111a2e',
-        style: { color: '#e6ecff' },
-        borderColor: '#243456'
+        backgroundColor: cssVar('--card', '#232220'),
+        style: { color: cssVar('--foreground', '#f2f1ed') },
+        borderColor: cssVar('--border', 'rgba(242,241,237,.1)')
       },
       plotOptions: {
         series: { animation: { duration: 300 } },
@@ -210,7 +228,12 @@
           name: 'Scrapes',
           innerSize: '55%',
           data: data,
-          dataLabels: { style: { color: '#e6ecff', textOutline: 'none' } }
+          dataLabels: {
+            style: {
+              color: cssVar('--foreground', '#f2f1ed'),
+              textOutline: 'none'
+            }
+          }
         }]
       });
       return;

@@ -1,0 +1,993 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider   = "prisma-client"
+  output     = "./generated"
+  engineType = "client"
+}
+
+generator zod {
+  provider = "prisma-zod-generator"
+  output   = "./zod"
+  config   = "./zod-generator.config.json"
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  name               String
+  email              String
+  emailVerified      Boolean
+  image              String?
+  createdAt          DateTime
+  updatedAt          DateTime
+  username           String?
+  role               String?
+  banned             Boolean?
+  banReason          String?
+  banExpires         DateTime?
+  onboardingComplete Boolean   @default(false)
+  paymentsCustomerId String?
+  locale             String?
+  displayUsername    String?
+  twoFactorEnabled   Boolean?
+
+  // Discord Integration (Phase 1)
+  discordId          String?   @unique @map("discord_id")
+  discordUsername    String?   @map("discord_username")
+  discordConnected   Boolean   @default(false) @map("discord_connected")
+  discordConnectedAt DateTime? @map("discord_connected_at")
+  discordRoleKey     String?   @map("discord_role_key")
+
+  // Discord Ban System (Phase 4)
+  discordBanned      Boolean   @default(false) @map("discord_banned")
+  discordBannedAt    DateTime? @map("discord_banned_at")
+  discordBannedBy    String?   @map("discord_banned_by") // Admin user ID
+  discordBanReason    String?   @map("discord_ban_reason")
+
+  // Email management
+  stripeEmail       String? @map("stripe_email")
+  notificationEmail String? @map("notification_email")
+
+  // Referral Tracking (Phase 1)
+  referredBy     String? @map("referred_by")
+  referredBySlug String? @map("referred_by_slug")
+  referralSource String? @map("referral_source")
+
+  // Beta Feature Flags
+  betaFeatures String[] @default([]) @map("beta_features")
+
+  // GDPR Compliance Fields
+  deletedAt        DateTime? @map("deleted_at")
+  deletedBy        String?   @map("deleted_by")
+  deletionReason   String?   @map("deletion_reason")
+  scheduledPurgeAt DateTime? @map("scheduled_purge_at")
+  dataRetentionUntil DateTime? @map("data_retention_until")
+
+  // Relations
+  sessions    Session[]
+  accounts    Account[]
+  passkeys    Passkey[]
+  invitations Invitation[]
+  purchases   Purchase[]
+  members     Member[]
+  twofactors  TwoFactor[]
+  aiChats     AiChat[]
+  loginTokens LoginToken[]
+
+  // Phase 2 Relations
+  auditLogs                 AuditLog[]                 @relation("AdminActions")
+  notifications             Notification[]             @relation("UserNotifications")
+  affiliateProfile          Affiliate?                 @relation("UserAffiliate")
+  videoProgress             VideoProgress[]
+  announcementViews         GlobalAnnouncementView[]   @relation("UserAnnouncementViews")
+  communityAnnouncementViews AnnouncementView[]        @relation("UserCommunityAnnouncementViews")
+  discordAudits             DiscordAudit[]
+  pendingDiscordInvites     PendingDiscordInvite[]     @relation("PrimaryUserInvites")
+  additionalDiscordAccounts AdditionalDiscordAccount[] @relation("AdditionalDiscordAccounts")
+  emailHistory              UserEmailHistory[]          @relation("UserEmailHistory")
+  creditBalance             CreditBalance?              @relation("UserCreditBalance")
+  creditTransactions        CreditTransaction[]         @relation("UserCreditTransactions")
+  discordMessageTemplatesUpdated DiscordMessageTemplate[] @relation("DiscordMessageTemplateUpdatedBy")
+
+  // TikTok Agency Dashboard
+  tiktokAccounts            TiktokAccount[]             @relation("UserTiktokAccounts")
+  goals                     Goal[]                      @relation("UserGoals")
+  campaignEnrollments       CampaignEnrollment[]        @relation("UserCampaignEnrollments")
+  @@unique([email])
+  @@unique([username])
+  @@index([deletedAt])
+  @@index([scheduledPurgeAt])
+  @@index([role])
+  @@index([banned])
+  @@index([discordConnected])
+  @@index([paymentsCustomerId])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  impersonatedBy String?
+
+  activeOrganizationId String?
+
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+
+  @@unique([token])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+model Account {
+  id           String    @id @default(cuid())
+  accountId    String
+  providerId   String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String?   @db.Text
+  refreshToken String?   @db.Text
+  idToken      String?   @db.Text
+  expiresAt    DateTime?
+  password     String?
+
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@index([userId])
+  @@index([providerId, accountId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime
+
+  createdAt DateTime?
+  updatedAt DateTime?
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("verification")
+}
+
+model Passkey {
+  id           String    @id @default(cuid())
+  name         String?
+  publicKey    String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  aaguid       String?
+  createdAt    DateTime?
+
+  @@map("passkey")
+}
+
+model TwoFactor {
+  id          String @id @default(cuid())
+  secret      String
+  backupCodes String
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("twoFactor")
+}
+
+model Organization {
+  id                 String       @id @default(cuid())
+  name               String
+  slug               String?
+  logo               String?
+  createdAt          DateTime
+  metadata           String?
+  paymentsCustomerId String?
+  members            Member[]
+  invitations        Invitation[]
+  purchases          Purchase[]
+  aiChats            AiChat[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime
+
+  @@unique([organizationId, userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
+
+enum PurchaseType {
+  SUBSCRIPTION
+  ONE_TIME
+}
+
+enum AuditAction {
+  // User Management
+  GRANT_ACCESS
+  REVOKE_ACCESS
+  ASSIGN_ROLE
+  CREATE_USER
+  DELETE_USER
+  IMPERSONATE_USER
+  STOP_IMPERSONATION
+
+  // Subscription Management
+  CANCEL_SUBSCRIPTION
+  APPLY_COUPON
+  APPLY_CREDIT
+  CHANGE_PLAN
+  EXTEND_TRIAL
+
+  // Content Management
+  CREATE_ANNOUNCEMENT
+  UPDATE_ANNOUNCEMENT
+  DELETE_ANNOUNCEMENT
+  CREATE_GLOBAL_ANNOUNCEMENT
+  UPDATE_GLOBAL_ANNOUNCEMENT
+  CREATE_NOTIFICATION
+
+  // Beta Feature Management
+  GRANT_BETA_ACCESS
+  UPDATE_BETA_ACCESS
+
+  // User Profile Changes
+  UPDATE_EMAIL
+
+  // Data & affiliate ops
+  EXPORT_USER_DATA
+  RESTORE_USER
+  LINK_AFFILIATE
+  UNLINK_AFFILIATE
+  SYNC_STRIPE
+  GRANT_FREE_MONTHS
+  CONVERT_TO_PAID
+
+  // System
+  SYSTEM_ACTION
+}
+
+model Purchase {
+  id             String        @id @default(cuid())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String?
+  type           PurchaseType
+  customerId     String
+  subscriptionId String?       @unique
+  productId      String
+  status         String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Subscription Lifecycle (Phase 1)
+  currentPeriodEnd  DateTime? @map("current_period_end")
+  cancelAtPeriodEnd Boolean   @default(false) @map("cancel_at_period_end")
+  cancelledAt       DateTime? @map("cancelled_at")
+  trialEnd          DateTime? @map("trial_end")
+
+  // Referral Tracking (Phase 1)
+  referralCode        String? @map("referral_code")
+  rewardfulReferralId String? @map("rewardful_referral_id")
+
+  // Cached Stripe Data (synced daily via cron)
+  cachedAmount          Int?      @map("cached_amount") // Amount in cents after discounts
+  cachedInterval        String?   @map("cached_interval") // "month" or "year"
+  cachedCouponId        String?   @map("cached_coupon_id")
+  cachedCouponName      String?   @map("cached_coupon_name")
+  cachedDiscountPercent Int?      @map("cached_discount_percent")
+  stripeSyncedAt        DateTime? @map("stripe_synced_at")
+
+  // Subscription Schedule / Pending Plan Change
+  scheduleId          String?   @map("schedule_id")
+  pendingPriceId      String?   @map("pending_price_id")
+  pendingPlanName     String?   @map("pending_plan_name")
+  pendingPlanChangeAt DateTime? @map("pending_plan_change_at")
+
+  // Financial Retention
+  deletedAt               DateTime? @map("deleted_at")
+  financialRetentionUntil DateTime? @map("financial_retention_until")
+
+  @@index([subscriptionId])
+  @@index([userId, status])
+  @@index([referralCode])
+  @@index([rewardfulReferralId])
+  @@index([scheduleId])
+  @@index([financialRetentionUntil])
+  @@map("purchase")
+}
+
+model AiChat {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String?
+  /// [ChatMessages]
+  messages       Json          @default("[]")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("ai_chat")
+}
+
+// Webhook Idempotency (Phase 1)
+model WebhookEvent {
+  id        String   @id // Stripe event ID (e.g., evt_xxx)
+  type      String // Event type (e.g., invoice.paid)
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([type, createdAt])
+  @@map("webhook_event")
+}
+
+// Phase 2: Database Models
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  adminUserId String      @map("admin_user_id")
+  action      AuditAction
+  targetType  String      @map("target_type") // "user", "subscription", "announcement"
+  targetId    String      @map("target_id")
+  metadata    Json? // Additional context
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  adminUser User @relation("AdminActions", fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([adminUserId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
+  @@index([createdAt]) // For date-range queries
+  @@map("audit_log")
+}
+
+model UserEmailHistory {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  oldEmail    String   @map("old_email")
+  newEmail    String   @map("new_email")
+  confirmed   Boolean  @default(false)
+  confirmedAt DateTime? @map("confirmed_at")
+  changedBy   String?  @map("changed_by") // admin userId if changed by admin, null if self-service
+  reason      String?  // optional note
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation("UserEmailHistory", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("user_email_history")
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  type        String // "info", "success", "warning", "error"
+  title       String
+  message     String
+  read        Boolean   @default(false)
+  readAt      DateTime? @map("read_at")
+  dismissedAt DateTime? @map("dismissed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([userId, read, createdAt])
+  @@index([createdAt]) // For sorting
+  @@index([read]) // For unread count
+  @@map("notification")
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  content     String    @db.Text
+  type        String // "info", "feature", "maintenance", "alert"
+  priority    String    @default("normal") // "low", "normal", "high", "urgent"
+  publishedAt DateTime? @map("published_at")
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  views AnnouncementView[]
+
+  @@index([publishedAt, expiresAt])
+  @@map("announcement")
+}
+
+model AnnouncementView {
+  id             String   @id @default(cuid())
+  announcementId String   @map("announcement_id")
+  userId         String   @map("user_id")
+  readAt         DateTime @default(now()) @map("read_at")
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation("UserCommunityAnnouncementViews", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([userId, readAt])
+  @@map("announcement_view")
+}
+
+model GlobalAnnouncement {
+  id       String  @id @default(cuid())
+  type     String // "site-wide" or "onboarding"
+  title    String
+  content  String  @db.Text
+  enabled  Boolean @default(false)
+  priority String  @default("normal") // "urgent", "important", "normal"
+
+  // Tracking
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdBy  String?  @map("created_by")
+  lastEditBy String?  @map("last_edit_by")
+
+  // Relations
+  views GlobalAnnouncementView[]
+
+  @@index([type, enabled])
+  @@map("global_announcement")
+}
+
+model GlobalAnnouncementView {
+  id             String    @id @default(cuid())
+  announcementId String    @map("announcement_id")
+  userId         String    @map("user_id")
+  viewedAt       DateTime  @default(now()) @map("viewed_at")
+  dismissed      Boolean   @default(false)
+  dismissedAt    DateTime? @map("dismissed_at")
+
+  // Relations
+  announcement GlobalAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User               @relation("UserAnnouncementViews", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([userId, dismissed])
+  @@map("global_announcement_view")
+}
+
+model ContentVideo {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  category     String // "getting-started", "advanced", "case-studies", "tools"
+  duration     Int // seconds
+  videoUrl     String   @map("video_url") // Vimeo/placeholder URL
+  thumbnailUrl String   @map("thumbnail_url")
+  orderIndex   Int      @map("order_index") // Display order within category
+  published    Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  videoProgress VideoProgress[]
+
+  @@index([category, orderIndex])
+  @@index([published])
+  @@map("content_video")
+}
+
+model VideoProgress {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  videoId   String   @map("video_id")
+  progress  Int      @default(0) // Seconds watched
+  completed Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video ContentVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+  @@map("video_progress")
+}
+
+model Affiliate {
+  id          String @id @default(cuid())
+  userId      String @unique @map("user_id")
+  rewardfulId String @unique @map("rewardful_id")
+  slug           String  @unique
+  primaryLinkUrl String? @map("primary_link_url")
+  status         String  // "active", "pending", "inactive"
+
+  // Metrics from Rewardful list endpoint
+  visitors    Int @default(0)
+  leads       Int @default(0)
+  conversions Int @default(0)
+
+  // Commission breakdown (in cents)
+  commissionsEarned  Int @default(0) @map("commissions_earned")
+  commissionsPending Int @default(0) @map("commissions_pending")
+  commissionsPaid    Int @default(0) @map("commissions_paid")
+
+  // Sync metadata
+  lastSyncAt    DateTime? @map("last_sync_at")
+  lastSyncError String?   @map("last_sync_error")
+  syncStatus    String    @default("never_synced") @map("sync_status") // "never_synced", "synced", "error"
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation("UserAffiliate", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([userId])
+  @@index([rewardfulId])
+  @@index([slug])
+  @@index([lastSyncAt])
+  @@map("affiliate")
+}
+
+model BetaFeature {
+  id                   String    @id // Feature ID like "fullAffiliateDashboard"
+  name                 String // Display name
+  description          String    @db.Text
+  category             String // "content", "commerce", "other"
+  addedDate            DateTime  @map("added_date")
+  estimatedReleaseDate DateTime? @map("estimated_release_date")
+  status               String // "active", "graduating", "released"
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("beta_feature")
+}
+
+model LoginToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@map("login_token")
+}
+
+model HelpCategory {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  description String
+  icon        String
+  order       Int           @default(0)
+  published   Boolean       @default(true)
+  articles    HelpArticle[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([published, order])
+  @@map("help_category")
+}
+
+model HelpArticle {
+  id         String       @id @default(cuid())
+  slug       String       @unique
+  title      String
+  content    String       @db.Text
+  excerpt    String?
+  categoryId String
+  category   HelpCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  audience   String       @default("both")
+  subsection String?
+  featured   Boolean      @default(false)
+  order      Int          @default(0)
+  published  Boolean      @default(true)
+  views      Int          @default(0)
+  helpful    Int          @default(0)
+  notHelpful Int          @default(0)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([categoryId, published, order])
+  @@index([featured, published])
+  @@index([audience, featured, published])
+  @@map("help_article")
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  avatar    String
+  rating    Int      @default(5)
+  content   String   @db.Text
+  stats     String
+  order     Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([published, order])
+  @@map("testimonials")
+}
+
+model DiscordAudit {
+  id              String   @id @default(cuid())
+  userId          String
+  discordId       String
+  discordUsername String?
+  action          String // 'connected', 'disconnected', 'kicked', 'role_changed'
+  reason          String? // 'user_left', 'admin_removed', 'subscription_cancelled', etc.
+  performedBy     String? // Admin user ID if applicable
+  metadata        Json? // Additional data
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("discord_audit")
+}
+
+model PendingDiscordInvite {
+  id              String    @id @default(cuid())
+  primaryUserId   String    @map("primary_user_id")
+  inviteCode      String    @unique @map("invite_code")
+  recipientEmail  String    @map("recipient_email")
+  relationship    String // 'spouse', 'partner', 'family'
+  status          String    @default("pending") // 'pending', 'joined', 'expired'
+  expiresAt       DateTime  @map("expires_at")
+  joinedAt        DateTime? @map("joined_at")
+  joinedDiscordId String?   @map("joined_discord_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  createdBy       String    @map("created_by") // Admin user ID
+
+  primaryUser User @relation("PrimaryUserInvites", fields: [primaryUserId], references: [id], onDelete: Cascade)
+
+  @@index([primaryUserId])
+  @@index([inviteCode])
+  @@index([status, expiresAt])
+  @@map("pending_discord_invite")
+}
+
+model AdditionalDiscordAccount {
+  id              String   @id @default(cuid())
+  primaryUserId   String   @map("primary_user_id")
+  discordId       String   @unique @map("discord_id")
+  discordUsername String?  @map("discord_username")
+  relationship    String // 'spouse', 'partner', 'family'
+  addedAt         DateTime @default(now()) @map("added_at")
+  addedBy         String   @map("added_by") // Admin user ID
+  notes           String?
+  active          Boolean  @default(true)
+
+  primaryUser User @relation("AdditionalDiscordAccounts", fields: [primaryUserId], references: [id], onDelete: Cascade)
+
+  @@index([primaryUserId])
+  @@index([discordId])
+  @@index([active])
+  @@map("additional_discord_account")
+}
+
+model MarketingContent {
+  id        String   @id @default("singleton") // Single row for all marketing content
+  
+  // Hero Section
+  heroHeadline        String?  @map("hero_headline")
+  heroHeadlineAccent  String?  @map("hero_headline_accent")
+  heroSubheadline     String?  @map("hero_subheadline")
+  heroCtaText         String?  @map("hero_cta_text")
+  heroBadgeText       String?  @map("hero_badge_text")
+  heroVideoUrl        String?  @map("hero_video_url")
+  heroThumbnailUrl    String?  @map("hero_thumbnail_url")
+  
+  // Testimonials Section
+  testimonialsBadgeText      String?  @map("testimonials_badge_text")
+  testimonialsHeadline       String?  @map("testimonials_headline")
+  testimonialsHeadlineAccent String?  @map("testimonials_headline_accent")
+  testimonialsSubheadline    String?  @map("testimonials_subheadline")  @db.Text
+
+  // Benefits Section
+  benefitsHeadline  String?  @map("benefits_headline")
+  
+  // Pricing Section
+  pricingBadgeText     String?  @map("pricing_badge_text")
+  pricingHeadline      String?  @map("pricing_headline")
+  pricingSubheadline   String?  @map("pricing_subheadline")  @db.Text
+  
+  // Final CTA Section
+  ctaBadgeText      String?  @map("cta_badge_text")
+  ctaHeadline       String?  @map("cta_headline")
+  ctaDescription    String?  @map("cta_description")         @db.Text
+  ctaButtonText     String?  @map("cta_button_text")
+  
+  // Sticky CTA Bar
+  stickyCtaTitle      String?  @map("sticky_cta_title")        // "Join the LifePreneur Community"
+  stickyCtaSubtitle   String?  @map("sticky_cta_subtitle")     // "Starting at $99/mo"
+  stickyCtaButtonText String?  @map("sticky_cta_button_text")  // "Get Started"
+  stickyCtaMobileText String?  @map("sticky_cta_mobile_text")  // "Join Now - $99/mo"
+  stickyCtaLink       String?  @map("sticky_cta_link")         // "#pricing"
+  
+  // SEO
+  seoTitle          String?  @map("seo_title")
+  seoDescription    String?  @map("seo_description")         @db.Text
+  seoOgImage        String?  @map("seo_og_image")
+
+  // Affiliate redirect (/r) — when true, /r shows coming soon instead of redirecting to /#pricing
+  affiliateLinkComingSoon Boolean @default(false) @map("affiliate_link_coming_soon")
+  
+  // Metadata
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  updatedBy         String?  @map("updated_by")
+  
+  @@map("marketing_content")
+}
+
+model MarketingBenefit {
+  id        String   @id @default(cuid())
+  icon      String   @default("GraduationCap") // Lucide icon name
+  heading   String
+  bullets   String[] // Array of bullet point strings
+  order     Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@index([published, order])
+  @@map("marketing_benefit")
+}
+
+model MarketingPricingPlan {
+  id                String   @id @default(cuid())
+  name              String
+  price             String   // "$99"
+  period            String   // "/month"
+  subtitle          String?  @map("subtitle") // Short persona line under plan name
+  description       String
+  features          String[] // Array of feature strings
+  ctaText           String   @default("Get Started") @map("cta_text")
+  checkoutUrl       String   @map("checkout_url")        // Internal route: /checkout/monthly, /checkout/yearly, /checkout/promo
+  stripePriceId     String?  @map("stripe_price_id")     // Stripe Price ID for promo plans (e.g. price_xxx)
+  planType          String   @default("standard") @map("plan_type") // "standard" | "promo"
+  popular           Boolean  @default(false)
+  icon              String?  @map("icon")
+  discordRoleEnvKey String?  @map("discord_role_env_key")
+  badge             String?  // "BEST VALUE" or null
+  inheritsFrom      String?  @map("inherits_from")   // Plan name this tier builds on, e.g. "Starter" → "Everything in Starter, plus..."
+  compareAtPrice    String?  @map("compare_at_price") // Original price to cross out, e.g. "$149"
+  trustText         String?  @map("trust_text")       // Per-card micro-copy under CTA, e.g. "No contracts · Cancel anytime"
+  allowPromoCodes   Boolean  @default(false) @map("allow_promo_codes")
+  order             Int      @default(0)
+  published         Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  @@index([published, order])
+  @@index([planType, published])
+  @@map("marketing_pricing_plan")
+}
+
+model MarketingFaq {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String   @db.Text
+  order     Int      @default(0)
+  published Boolean  @default(true)
+  flagged   Boolean  @default(false) // Admin review flag
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@index([published, order])
+  @@map("marketing_faq")
+}
+
+/// Saved Discord Message Studio drafts; payload matches app-defined JSON shape for compose/post/patch.
+model DiscordMessageTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  channelId       String   @map("channel_id")
+  messageId       String?  @map("message_id")
+  payload         Json     @map("payload")
+  updatedByUserId String?  @map("updated_by_user_id")
+  updatedBy       User?    @relation("DiscordMessageTemplateUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([channelId])
+  @@index([updatedAt])
+  @@map("discord_message_template")
+}
+
+model DiscordWhitelist {
+  id             String   @id @default(cuid())
+  discordId      String   @unique @map("discord_id")
+  discordUsername String? @map("discord_username")
+  reason         String   // "mod", "admin", "test_account", "bot"
+  notes          String?
+  addedBy        String   @map("added_by") // Admin user ID
+  addedAt        DateTime @default(now()) @map("added_at")
+  active         Boolean  @default(true)
+
+  @@index([discordId])
+  @@index([active])
+  @@map("discord_whitelist")
+}
+
+enum CreditTransactionType {
+  SUBSCRIPTION_GRANT
+  SHOP_PURCHASE
+  TOP_UP
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADMIN_ADJUSTMENT
+}
+
+model CreditBalance {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation("UserCreditBalance", fields: [userId], references: [id], onDelete: Cascade)
+  balance   Int      @default(0)
+  frozen    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("credit_balance")
+}
+
+model CreditTransaction {
+  id           String                @id @default(cuid())
+  userId       String                @map("user_id")
+  user         User                  @relation("UserCreditTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  type         CreditTransactionType
+  amount       Int
+  balanceAfter Int                   @map("balance_after")
+  description  String?
+  referenceId  String?               @map("reference_id")
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("credit_transaction")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_setting")
+}
+
+// ── TikTok Agency Dashboard ──────────────────────────────────────────
+
+model TiktokAccount {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  tiktokUserId    String   @map("tiktok_user_id")
+  username        String
+  displayName     String   @map("display_name")
+  accessToken     String   @db.Text @map("access_token")
+  refreshToken    String   @db.Text @map("refresh_token")
+  followerCount   Int      @default(0) @map("follower_count")
+  videoCount      Int      @default(0) @map("video_count")
+  accountNickname String?  @map("account_nickname")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation("UserTiktokAccounts", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tiktokUserId])
+  @@index([userId])
+  @@map("tiktok_account")
+}
+
+enum GoalType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  goalName    String   @map("goal_name")
+  goalType    GoalType @map("goal_type")
+  targetCount Int      @map("target_count")
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation("UserGoals", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("goal")
+}
+
+model Campaign {
+  id               String   @id @default(cuid())
+  name             String
+  brandName        String   @map("brand_name")
+  productLink      String?  @map("product_link")
+  postRequirement  Int      @map("post_requirement")
+  gmvRequirement   Int?     @map("gmv_requirement")
+  commissionRate   String   @map("commission_rate")
+  startDate        DateTime @map("start_date")
+  endDate          DateTime @map("end_date")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdBy        String   @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  enrollments CampaignEnrollment[]
+
+  @@index([isActive])
+  @@map("campaign")
+}
+
+enum CampaignEnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+model CampaignEnrollment {
+  id             String                   @id @default(cuid())
+  campaignId     String                   @map("campaign_id")
+  userId         String                   @map("user_id")
+  postsCompleted Int                      @default(0) @map("posts_completed")
+  gmvGenerated   Int                      @default(0) @map("gmv_generated")
+  status         CampaignEnrollmentStatus @default(ACTIVE)
+  enrolledAt     DateTime                 @default(now()) @map("enrolled_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User     @relation("UserCampaignEnrollments", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+  @@index([userId])
+  @@index([campaignId])
+  @@map("campaign_enrollment")
+}

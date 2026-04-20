@@ -21,6 +21,7 @@
   var els = {};
   var autoTimer = null;
   var loading = false;
+  var routeLock = null;
 
   // -------- Settings persistence -----------------------------------
 
@@ -58,6 +59,113 @@
     els.dashboard.classList.toggle('hidden', !!yes);
     els.empty.classList.toggle('hidden', !yes);
     if (yes && msg) $('emptyStateMsg').textContent = msg;
+    syncRouteFromScroll();
+  }
+
+  function setRoute(route) {
+    document.body.setAttribute('data-route', route || 'home');
+  }
+
+  function lockRoute(route) {
+    routeLock = route || 'home';
+    setRoute(routeLock);
+  }
+
+  function unlockRoute() {
+    routeLock = null;
+    syncRouteFromScroll();
+  }
+
+  function currentStickyOffset() {
+    var offset = els.topbar ? els.topbar.offsetHeight + 20 : 96;
+    if (els.banner && !els.banner.classList.contains('hidden')) offset += els.banner.offsetHeight;
+    return offset;
+  }
+
+  function scrollToY(top) {
+    top = Math.max(0, top);
+    try {
+      window.scrollTo({ top: top, behavior: 'smooth' });
+    } catch (e) {
+      window.scrollTo(0, top);
+    }
+  }
+
+  function scrollToSection(el, route) {
+    if (!el) return;
+    routeLock = null;
+    setRoute(route);
+    scrollToY(el.getBoundingClientRect().top + window.scrollY - currentStickyOffset());
+  }
+
+  function syncRouteFromScroll() {
+    if (routeLock) {
+      setRoute(routeLock);
+      return;
+    }
+    if (!document.body) return;
+
+    var route = 'home';
+    var checkpoint = window.scrollY + currentStickyOffset() + 24;
+
+    if (els.goalsSection && checkpoint >= els.goalsSection.offsetTop) route = 'goals';
+    else if (els.campaignsSection && checkpoint >= els.campaignsSection.offsetTop) route = 'campaigns';
+
+    setRoute(route);
+  }
+
+  function toggleProfileSurface() {
+    lockRoute('profile');
+    if (!Users.getCurrentUser()) {
+      openSignIn();
+      return;
+    }
+    if (els.userDropdown.classList.contains('hidden')) openDropdown();
+    else closeDropdown();
+  }
+
+  function bindBottomNav() {
+    if (!els.bottomnav) return;
+
+    els.bottomnav.addEventListener('click', function (ev) {
+      var item = ev.target.closest && ev.target.closest('.item');
+      if (!item) return;
+
+      var route = item.getAttribute('data-route');
+
+      if (route === 'home') {
+        closeDropdown();
+        routeLock = null;
+        setRoute('home');
+        scrollToY(0);
+        return;
+      }
+      if (route === 'campaigns') {
+        closeDropdown();
+        scrollToSection(els.campaignsSection, 'campaigns');
+        return;
+      }
+      if (route === 'goals') {
+        closeDropdown();
+        scrollToSection(els.goalsSection, 'goals');
+        return;
+      }
+      if (route === 'profile') {
+        toggleProfileSurface();
+      }
+    });
+
+    var ticking = false;
+    window.addEventListener('scroll', function () {
+      if (routeLock || ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(function () {
+        ticking = false;
+        syncRouteFromScroll();
+      });
+    }, { passive: true });
+    window.addEventListener('resize', syncRouteFromScroll);
+    syncRouteFromScroll();
   }
 
   // -------- Settings modal ----------------------------------------
@@ -163,6 +271,7 @@
   }
 
   function openDropdown() {
+    lockRoute('profile');
     renderUserDropdown();
     els.userDropdown.classList.remove('hidden');
     els.userBtn.setAttribute('aria-expanded', 'true');
@@ -174,6 +283,7 @@
   function closeDropdown() {
     els.userDropdown.classList.add('hidden');
     els.userBtn.setAttribute('aria-expanded', 'false');
+    if (routeLock === 'profile') unlockRoute();
   }
   function outsideClickCloser(ev) {
     if (ev.target.closest && ev.target.closest('.user-menu')) {
@@ -187,6 +297,7 @@
   // -------- Sign-in modal -----------------------------------------
 
   function openSignIn() {
+    lockRoute('profile');
     var list = $('signInList');
     list.innerHTML = '';
     Users.all().forEach(function (u) {
@@ -199,11 +310,15 @@
     });
     els.signInModal.classList.remove('hidden');
   }
-  function closeSignIn() { els.signInModal.classList.add('hidden'); }
+  function closeSignIn() {
+    els.signInModal.classList.add('hidden');
+    if (routeLock === 'profile') unlockRoute();
+  }
 
   // -------- Login-As modal (admin only) ---------------------------
 
   function openLoginAs() {
+    lockRoute('profile');
     var list = $('loginAsList');
     list.innerHTML = '';
     Users.members().forEach(function (u) {
@@ -216,7 +331,10 @@
     });
     els.loginAsModal.classList.remove('hidden');
   }
-  function closeLoginAs() { els.loginAsModal.classList.add('hidden'); }
+  function closeLoginAs() {
+    els.loginAsModal.classList.add('hidden');
+    if (routeLock === 'profile') unlockRoute();
+  }
 
   function userCard(u, onClick) {
     var row = document.createElement('button');
@@ -247,6 +365,7 @@
     renderUserButton();
     renderBanner();
     updateAdminLabels();
+    syncRouteFromScroll();
   }
 
   // The "Creators" KPI and pie chart make sense as an aggregate (admin) but
@@ -359,6 +478,8 @@
     document.addEventListener('deviceready', function () {
       if (window.StatusBar) StatusBar.styleLightContent();
     }, false);
+
+    bindBottomNav();
   }
 
   function init() {
@@ -374,6 +495,10 @@
     els.userBtn       = $('userBtn');
     els.userDropdown  = $('userDropdown');
     els.banner        = $('viewAsBanner');
+    els.topbar        = document.querySelector('.topbar');
+    els.bottomnav     = document.querySelector('.bottomnav');
+    els.campaignsSection = $('campaignsSection');
+    els.goalsSection  = $('goalsSection');
 
     if (window.Highcharts && window.Dashboard) Dashboard.applyTheme();
     bind();

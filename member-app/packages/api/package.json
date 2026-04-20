@@ -1,0 +1,43 @@
+{
+	"dependencies": {
+		"@orpc/client": "^1.11.2",
+		"@orpc/json-schema": "^1.11.2",
+		"@orpc/openapi": "^1.11.2",
+		"@orpc/server": "^1.11.2",
+		"@orpc/zod": "^1.11.2",
+		"@repo/ai": "workspace:*",
+		"@repo/auth": "workspace:*",
+		"@repo/config": "workspace:*",
+		"@repo/database": "workspace:*",
+		"@repo/discord": "workspace:*",
+		"@repo/i18n": "workspace:*",
+		"@repo/logs": "workspace:*",
+		"@repo/mail": "workspace:*",
+		"@repo/payments": "workspace:*",
+		"@repo/storage": "workspace:*",
+		"@repo/utils": "workspace:*",
+		"@scalar/hono-api-reference": "^0.9.24",
+		"@sindresorhus/slugify": "^3.0.0",
+		"cookie": "^1.0.2",
+		"hono": "^4.10.5",
+		"nanoid": "^5.1.6",
+		"openai": "^6.9.0",
+		"openapi-merge": "^1.3.3",
+		"posthog-node": "^5.28.9",
+		"use-intl": "^4.5.3",
+		"zod": "^4.1.12"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.15",
+		"@repo/tsconfig": "workspace:*",
+		"@types/react": "19.2.5",
+		"encoding": "^0.1.13",
+		"typescript": "5.9.3"
+	},
+	"main": "./index.ts",
+	"name": "@repo/api",
+	"scripts": {
+		"type-check": "tsc --noEmit"
+	},
+	"version": "0.0.0"
+}
