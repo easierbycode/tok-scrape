@@ -13,12 +13,15 @@
   "private": true,
   "devDependencies": {
     "cordova": "^12.0.0",
-    "cordova-android": "latest"
+    "cordova-android": "^15.0.0",
+    "cordova-plugin-statusbar": "^4.0.0"
   },
   "cordova": {
     "platforms": [
       "android"
     ],
-    "plugins": {}
+    "plugins": {
+      "cordova-plugin-statusbar": {}
+    }
   }
 }

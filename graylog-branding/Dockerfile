@@ -5,7 +5,7 @@
 #   - /usr/share/graylog/graylog2-web-interface/assets/branding-patch.js
 #   - The bundled favicons (favicon.png + favicon.ico in the web interface
 #     root), replaced with the LP versions.
-#   - index.html patched in-place to include:
+#   - The HTML template (embedded in graylog.jar on 7.x) patched to include:
 #       <link rel="icon" type="image/png" href="/assets/favicon.png">
 #       <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
 #       <link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png">
@@ -15,9 +15,10 @@
 #   - Graylog Open ships its web bundle under
 #     /usr/share/graylog/graylog2-web-interface. Anything inside the
 #     `assets/` subfolder is served at /assets/<file>.
-#   - We use sed against index.html. If a future Graylog version renames or
-#     restructures the file the build will fail loudly here — fix the sed
-#     expression and rebuild.
+#   - Graylog 7.x no longer has a static index.html — the HTML template is
+#     embedded inside graylog.jar. inject-branding.sh extracts it from the
+#     JAR, patches it, and puts it back. Falls back to patching a static
+#     index.html if one exists (for forward/backward compatibility).
 #
 # Build & run (from the repo root):
 #   docker compose build graylog
@@ -28,6 +29,29 @@
 #   curl -sI http://localhost:9000/assets/branding-patch.js | head -1
 #   open http://localhost:9000/  (favicon + login + nav logo should be LP)
 
+# ---------------------------------------------------------------------------
+# Stage 1: fetch `zip`/`unzip` from a clean ubuntu:noble image.
+#
+# The graylog/graylog:7.0.6 image is based on Ubuntu Noble but ships with
+# /etc/apt/sources.list.d/ wiped, so `apt-get install unzip` in the final
+# image fails with "Unable to locate package unzip". Grabbing the binaries
+# from a clean Noble image side-steps the problem entirely.
+# ---------------------------------------------------------------------------
+FROM ubuntu:noble AS tools
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends zip unzip; \
+    mkdir -p /opt/tools/bin /opt/tools/lib; \
+    cp /usr/bin/unzip /opt/tools/bin/unzip; \
+    cp /usr/bin/zip /opt/tools/bin/zip; \
+    libbz2="$(ldconfig -p | awk '/libbz2\.so\.1\.0/{print $NF; exit}')"; \
+    test -n "$libbz2"; \
+    cp -L "$libbz2" /opt/tools/lib/libbz2.so.1.0; \
+    rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Stage 2: the actual branded Graylog image.
+# ---------------------------------------------------------------------------
 FROM graylog/graylog:7.0.6
 
 # Run the file ops as root, then drop back to the image's default user.
@@ -54,21 +78,31 @@ RUN set -eux; \
     cp ${ASSETS}/favicon.png ${WEB_ROOT}/favicon.png || true; \
     cp ${ASSETS}/favicon.ico ${WEB_ROOT}/favicon.ico || true
 
-# Inject favicon links + branding-patch.js into index.html. Idempotent: the sed
-# expressions are no-ops if the markers are already present (e.g. a re-run of
-# the Docker layer after a base-image change).
+# Bring in `unzip` + `zip` from the tools stage - `unzip` extracts the HTML
+# template from graylog.jar, `zip -u` writes the patched template back in.
+# libbz2 is a runtime dep of both binaries and isn't present in the slim
+# graylog image. Copy it via /tmp, then place it in the detected multiarch
+# library directory so this works on both x86_64 and arm64.
+COPY --from=tools /opt/tools/bin/unzip        /usr/bin/unzip
+COPY --from=tools /opt/tools/bin/zip          /usr/bin/zip
+COPY --from=tools /opt/tools/lib/libbz2.so.1.0 /tmp/libbz2.so.1.0
 RUN set -eux; \
-    INDEX="${WEB_ROOT}/index.html"; \
-    test -f "$INDEX"; \
-    # Drop existing <link rel="icon" ...> tags so ours win.
-    sed -i 's|<link[^>]*rel="\?icon"\?[^>]*>||g' "$INDEX"; \
-    sed -i 's|<link[^>]*rel="\?shortcut icon"\?[^>]*>||g' "$INDEX"; \
-    # Inject our favicon links + branding-patch.js right before </head>.
-    if ! grep -q "branding-patch.js" "$INDEX"; then \
-      sed -i 's|</head>|<link rel="icon" type="image/png" href="/assets/favicon.png"/><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png"/><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png"/><link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png"/><link rel="shortcut icon" href="/assets/favicon.ico"/><script src="/assets/branding-patch.js" defer></script></head>|' "$INDEX"; \
+    libdir=""; \
+    for d in /lib/*-linux-gnu /usr/lib/*-linux-gnu; do \
+        if [ -d "$d" ]; then \
+            libdir="$d"; \
+            break; \
+        fi; \
+    done; \
+    if [ -z "$libdir" ]; then \
+        libdir=/usr/lib; \
     fi; \
-    grep -q "branding-patch.js" "$INDEX"; \
-    grep -q "/assets/favicon.png" "$INDEX"
+    cp /tmp/libbz2.so.1.0 "$libdir/libbz2.so.1.0"; \
+    rm /tmp/libbz2.so.1.0
+
+# Inject favicon links + branding-patch.js into the HTML template.
+COPY inject-branding.sh /tmp/inject-branding.sh
+RUN chmod +x /tmp/inject-branding.sh && /tmp/inject-branding.sh "${WEB_ROOT}" && rm /tmp/inject-branding.sh
 
 # Drop back to the image's default user (graylog runs as uid 1100).
 USER graylog
