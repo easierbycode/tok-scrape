@@ -1,0 +1,10 @@
+version: "2"
+tunnels:
+  graylog-api:
+    proto: http
+    addr: graylog:9000
+    host_header: rewrite
+  graylog-gelf:
+    proto: http
+    addr: graylog:12202
+    host_header: rewrite
