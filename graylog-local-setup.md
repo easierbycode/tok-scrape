@@ -175,16 +175,27 @@ If the WSL native stack is too heavy (or you'd rather not run three systemd serv
 
 Prereq: **Docker Desktop** (with WSL2 backend enabled) installed on Windows.
 
-### Recommended: one-command bring-up with public URL
+### Bring up the stack + ngrok public URL
 
-`scripts/up.sh` brings up the stack, opens an **ngrok** public tunnel to the Graylog REST API (so the Cordova mobile app can hit it from a phone off-LAN), mints a Graylog API token, and prints both values.
+The compose file ships with an `ngrok` service (for the public URL) and a one-shot `bootstrap` service that waits for the stack, mints a Graylog API token, and prints the values the mobile app needs. All you need is an ngrok authtoken.
 
-```bash
-# Free ngrok account + authtoken: https://dashboard.ngrok.com/get-started/your-authtoken
-export NGROK_AUTHTOKEN=2abc...xyz
+1. Free ngrok account + authtoken: https://dashboard.ngrok.com/get-started/your-authtoken
+2. Drop the token into a `.env` file next to `docker-compose.yml`:
 
-./scripts/up.sh
-```
+   ```env
+   NGROK_AUTHTOKEN=2abc...xyz
+   ```
+
+3. Bring it up:
+
+   ```bash
+   docker compose up            # attached — the bootstrap banner prints at the end
+   # or:
+   docker compose up -d
+   docker compose logs bootstrap
+   ```
+
+   The `bootstrap` service exits after printing. Re-running `docker compose logs bootstrap` any time later still shows the banner.
 
 You'll see something like:
 
@@ -199,17 +210,7 @@ You'll see something like:
 =====================================================
 ```
 
-Paste those three values into the mobile app's Settings screen and hit Save. The URL rotates on every restart unless you have a paid ngrok reserved domain, so re-run the script after a reboot and re-paste the new URL.
-
-### Manual bring-up (no public URL)
-
-If you only need local access:
-
-```bash
-docker compose up -d
-# watch it come up:
-docker compose logs -f graylog    # Ctrl+C once you see "Graylog server up and running"
-```
+Paste those three values into the mobile app's Settings screen and hit Save. The ngrok URL rotates on every restart unless you have a paid reserved domain, so re-run `docker compose logs bootstrap` after a reboot and re-paste the new URL.
 
 Then:
 
