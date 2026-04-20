@@ -100,10 +100,19 @@ def fetch_tunnels() -> dict[str, str]:
 
 def get_graylog_token() -> str:
     auth = {"Authorization": basic_auth(ADMIN_USER, ADMIN_PW), "X-Requested-By": "bookmarklet-sync"}
+    # Graylog 6+ requires the admin user's UUID (not the username) in the
+    # token endpoint path, so resolve it first.
+    status, body = http_get(f"{GRAYLOG_BASE}/api/users/{urllib.parse.quote(ADMIN_USER)}", headers=auth)
+    if status != 200:
+        raise RuntimeError(f"graylog user lookup HTTP {status}: {body[:200]!r}")
+    user_id = json.loads(body.decode()).get("id", "")
+    if not user_id:
+        raise RuntimeError(f"graylog user lookup missing id: {body[:200]!r}")
+
     # Try to create. On 200/201 we get {"token": "..."}.
     status, body = http_post(
-        f"{GRAYLOG_BASE}/api/users/{ADMIN_USER}/tokens/{urllib.parse.quote(TOKEN_NAME)}",
-        b"{}",
+        f"{GRAYLOG_BASE}/api/users/{user_id}/tokens/{urllib.parse.quote(TOKEN_NAME)}",
+        b'{"token_ttl":"P90D"}',
         {**auth, "Content-Type": "application/json"},
     )
     if status in (200, 201):
@@ -111,7 +120,7 @@ def get_graylog_token() -> str:
         if token:
             return token
     # Fall back to listing.
-    status, body = http_get(f"{GRAYLOG_BASE}/api/users/{ADMIN_USER}/tokens", headers=auth)
+    status, body = http_get(f"{GRAYLOG_BASE}/api/users/{user_id}/tokens", headers=auth)
     if status != 200:
         raise RuntimeError(f"graylog token list HTTP {status}: {body[:200]!r}")
     for t in json.loads(body.decode()).get("tokens", []):
@@ -172,6 +181,16 @@ def main() -> int:
     tunnels = fetch_tunnels()
     api_url  = tunnels[TUNNEL_API_NAME].rstrip("/")
     gelf_url = tunnels[TUNNEL_GELF_NAME].rstrip("/")
+    # Free ngrok only reserves one random domain per account, so two HTTP
+    # tunnels end up sharing the same public hostname and only one of them
+    # actually routes traffic. Pin a `domain:` to each tunnel in ngrok.yml
+    # (requires a paid plan for a second static domain) to avoid this.
+    if api_url == gelf_url:
+        raise SystemExit(
+            f"ngrok tunnels {TUNNEL_API_NAME!r} and {TUNNEL_GELF_NAME!r} both "
+            f"resolved to {api_url} — pin a distinct `domain:` to each tunnel "
+            f"in ngrok.yml (see README)."
+        )
     gelf_endpoint = f"{gelf_url}/gelf"
 
     # 2. Wait for Graylog REST API.

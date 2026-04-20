@@ -3,8 +3,10 @@ tunnels:
   graylog-api:
     proto: http
     addr: graylog:9000
+    domain: tok-graylog-api.ngrok-free.dev
     host_header: rewrite
   graylog-gelf:
     proto: http
     addr: graylog:12202
+    domain: tok-graylog-gelf.ngrok-free.dev
     host_header: rewrite

@@ -6,8 +6,8 @@
   // The `bookmarklet-sync` sidecar in docker-compose.yml rewrites
   // GRAYLOG_ENDPOINT (ngrok public URL of the :12202 GELF tunnel) and
   // GRAYLOG_TOKEN (admin API token) on every `docker compose up`.
-  var GRAYLOG_ENDPOINT = 'http://localhost:12202/gelf';
-  var GRAYLOG_TOKEN    = '';
+  var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+  var GRAYLOG_TOKEN    = 'jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5';
   var GRAYLOG_HOST     = 'tiktok-bookmarklet';
   // ----------------------------------------------------------------
 
