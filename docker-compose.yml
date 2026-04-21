@@ -83,6 +83,11 @@ services:
       context: ./graylog-branding
       dockerfile: Dockerfile
     image: tok-scrape/graylog:7.0.6-lp
+    # The image tag contains a "/", so Compose treats it as a registry path and
+    # tries to `docker pull` it on `up`, which fails with "pull access denied"
+    # (it only lives in the local daemon). `pull_policy: build` skips the pull
+    # attempt entirely — Compose just builds/uses the local image.
+    pull_policy: build
     container_name: graylog
     restart: unless-stopped
     depends_on:
