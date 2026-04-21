@@ -219,7 +219,7 @@ def main() -> int:
         "=====================================================\n"
         f"  Graylog URL:    {api_url}\n"
         f"  API token:      {token}\n"
-        "  Lucene query:   host:tiktok-bookmarklet\n"
+        "  Lucene query:   source:tiktok-bookmarklet\n"
         "=====================================================\n"
         "\n"
         "Bookmarklet (GELF HTTP via ngrok):\n"

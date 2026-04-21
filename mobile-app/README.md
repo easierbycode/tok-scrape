@@ -93,7 +93,7 @@ The app launches into a settings modal on first run. Provide:
 
 - **Graylog base URL** — the host the device can reach (e.g. `http://192.168.1.10:9000`, or your tunnel URL). `localhost` only works in the Android emulator if you also run `adb reverse tcp:9000 tcp:9000`.
 - **Graylog API token** — generate under *System → Users → Edit tokens*. Sent as HTTP Basic auth where the token is the username and the literal string `token` is the password (Graylog's documented scheme).
-- **Source filter** — Lucene query that selects bookmarklet messages. Defaults to `host:tiktok-bookmarklet`, matching what the bookmarklet posts.
+- **Source filter** — Lucene query that selects bookmarklet messages. Defaults to `source:tiktok-bookmarklet`, matching what the bookmarklet posts. (Graylog indexes the GELF `host` field as `source`, so `source:` — not `host:` — is what matches stored messages.)
 
 Settings are stored in the WebView's `localStorage`. To wipe them: app uninstall, or reopen the modal and clear fields.
 

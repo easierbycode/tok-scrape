@@ -66,7 +66,11 @@
   //
   // Args:
   //   lucene        - base Lucene query (usually the "source filter" from
-  //                   Settings, e.g. host:tiktok-bookmarklet)
+  //                   Settings, e.g. source:tiktok-bookmarklet). Note: the
+  //                   bookmarklet sends GELF `host: tiktok-bookmarklet`, which
+  //                   Graylog indexes as the `source` field — there is no
+  //                   `host` field on the stored message, so `source:` is
+  //                   what matches.
   //   rangeSeconds  - relative time window
   //   creatorFilter - optional creator handle (e.g. "@wizardofdealz"). When
   //                   set, the query is AND'd with creator:"<handle>" so a
@@ -76,7 +80,7 @@
       'creator', 'scrapedAt', 'date_start', 'date_end',
       'metrics_count', 'videos_count', 'metrics_json', 'videos_json'
     ];
-    var base = lucene || 'host:tiktok-bookmarklet';
+    var base = lucene || 'source:tiktok-bookmarklet';
     var query = base;
     if (creatorFilter) {
       // Quote the handle so the "@" + any punctuation is treated literally.

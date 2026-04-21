@@ -282,7 +282,7 @@ def main() -> int:
 
     print(f"\nDone: {total_sent} sent ({total_failed} failed) across {len(members)} members.")
     if total_failed == 0 and total_sent > 0:
-        print("Open the TokScrape app (or Graylog search for host:tiktok-bookmarklet) to see the data.")
+        print("Open the TokScrape app (or Graylog search for source:tiktok-bookmarklet) to see the data.")
     return 0 if total_failed == 0 else 1
 
 

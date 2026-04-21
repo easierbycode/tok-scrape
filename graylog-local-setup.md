@@ -159,7 +159,7 @@ Open `index.html` and set:
 var GRAYLOG_ENDPOINT = 'http://localhost:12202/gelf';   // or http://<WSL-IP>:12202/gelf
 ```
 
-The Google Sheets POST still fires; Graylog receives a parallel GELF message with `_creator`, `_scrapedAt`, `_date_start`, `_date_end`, `_videos_count`, and the full metrics + videos arrays serialized into `_metrics_json` / `_videos_json`. Search `host:tiktok-bookmarklet` in Graylog to see them.
+The Google Sheets POST still fires; Graylog receives a parallel GELF message with `_creator`, `_scrapedAt`, `_date_start`, `_date_end`, `_videos_count`, and the full metrics + videos arrays serialized into `_metrics_json` / `_videos_json`. Search `source:tiktok-bookmarklet` in Graylog to see them (Graylog stores the GELF `host` field as `source`).
 
 ## Troubleshooting
 
@@ -196,7 +196,7 @@ You'll see something like:
 =====================================================
   Graylog URL:    https://<random>.ngrok-free.app
   API token:      1abcd...xyz
-  Lucene query:   host:tiktok-bookmarklet
+  Lucene query:   source:tiktok-bookmarklet
 =====================================================
 
 Bookmarklet (GELF HTTP via ngrok):

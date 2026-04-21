@@ -32,16 +32,22 @@
       var raw = localStorage.getItem(SETTINGS_KEY);
       if (!raw) return defaults();
       var s = JSON.parse(raw);
-      return {
+      var query = s.query || 'source:tiktok-bookmarklet';
+      // Migrate the old broken default: Graylog indexes GELF `host` as `source`,
+      // so `host:tiktok-bookmarklet` never matched any message. Rewrite silently.
+      if (query === 'host:tiktok-bookmarklet') query = 'source:tiktok-bookmarklet';
+      var migrated = {
         url:         s.url         || '',
         token:       s.token       || '',
-        query:       s.query       || 'host:tiktok-bookmarklet',
+        query:       query,
         autoRefresh: !!s.autoRefresh
       };
+      if (migrated.query !== s.query) saveSettings(migrated);
+      return migrated;
     } catch (e) { return defaults(); }
   }
   function defaults() {
-    return { url: '', token: '', query: 'host:tiktok-bookmarklet', autoRefresh: false };
+    return { url: '', token: '', query: 'source:tiktok-bookmarklet', autoRefresh: false };
   }
   function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
 
@@ -184,7 +190,7 @@
     var s = {
       url:         $('setUrl').value.trim().replace(/\/+$/, ''),
       token:       $('setToken').value.trim(),
-      query:       $('setQuery').value.trim() || 'host:tiktok-bookmarklet',
+      query:       $('setQuery').value.trim() || 'source:tiktok-bookmarklet',
       autoRefresh: $('setAutoRefresh').checked
     };
     saveSettings(s);
