@@ -1,0 +1,18 @@
+{
+  "name": "tok-scrape-scripts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Node scripts that support the tok-scrape repo. Headless Playwright fallback for the run-partner-center-bookmarklet Claude skill lives here.",
+  "scripts": {
+    "bookmarklet": "tsx run-bookmarklet.ts",
+    "bookmarklet:dev": "tsx run-bookmarklet.ts --env=dev",
+    "bookmarklet:prod": "tsx run-bookmarklet.ts --env=prod",
+    "bookmarklet:login": "tsx run-bookmarklet.ts --env=prod --login-only"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "playwright": "^1.49.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
