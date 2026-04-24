@@ -115,7 +115,7 @@
     var checkpoint = window.scrollY + currentStickyOffset() + 24;
 
     if (els.goalsSection && checkpoint >= els.goalsSection.offsetTop) route = 'goals';
-    else if (els.campaignsSection && checkpoint >= els.campaignsSection.offsetTop) route = 'campaigns';
+    else if (els.chartsCarousel && checkpoint >= els.chartsCarousel.offsetTop) route = 'campaigns';
 
     setRoute(route);
   }
@@ -148,7 +148,11 @@
       }
       if (route === 'campaigns') {
         closeDropdown();
-        scrollToSection(els.campaignsSection, 'campaigns');
+        scrollToSection(els.chartsCarousel, 'campaigns');
+        if (els.chartsTrack) {
+          try { els.chartsTrack.scrollTo({ left: 0, behavior: 'smooth' }); }
+          catch (e) { els.chartsTrack.scrollLeft = 0; }
+        }
         return;
       }
       if (route === 'goals') {
@@ -172,6 +176,48 @@
     }, { passive: true });
     window.addEventListener('resize', syncRouteFromScroll);
     syncRouteFromScroll();
+  }
+
+  // -------- Charts carousel ---------------------------------------
+
+  function initChartsCarousel() {
+    var track = els.chartsTrack;
+    var dots  = els.chartsDots;
+    if (!track || !dots) return;
+
+    var cards = Array.prototype.slice.call(track.querySelectorAll('.card.chart'));
+    dots.innerHTML = '';
+    cards.forEach(function (card, i) {
+      var d = document.createElement('button');
+      d.type = 'button';
+      d.className = 'dot-indicator' + (i === 0 ? ' active' : '');
+      d.setAttribute('aria-label', 'Show chart ' + (i + 1));
+      d.addEventListener('click', function () {
+        try { card.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' }); }
+        catch (e) { track.scrollLeft = card.offsetLeft - track.offsetLeft; }
+      });
+      dots.appendChild(d);
+    });
+
+    var ticking = false;
+    track.addEventListener('scroll', function () {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(function () {
+        ticking = false;
+        var anchor = track.scrollLeft + 24;
+        var idx = 0;
+        var best = Infinity;
+        cards.forEach(function (c, i) {
+          var d = Math.abs(c.offsetLeft - track.offsetLeft - anchor);
+          if (d < best) { best = d; idx = i; }
+        });
+        var items = dots.querySelectorAll('.dot-indicator');
+        for (var j = 0; j < items.length; j++) {
+          items[j].classList.toggle('active', j === idx);
+        }
+      });
+    }, { passive: true });
   }
 
   // -------- Settings modal ----------------------------------------
@@ -504,10 +550,14 @@
     els.topbar        = document.querySelector('.topbar');
     els.bottomnav     = document.querySelector('.bottomnav');
     els.campaignsSection = $('campaignsSection');
+    els.chartsCarousel = $('chartsCarousel');
+    els.chartsTrack   = $('chartsTrack');
+    els.chartsDots    = $('chartsDots');
     els.goalsSection  = $('goalsSection');
 
     if (window.Highcharts && window.Dashboard) Dashboard.applyTheme();
     bind();
+    initChartsCarousel();
     reflectAuthChange();
     setupAutoRefresh();
 
