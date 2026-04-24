@@ -12,6 +12,7 @@ import { useBetaFeature } from "@/lib/hooks/use-beta-feature";
 import { orpcClient } from "@/modules/shared/lib/orpc-client";
 import {
 	ChevronRightIcon,
+	LayoutIcon,
 	LinkIcon,
 	PlayCircleIcon,
 	UserCog2Icon,
@@ -45,6 +46,13 @@ export function NavBar() {
 		).length ?? 0;
 
 	const menuItems = [
+		{
+			label: "Dashboard",
+			href: "/app/dashboard",
+			icon: LayoutIcon,
+			isActive: pathname.startsWith("/app/dashboard"),
+			badge: 0,
+		},
 		{
 			label: "Community",
 			href: "/app/community",

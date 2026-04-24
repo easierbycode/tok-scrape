@@ -37,6 +37,11 @@ const nextConfig: NextConfig = {
 				protocol: "https",
 				hostname: "lcmvnbbeywidktxvjbit.storage.supabase.co",
 			},
+			{
+				// placeholder thumbnails (content library demo data)
+				protocol: "https",
+				hostname: "placehold.co",
+			},
 		],
 	},
 	async redirects() {
