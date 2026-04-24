@@ -2,3 +2,5 @@
 mobile-app/node_modules
 mobile-app/platforms
 mobile-app/plugins
+.pw-profile
+.DS_Store

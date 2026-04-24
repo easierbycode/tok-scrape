@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
 	// Externalize discord.js and its optional native dependencies for server-side use
 	serverExternalPackages: ["discord.js", "@discordjs/ws", "@discordjs/rest"],
 	images: {
+		dangerouslyAllowSVG: true,
+		contentDispositionType: "attachment",
+		contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
 		remotePatterns: [
 			{
 				// google profile images
@@ -36,6 +39,11 @@ const nextConfig: NextConfig = {
 				// supabase storage
 				protocol: "https",
 				hostname: "lcmvnbbeywidktxvjbit.storage.supabase.co",
+			},
+			{
+				// placeholder images
+				protocol: "https",
+				hostname: "placehold.co",
 			},
 		],
 	},

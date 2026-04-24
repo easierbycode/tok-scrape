@@ -5,6 +5,7 @@
 		"build": "dotenv -c -- pnpm exec prisma migrate deploy --schema=./packages/database/prisma/schema.prisma && dotenv -c -- turbo build",
 		"db:migrate:deploy": "dotenv -c -e .env -- pnpm exec prisma migrate deploy --schema=./packages/database/prisma/schema.prisma",
 		"dev": "dotenv -c -- turbo dev --concurrency 15",
+		"tsx": "dotenv -c -- tsx",
 		"type-check": "dotenv -c -- turbo type-check",
 		"start": "dotenv -c -- turbo start",
 		"lint": "biome lint . ",
