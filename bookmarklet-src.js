@@ -7,7 +7,7 @@
   // GRAYLOG_ENDPOINT (ngrok public URL of the :12202 GELF tunnel) and
   // GRAYLOG_TOKEN (admin API token) on every `docker compose up`.
   var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
-  var GRAYLOG_TOKEN    = 'jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5';
+  var GRAYLOG_TOKEN    = '66duhgkgptn4tt5bff04b2pvscd1v8fqrrj4chh8763gpa14rk';
   var GRAYLOG_HOST     = 'tiktok-bookmarklet';
   // ----------------------------------------------------------------
 
