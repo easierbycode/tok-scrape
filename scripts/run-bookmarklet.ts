@@ -7,6 +7,13 @@
  *   --env=dev  (default) → file://.../partner-center.html (the local fixture)
  *   --env=prod           → https://partner.us.tiktokshop.com/compass/video-analysis
  *
+ * Setup (once):
+ *   cd scripts && npm install
+ *   # No `npx playwright install chromium` needed — this script uses your
+ *   # system Chrome via channel:'chrome'. Override with PLAYWRIGHT_CHANNEL=
+ *   # or set PLAYWRIGHT_USE_CHROMIUM=1 to use Playwright's bundled Chromium
+ *   # (requires `npx playwright install chromium` to have succeeded).
+ *
  * Usage:
  *   npx tsx scripts/run-bookmarklet.ts                 # dev, headless
  *   npx tsx scripts/run-bookmarklet.ts --env=prod      # prod, headless (needs cookies)
@@ -15,7 +22,7 @@
  *       # Cookies persist to ./.pw-profile for future prod runs.
  *
  * Why a persistent context? The live Partner Center requires a logged-in TikTok
- * Shop session with MFA/device checks. We launch Chromium with a persistent
+ * Shop session with MFA/device checks. We launch Chrome with a persistent
  * user-data-dir so your one-time manual login sticks.
  *
  * Reads bookmarklet-src.js fresh on every run, so the ngrok GELF URL + Graylog
@@ -138,11 +145,20 @@ async function run(): Promise<void> {
   // eslint-disable-next-line no-console
   console.log(`[info] env=${args.env} target=${target} profile=${args.profile}`);
 
+  // Default to the system Chrome install (no 165 MB Playwright Chromium download
+  // needed). Override with PLAYWRIGHT_CHANNEL=msedge | chrome-beta | etc., or
+  // set PLAYWRIGHT_USE_CHROMIUM=1 to fall back to Playwright's bundled Chromium.
+  const channel =
+    process.env.PLAYWRIGHT_USE_CHROMIUM === '1'
+      ? undefined
+      : process.env.PLAYWRIGHT_CHANNEL ?? 'chrome';
+
   const context: BrowserContext = await chromium.launchPersistentContext(args.profile, {
     headless: args.loginOnly ? false : args.env === 'dev',
     // Prod headless still works once cookies are captured, but some TikTok flows
     // dislike headless; override via PLAYWRIGHT_HEADED=1 env var if needed.
     ...(process.env.PLAYWRIGHT_HEADED === '1' ? { headless: false } : {}),
+    ...(channel ? { channel } : {}),
     viewport: { width: 1440, height: 900 },
   });
 
