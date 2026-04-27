@@ -21,8 +21,16 @@
  *              Compass video-analysis view (KPIs + per-video metrics).
  *
  * URL resolution:
+ *   LIVE ANALYTICS:
+ *   livestream dev → file://.../live-stream.html (local fixture)
+ *   livestream prd → shop.tiktok.com/streamer/compass/livestream-analytics/view
+ * 
+ *   LIVE DETAILS:
+ *   livestream session dev → file://.../live-session-details.html (local fixture)
+ *   livestream session prd → shop.tiktok.com/streamer/compass/livestream-analytics/view/detail?roomId=<id>
+ *                    --room-id=<id> required (each live session is unique).
  *   creator + dev  → file://.../partner-center.html (local fixture)
- *   creator + prod → https://partner.us.tiktokshop.com/compass/video-analysis
+ *   creator + prod → partner.us.tiktokshop.com/compass/video-analysis
  *   sellers + dev  → file://.../partner-center2.html (local fixture)
  *   sellers + prod → partner-collabs/agency/detail?campaign_id=<id>
  *                    --campaign-id=<id> required (each campaign is unique).
