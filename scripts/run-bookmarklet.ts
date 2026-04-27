@@ -20,7 +20,14 @@
  *   streamer → bookmarklet-streamer.js, scrapes the seller's own Streamer
  *              Compass video-analysis view (KPIs + per-video metrics).
  *
- * URL resolution:
+ * .: AGENCY :. URL resolution:
+ *   creator + dev  → file://.../partner-center.html (local fixture)
+ *   creator + prod → partner.us.tiktokshop.com/compass/video-analysis
+ *   sellers + dev  → file://.../partner-center2.html (local fixture)
+ *   sellers + prod → partner-collabs/agency/detail?campaign_id=<id>
+ *                    --campaign-id=<id> required (each campaign is unique).
+ * 
+ * .: SELLER :. URL resolution:
  *   LIVE ANALYTICS:
  *   livestream dev → file://.../live-stream.html (local fixture)
  *   livestream prd → shop.tiktok.com/streamer/compass/livestream-analytics/view
@@ -29,11 +36,6 @@
  *   livestream session dev → file://.../live-session-details.html (local fixture)
  *   livestream session prd → shop.tiktok.com/streamer/compass/livestream-analytics/view/detail?roomId=<id>
  *                    --room-id=<id> required (each live session is unique).
- *   creator + dev  → file://.../partner-center.html (local fixture)
- *   creator + prod → partner.us.tiktokshop.com/compass/video-analysis
- *   sellers + dev  → file://.../partner-center2.html (local fixture)
- *   sellers + prod → partner-collabs/agency/detail?campaign_id=<id>
- *                    --campaign-id=<id> required (each campaign is unique).
  *   live + dev     → file://.../seller-center.html (local fixture)
  *   live + prod    → shop.tiktok.com/workbench/live/overview?room_id=<id>
  *                    --room-id=<id> required (each live session is unique).
