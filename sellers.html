@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="shortcut icon" href="favicon.ico">
+  <title>Partner Collabs Sellers Bookmarklet</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 780px; margin: 40px auto; padding: 0 20px; color: #222; }
+    h1 { font-size: 22px; }
+    h2 { font-size: 18px; margin-top: 32px; }
+    p { line-height: 1.5; }
+    .bm {
+      display: inline-block;
+      padding: 8px 14px;
+      background: #009995;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    pre { background: #f4f4f4; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .nav { font-size: 14px; color: #555; }
+    .nav a { color: #009995; }
+  </style>
+</head>
+<body>
+  <p class="nav"><a href="index.html">&larr; Creator bookmarklet</a></p>
+
+  <h1>Partner Collabs Sellers Bookmarklet</h1>
+  <p>Drag the link below to your bookmarks bar. Then open a TikTok Shop Partner Center <strong>Partner Collabs Agency Detail</strong> page (URL pattern: <code>partner.us.tiktokshop.com/affiliate-campaign/partner-collabs/agency/detail?campaign_id=&hellip;</code>), pick the status tab you care about (Pending / Approved / Rejected / Pending closed / Closed), and click the bookmark. It will <code>console.log</code> a single object and POST it to a local Graylog GELF input (if configured). <strong>Graylog-only:</strong> this bookmarklet does not POST to Google Sheets — the seller schema doesn't fit the creator-oriented Sheet, so it ships only to Graylog.</p>
+
+  <pre><code>{
+  page,                       // "Collaboration details"
+  campaignId,                 // from URL ?campaign_id=...
+  status,                     // active inner tab (Pending / Approved / ...)
+  statusCount,                // count badge on the active tab
+  statusTabs: [ { label, count } ],
+  scrapedAt,                  // ISO timestamp
+  sellers: [ { "Product ID", "Product name", "Date registered",
+               "Total commission rate", "Total Shop Ads commission rate",
+               "Sale price", "Stock", "Available samples", "Items sold",
+               "Product rating", "Reviews", "Shop name", "Shop rating",
+               "Shop email", "Shop code", "Status" } ]
+}</code></pre>
+
+  <p>Only the <strong>currently active status tab</strong>'s rows are scraped — switch tabs in the UI before clicking the bookmarklet if you want a different status. Each row includes the active tab as <code>Status</code>, so re-runs at different tabs produce one combined dataset in the Sheet / Graylog.</p>
+
+  <p>
+    <a class="bm" data-source="sellers" href="javascript:%28function%28%29%7B%0A%20%20%2F%2F%20----%20Local%20Graylog%20GELF%20HTTP%20input%20%28set%20to%20%27%27%20to%20disable%29%20----%0A%20%20%2F%2F%20Graylog-only%20%E2%80%94%20by%20design.%20The%20sellers%20payload%20doesn%27t%20fit%20the%20Apps%0A%20%20%2F%2F%20Script%20Sheet%20schema%20%28which%20is%20creator%2Fvideo%20oriented%29%2C%20so%20this%0A%20%20%2F%2F%20bookmarklet%20skips%20the%20Sheets%20POST%20and%20only%20ships%20to%20Graylog.%0A%20%20%2F%2F%20The%20%60bookmarklet-sync%60%20sidecar%20in%20docker-compose.yml%20rewrites%0A%20%20%2F%2F%20GRAYLOG_ENDPOINT%20%28ngrok%20public%20URL%20of%20the%20%3A12202%20GELF%20tunnel%29%20and%0A%20%20%2F%2F%20GRAYLOG_TOKEN%20%28admin%20API%20token%29%20on%20every%20%60docker%20compose%20up%60.%0A%20%20var%20GRAYLOG_ENDPOINT%20%3D%20%27https%3A%2F%2Ftok-graylog-gelf.ngrok-free.dev%2Fgelf%27%3B%0A%20%20var%20GRAYLOG_TOKEN%20%20%20%20%3D%20%27jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5%27%3B%0A%20%20%2F%2F%20Distinct%20source%20so%20Graylog%20can%20route%20this%20stream%20separately%20from%20the%0A%20%20%2F%2F%20creator%2Fvideo%20bookmarklet%20%28%60tiktok-bookmarklet%60%29.%0A%20%20var%20GRAYLOG_HOST%20%20%20%20%20%3D%20%27tiktok-bookmarklet-sellers%27%3B%0A%20%20%2F%2F%20----------------------------------------------------------------%0A%0A%20%20%2F%2F%20Targets%20the%20Partner%20Collabs%20Agency%20Detail%20page%3A%0A%20%20%2F%2F%20%20%20partner.us.tiktokshop.com%2Faffiliate-campaign%2Fpartner-collabs%2Fagency%2Fdetail%3Fcampaign_id%3D...%0A%20%20%2F%2F%20Each%20row%20pairs%20a%20product%20row%20with%20the%20seller%20%28shop%29%20that%20registered%20it.%0A%0A%20%20var%20clean%20%3D%20function%28s%29%7B%20return%20%28s%20%7C%7C%20%27%27%29.replace%28%2F%5Cs%2B%2Fg%2C%20%27%20%27%29.trim%28%29%3B%20%7D%3B%0A%0A%20%20var%20pageTitleEl%20%3D%20document.querySelector%28%27.text-head-l%27%29%3B%0A%20%20var%20pageTitle%20%3D%20pageTitleEl%20%3F%20clean%28pageTitleEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20var%20campaignId%20%3D%20%27%27%3B%0A%20%20var%20cm%20%3D%20location.href.match%28%2F%5B%3F%26%5Dcampaign_id%3D%28%5Cd%2B%29%2F%29%3B%0A%20%20if%20%28cm%29%20campaignId%20%3D%20cm%5B1%5D%3B%0A%0A%20%20%2F%2F%20The%20page%20nests%20two%20%60.arco-tabs%60%20groups%20%E2%80%94%20an%20outer%20one%20with%0A%20%20%2F%2F%20%22Collaboration%20info%22%20%2F%20%22Performance%22%2C%20and%20an%20inner%20one%20with%20the%0A%20%20%2F%2F%20product-status%20tabs%20%28Pending%2C%20Approved%2C%20Rejected%2C%20Pending%20closed%2C%0A%20%20%2F%2F%20Closed%29.%20We%20want%20the%20inner%20group%20only.%20The%20Pending%20span%20and%20its%20count%0A%20%20%2F%2F%20span%20both%20render%20inside%20the%20title-text%20element%20with%20no%20whitespace%0A%20%20%2F%2F%20between%20them%2C%20so%20textContent%20yields%20%22Pending8%22%20%E2%80%94%20strip%20the%20count.%0A%20%20var%20STATUS_RE%20%3D%20%2F%5E%28Pending%20closed%7CPending%7CApproved%7CRejected%7CClosed%29%24%2F%3B%0A%20%20var%20labelOf%20%3D%20function%28t%29%7B%0A%20%20%20%20var%20countEl%20%3D%20t.querySelector%28%27.tab-value%27%29%3B%0A%20%20%20%20var%20countText%20%3D%20countEl%20%3F%20clean%28countEl.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20var%20full%20%3D%20clean%28t.textContent%29%3B%0A%20%20%20%20var%20label%20%3D%20full%3B%0A%20%20%20%20if%20%28countText%29%20%7B%0A%20%20%20%20%20%20var%20i%20%3D%20label.lastIndexOf%28countText%29%3B%0A%20%20%20%20%20%20if%20%28i%20%3E%3D%200%29%20label%20%3D%20label.slice%280%2C%20i%29.trim%28%29%3B%0A%20%20%20%20%7D%0A%20%20%20%20return%20%7B%20label%3A%20label%2C%20count%3A%20countText%20%7D%3B%0A%20%20%7D%3B%0A%0A%20%20var%20statusTabs%20%3D%20%5B%5D%3B%0A%20%20document.querySelectorAll%28%27.arco-tabs-header-title%20.arco-tabs-header-title-text%27%29.forEach%28function%28t%29%7B%0A%20%20%20%20var%20lc%20%3D%20labelOf%28t%29%3B%0A%20%20%20%20if%20%28%21STATUS_RE.test%28lc.label%29%29%20return%3B%0A%20%20%20%20statusTabs.push%28lc%29%3B%0A%20%20%7D%29%3B%0A%20%20var%20activeStatus%20%3D%20%27%27%3B%0A%20%20var%20activeCount%20%20%3D%20%27%27%3B%0A%20%20document.querySelectorAll%28%27.arco-tabs-header-title-active%20.arco-tabs-header-title-text%27%29.forEach%28function%28t%29%7B%0A%20%20%20%20if%20%28activeStatus%29%20return%3B%0A%20%20%20%20var%20lc%20%3D%20labelOf%28t%29%3B%0A%20%20%20%20if%20%28STATUS_RE.test%28lc.label%29%29%20%7B%0A%20%20%20%20%20%20activeStatus%20%3D%20lc.label%3B%0A%20%20%20%20%20%20activeCount%20%20%3D%20lc.count%3B%0A%20%20%20%20%7D%0A%20%20%7D%29%3B%0A%0A%20%20var%20get%20%3D%20function%28td%29%7B%0A%20%20%20%20if%20%28%21td%29%20return%20%27%27%3B%0A%20%20%20%20var%20inner%20%3D%20td.querySelector%28%27.arco-table-cell-wrap-value%27%29%3B%0A%20%20%20%20if%20%28%21inner%29%20return%20%27%27%3B%0A%20%20%20%20%2F%2F%20Multi-paragraph%20cells%20%28e.g.%20commission%20rate%20w%2F%20%22vs.%20open%20collab%22%20line%29%0A%20%20%20%20%2F%2F%20render%20as%20sibling%20%3Cp%3Es%20with%20no%20whitespace%20between%20them%20%E2%80%94%20joining%20via%0A%20%20%20%20%2F%2F%20textContent%20collapses%20to%20%2240%25vs.%20open%20collab%2020%25%22.%20Split%20%2B%20rejoin.%0A%20%20%20%20var%20ps%20%3D%20inner.querySelectorAll%28%27p%27%29%3B%0A%20%20%20%20if%20%28ps.length%20%3E%201%29%20%7B%0A%20%20%20%20%20%20var%20parts%20%3D%20%5B%5D%3B%0A%20%20%20%20%20%20ps.forEach%28function%28p%29%7B%20var%20s%20%3D%20clean%28p.textContent%29%3B%20if%20%28s%29%20parts.push%28s%29%3B%20%7D%29%3B%0A%20%20%20%20%20%20if%20%28parts.length%29%20return%20parts.join%28%27%20%2F%20%27%29%3B%0A%20%20%20%20%7D%0A%20%20%20%20return%20clean%28inner.textContent%29%3B%0A%20%20%7D%3B%0A%0A%20%20var%20sellers%20%3D%20%5B%5D%3B%0A%20%20var%20rows%20%3D%20document.querySelectorAll%28%27tbody%20tr.arco-table-tr%27%29%3B%0A%20%20rows.forEach%28function%28row%29%7B%0A%20%20%20%20var%20checkbox%20%3D%20row.querySelector%28%27input%5Btype%3D%22checkbox%22%5D%27%29%3B%0A%20%20%20%20if%20%28%21checkbox%29%20return%3B%20%2F%2F%20skip%20header%20rows%20%2F%20no-data%20rows%0A%0A%20%20%20%20%2F%2F%20td.arco-table-td%20order%20%28the%20shop-info%20%3Ctd%3E%20has%20no%20%60arco-table-td%60%0A%20%20%20%20%2F%2F%20class%20on%20the%20outer%20element%20so%20it%27s%20excluded%20%E2%80%94%20we%20read%20it%20separately%29%3A%0A%20%20%20%20%2F%2F%20%20%20%5B0%5D%20checkbox%0A%20%20%20%20%2F%2F%20%20%20%5B1%5D%20product%0A%20%20%20%20%2F%2F%20%20%20%5B2%5D%20date%20registered%0A%20%20%20%20%2F%2F%20%20%20%5B3%5D%20total%20commission%20rate%0A%20%20%20%20%2F%2F%20%20%20%5B4%5D%20total%20shop%20ads%20commission%20rate%0A%20%20%20%20%2F%2F%20%20%20%5B5%5D%20sale%20price%0A%20%20%20%20%2F%2F%20%20%20%5B6%5D%20stock%0A%20%20%20%20%2F%2F%20%20%20%5B7%5D%20available%20samples%0A%20%20%20%20%2F%2F%20%20%20%5B8%5D%20items%20sold%0A%20%20%20%20%2F%2F%20%20%20%5B9%5D%20product%20rating%0A%20%20%20%20%2F%2F%20%20%20%5B10%5D%20actions%20%28right-fixed%29%0A%20%20%20%20var%20tds%20%3D%20row.querySelectorAll%28%27td.arco-table-td%27%29%3B%0A%0A%20%20%20%20var%20productId%20%3D%20checkbox.value%20%7C%7C%20%27%27%3B%0A%20%20%20%20var%20productNameEl%20%3D%20tds%5B1%5D%20%26%26%20tds%5B1%5D.querySelector%28%27.arco-typography%5Btitle%5D%27%29%3B%0A%20%20%20%20var%20productName%20%3D%20productNameEl%0A%20%20%20%20%20%20%3F%20clean%28productNameEl.getAttribute%28%27title%27%29%20%7C%7C%20productNameEl.textContent%29%0A%20%20%20%20%20%20%3A%20%27%27%3B%0A%0A%20%20%20%20if%20%28%21productId%20%26%26%20tds%5B1%5D%29%20%7B%0A%20%20%20%20%20%20var%20idEl%20%3D%20tds%5B1%5D.querySelector%28%27.text-body-s-regular%27%29%3B%0A%20%20%20%20%20%20var%20im%20%3D%20idEl%20%26%26%20idEl.textContent.match%28%2FID%3A%5Cs%2A%28%5CS%2B%29%2F%29%3B%0A%20%20%20%20%20%20if%20%28im%29%20productId%20%3D%20im%5B1%5D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20var%20ratingValueEl%20%3D%20tds%5B9%5D%20%26%26%20tds%5B9%5D.querySelector%28%27.text-body-m-regular%27%29%3B%0A%20%20%20%20var%20ratingValue%20%3D%20ratingValueEl%20%3F%20clean%28ratingValueEl.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20var%20reviewCountEl%20%3D%20tds%5B9%5D%20%26%26%20tds%5B9%5D.querySelector%28%27.text-body-s-regular%27%29%3B%0A%20%20%20%20var%20reviewCount%20%3D%20reviewCountEl%20%3F%20clean%28reviewCountEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%2F%2F%20Shop%20info%20column%20lives%20in%20a%20sibling%20%3Ctd%20id%3D%22shop-info-wrapper%22%3E%20that%0A%20%20%20%20%2F%2F%20sits%20between%20the%20regular%20cells%20and%20the%20right-fixed%20actions%20cell%2C%20but%0A%20%20%20%20%2F%2F%20doesn%27t%20carry%20the%20%60arco-table-td%60%20class%20on%20its%20outer%20element.%0A%20%20%20%20var%20shopWrap%20%3D%20row.querySelector%28%27%23shop-info-wrapper%2C%20.shop-info-td%27%29%3B%0A%20%20%20%20var%20shopName%20%3D%20%27%27%2C%20shopRating%20%3D%20%27%27%2C%20shopEmail%20%3D%20%27%27%2C%20shopCode%20%3D%20%27%27%3B%0A%20%20%20%20if%20%28shopWrap%29%20%7B%0A%20%20%20%20%20%20var%20nameEl%20%3D%20shopWrap.querySelector%28%27.arco-typography%27%29%3B%0A%20%20%20%20%20%20shopName%20%3D%20nameEl%20%3F%20clean%28nameEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%20%20var%20ratingEl%20%3D%20shopWrap.querySelector%28%27.font-semibold.ml-2%27%29%3B%0A%20%20%20%20%20%20shopRating%20%3D%20ratingEl%20%3F%20clean%28ratingEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%20%20var%20emailEls%20%3D%20shopWrap.querySelectorAll%28%27.arco-typography%27%29%3B%0A%20%20%20%20%20%20%2F%2F%20Index%20%5B0%5D%20%3D%20shop%20name%2C%20%5B1%5D%20%3D%20email%20%28truncated%20typography%29.%0A%20%20%20%20%20%20shopEmail%20%3D%20emailEls%5B1%5D%20%3F%20clean%28emailEls%5B1%5D.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%20%20var%20codeWrap%20%3D%20shopWrap.querySelector%28%27.shop_code%27%29%3B%0A%20%20%20%20%20%20if%20%28codeWrap%29%20%7B%0A%20%20%20%20%20%20%20%20shopCode%20%3D%20clean%28codeWrap.textContent.replace%28%2F%5E%5Cs%2AShop%20code%3A%5Cs%2A%2F%2C%20%27%27%29%29%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%0A%20%20%20%20sellers.push%28%7B%0A%20%20%20%20%20%20%27Product%20ID%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20productId%2C%0A%20%20%20%20%20%20%27Product%20name%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20productName%2C%0A%20%20%20%20%20%20%27Date%20registered%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B2%5D%20%3F%20get%28tds%5B2%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Total%20commission%20rate%27%3A%20%20%20%20%20%20%20%20%20%20tds%5B3%5D%20%3F%20get%28tds%5B3%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Total%20Shop%20Ads%20commission%20rate%27%3A%20tds%5B4%5D%20%3F%20get%28tds%5B4%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Sale%20price%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B5%5D%20%3F%20get%28tds%5B5%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Stock%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B6%5D%20%3F%20get%28tds%5B6%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Available%20samples%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B7%5D%20%3F%20get%28tds%5B7%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Items%20sold%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B8%5D%20%3F%20get%28tds%5B8%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Product%20rating%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20ratingValue%2C%0A%20%20%20%20%20%20%27Reviews%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20reviewCount%2C%0A%20%20%20%20%20%20%27Shop%20name%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20shopName%2C%0A%20%20%20%20%20%20%27Shop%20rating%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20shopRating%2C%0A%20%20%20%20%20%20%27Shop%20email%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20shopEmail%2C%0A%20%20%20%20%20%20%27Shop%20code%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20shopCode%2C%0A%20%20%20%20%20%20%27Status%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20activeStatus%0A%20%20%20%20%7D%29%3B%0A%20%20%7D%29%3B%0A%0A%20%20var%20payload%20%3D%20%7B%0A%20%20%20%20page%3A%20%20%20%20%20%20%20%20pageTitle%2C%0A%20%20%20%20campaignId%3A%20%20campaignId%2C%0A%20%20%20%20status%3A%20%20%20%20%20%20activeStatus%2C%0A%20%20%20%20statusCount%3A%20activeCount%2C%0A%20%20%20%20statusTabs%3A%20%20statusTabs%2C%0A%20%20%20%20scrapedAt%3A%20%20%20new%20Date%28%29.toISOString%28%29%2C%0A%20%20%20%20sellers%3A%20%20%20%20%20sellers%0A%20%20%7D%3B%0A%20%20console.log%28payload%29%3B%0A%0A%20%20%2F%2F%20Post%20to%20local%20Graylog%20GELF%20HTTP%20input%20%28if%20configured%29.%0A%20%20if%20%28GRAYLOG_ENDPOINT%29%20%7B%0A%20%20%20%20var%20gelf%20%3D%20%7B%0A%20%20%20%20%20%20version%3A%20%271.1%27%2C%0A%20%20%20%20%20%20host%3A%20GRAYLOG_HOST%2C%0A%20%20%20%20%20%20short_message%3A%20%27tiktok%20seller%20scrape%3A%20%27%20%2B%20%28activeStatus%20%7C%7C%20pageTitle%20%7C%7C%20%27unknown%27%29%20%2B%20%27%20%28%27%20%2B%20sellers.length%20%2B%20%27%20sellers%29%27%2C%0A%20%20%20%20%20%20timestamp%3A%20Math.floor%28Date.now%28%29%20%2F%201000%29%2C%0A%20%20%20%20%20%20_page%3A%20%20%20%20%20%20%20%20%20%20payload.page%2C%0A%20%20%20%20%20%20_campaign_id%3A%20%20%20payload.campaignId%2C%0A%20%20%20%20%20%20_status%3A%20%20%20%20%20%20%20%20payload.status%2C%0A%20%20%20%20%20%20_status_count%3A%20%20payload.statusCount%2C%0A%20%20%20%20%20%20_scrapedAt%3A%20%20%20%20%20payload.scrapedAt%2C%0A%20%20%20%20%20%20_tabs_count%3A%20%20%20%20statusTabs.length%2C%0A%20%20%20%20%20%20_tabs_json%3A%20%20%20%20%20JSON.stringify%28statusTabs%29%2C%0A%20%20%20%20%20%20_sellers_count%3A%20sellers.length%2C%0A%20%20%20%20%20%20_sellers_json%3A%20%20JSON.stringify%28sellers%29%2C%0A%20%20%20%20%20%20_graylog_key%3A%20%20%20GRAYLOG_TOKEN%0A%20%20%20%20%7D%3B%0A%20%20%20%20fetch%28GRAYLOG_ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20mode%3A%20%27no-cors%27%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28gelf%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20console.log%28%27%5Bgraylog%5D%20sent%27%2C%20r.status%20%7C%7C%20%27opaque%27%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bgraylog%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%7D%29%28%29%3B">Log Sellers</a>
+  </p>
+
+  <h2>Source</h2>
+  <pre><code data-source="sellers">javascript:(function(){
+  // ---- Local Graylog GELF HTTP input (set to '' to disable) ----
+  // Graylog-only — by design. The sellers payload doesn't fit the Apps
+  // Script Sheet schema (which is creator/video oriented), so this
+  // bookmarklet skips the Sheets POST and only ships to Graylog.
+  // The `bookmarklet-sync` sidecar in docker-compose.yml rewrites
+  // GRAYLOG_ENDPOINT (ngrok public URL of the :12202 GELF tunnel) and
+  // GRAYLOG_TOKEN (admin API token) on every `docker compose up`.
+  var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+  var GRAYLOG_TOKEN    = 'jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5';
+  // Distinct source so Graylog can route this stream separately from the
+  // creator/video bookmarklet (`tiktok-bookmarklet`).
+  var GRAYLOG_HOST     = 'tiktok-bookmarklet-sellers';
+  // ----------------------------------------------------------------
+
+  // Targets the Partner Collabs Agency Detail page:
+  //   partner.us.tiktokshop.com/affiliate-campaign/partner-collabs/agency/detail?campaign_id=...
+  // Each row pairs a product row with the seller (shop) that registered it.
+
+  var clean = function(s){ return (s || '').replace(/\s+/g, ' ').trim(); };
+
+  var pageTitleEl = document.querySelector('.text-head-l');
+  var pageTitle = pageTitleEl ? clean(pageTitleEl.textContent) : '';
+
+  var campaignId = '';
+  var cm = location.href.match(/[?&amp;]campaign_id=(\d+)/);
+  if (cm) campaignId = cm[1];
+
+  // The page nests two `.arco-tabs` groups — an outer one with
+  // "Collaboration info" / "Performance", and an inner one with the
+  // product-status tabs (Pending, Approved, Rejected, Pending closed,
+  // Closed). We want the inner group only. The Pending span and its count
+  // span both render inside the title-text element with no whitespace
+  // between them, so textContent yields "Pending8" — strip the count.
+  var STATUS_RE = /^(Pending closed|Pending|Approved|Rejected|Closed)$/;
+  var labelOf = function(t){
+    var countEl = t.querySelector('.tab-value');
+    var countText = countEl ? clean(countEl.textContent) : '';
+    var full = clean(t.textContent);
+    var label = full;
+    if (countText) {
+      var i = label.lastIndexOf(countText);
+      if (i &gt;= 0) label = label.slice(0, i).trim();
+    }
+    return { label: label, count: countText };
+  };
+
+  var statusTabs = [];
+  document.querySelectorAll('.arco-tabs-header-title .arco-tabs-header-title-text').forEach(function(t){
+    var lc = labelOf(t);
+    if (!STATUS_RE.test(lc.label)) return;
+    statusTabs.push(lc);
+  });
+  var activeStatus = '';
+  var activeCount  = '';
+  document.querySelectorAll('.arco-tabs-header-title-active .arco-tabs-header-title-text').forEach(function(t){
+    if (activeStatus) return;
+    var lc = labelOf(t);
+    if (STATUS_RE.test(lc.label)) {
+      activeStatus = lc.label;
+      activeCount  = lc.count;
+    }
+  });
+
+  var get = function(td){
+    if (!td) return '';
+    var inner = td.querySelector('.arco-table-cell-wrap-value');
+    if (!inner) return '';
+    // Multi-paragraph cells (e.g. commission rate w/ "vs. open collab" line)
+    // render as sibling &lt;p&gt;s with no whitespace between them — joining via
+    // textContent collapses to "40%vs. open collab 20%". Split + rejoin.
+    var ps = inner.querySelectorAll('p');
+    if (ps.length &gt; 1) {
+      var parts = [];
+      ps.forEach(function(p){ var s = clean(p.textContent); if (s) parts.push(s); });
+      if (parts.length) return parts.join(' / ');
+    }
+    return clean(inner.textContent);
+  };
+
+  var sellers = [];
+  var rows = document.querySelectorAll('tbody tr.arco-table-tr');
+  rows.forEach(function(row){
+    var checkbox = row.querySelector('input[type="checkbox"]');
+    if (!checkbox) return; // skip header rows / no-data rows
+
+    // td.arco-table-td order (the shop-info &lt;td&gt; has no `arco-table-td`
+    // class on the outer element so it's excluded — we read it separately):
+    //   [0] checkbox
+    //   [1] product
+    //   [2] date registered
+    //   [3] total commission rate
+    //   [4] total shop ads commission rate
+    //   [5] sale price
+    //   [6] stock
+    //   [7] available samples
+    //   [8] items sold
+    //   [9] product rating
+    //   [10] actions (right-fixed)
+    var tds = row.querySelectorAll('td.arco-table-td');
+
+    var productId = checkbox.value || '';
+    var productNameEl = tds[1] &amp;&amp; tds[1].querySelector('.arco-typography[title]');
+    var productName = productNameEl
+      ? clean(productNameEl.getAttribute('title') || productNameEl.textContent)
+      : '';
+
+    if (!productId &amp;&amp; tds[1]) {
+      var idEl = tds[1].querySelector('.text-body-s-regular');
+      var im = idEl &amp;&amp; idEl.textContent.match(/ID:\s*(\S+)/);
+      if (im) productId = im[1];
+    }
+
+    var ratingValueEl = tds[9] &amp;&amp; tds[9].querySelector('.text-body-m-regular');
+    var ratingValue = ratingValueEl ? clean(ratingValueEl.textContent) : '';
+    var reviewCountEl = tds[9] &amp;&amp; tds[9].querySelector('.text-body-s-regular');
+    var reviewCount = reviewCountEl ? clean(reviewCountEl.textContent) : '';
+
+    // Shop info column lives in a sibling &lt;td id="shop-info-wrapper"&gt; that
+    // sits between the regular cells and the right-fixed actions cell, but
+    // doesn't carry the `arco-table-td` class on its outer element.
+    var shopWrap = row.querySelector('#shop-info-wrapper, .shop-info-td');
+    var shopName = '', shopRating = '', shopEmail = '', shopCode = '';
+    if (shopWrap) {
+      var nameEl = shopWrap.querySelector('.arco-typography');
+      shopName = nameEl ? clean(nameEl.textContent) : '';
+
+      var ratingEl = shopWrap.querySelector('.font-semibold.ml-2');
+      shopRating = ratingEl ? clean(ratingEl.textContent) : '';
+
+      var emailEls = shopWrap.querySelectorAll('.arco-typography');
+      // Index [0] = shop name, [1] = email (truncated typography).
+      shopEmail = emailEls[1] ? clean(emailEls[1].textContent) : '';
+
+      var codeWrap = shopWrap.querySelector('.shop_code');
+      if (codeWrap) {
+        shopCode = clean(codeWrap.textContent.replace(/^\s*Shop code:\s*/, ''));
+      }
+    }
+
+    sellers.push({
+      'Product ID':                     productId,
+      'Product name':                   productName,
+      'Date registered':                tds[2] ? get(tds[2]) : '',
+      'Total commission rate':          tds[3] ? get(tds[3]) : '',
+      'Total Shop Ads commission rate': tds[4] ? get(tds[4]) : '',
+      'Sale price':                     tds[5] ? get(tds[5]) : '',
+      'Stock':                          tds[6] ? get(tds[6]) : '',
+      'Available samples':              tds[7] ? get(tds[7]) : '',
+      'Items sold':                     tds[8] ? get(tds[8]) : '',
+      'Product rating':                 ratingValue,
+      'Reviews':                        reviewCount,
+      'Shop name':                      shopName,
+      'Shop rating':                    shopRating,
+      'Shop email':                     shopEmail,
+      'Shop code':                      shopCode,
+      'Status':                         activeStatus
+    });
+  });
+
+  var payload = {
+    page:        pageTitle,
+    campaignId:  campaignId,
+    status:      activeStatus,
+    statusCount: activeCount,
+    statusTabs:  statusTabs,
+    scrapedAt:   new Date().toISOString(),
+    sellers:     sellers
+  };
+  console.log(payload);
+
+  // Post to local Graylog GELF HTTP input (if configured).
+  if (GRAYLOG_ENDPOINT) {
+    var gelf = {
+      version: '1.1',
+      host: GRAYLOG_HOST,
+      short_message: 'tiktok seller scrape: ' + (activeStatus || pageTitle || 'unknown') + ' (' + sellers.length + ' sellers)',
+      timestamp: Math.floor(Date.now() / 1000),
+      _page:          payload.page,
+      _campaign_id:   payload.campaignId,
+      _status:        payload.status,
+      _status_count:  payload.statusCount,
+      _scrapedAt:     payload.scrapedAt,
+      _tabs_count:    statusTabs.length,
+      _tabs_json:     JSON.stringify(statusTabs),
+      _sellers_count: sellers.length,
+      _sellers_json:  JSON.stringify(sellers),
+      _graylog_key:   GRAYLOG_TOKEN
+    };
+    fetch(GRAYLOG_ENDPOINT, {
+      method: 'POST',
+      keepalive: true,
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(gelf)
+    }).then(function(r){ console.log('[graylog] sent', r.status || 'opaque'); })
+      .catch(function(e){ console.warn('[graylog] post failed', e); });
+  }
+})();</code></pre>
+
+  <h2>Example output</h2>
+  <pre><code>{
+  "page": "Collaboration details",
+  "campaignId": "7602081624227088159",
+  "status": "Pending",
+  "statusCount": "8",
+  "statusTabs": [
+    { "label": "Pending",        "count": "8"   },
+    { "label": "Approved",       "count": "154" },
+    { "label": "Rejected",       "count": "32"  },
+    { "label": "Pending closed", "count": "0"   },
+    { "label": "Closed",         "count": "2"   }
+  ],
+  "scrapedAt": "2026-04-25T12:34:56.000Z",
+  "sellers": [
+    {
+      "Product ID":                     "1732073508761539497",
+      "Product name":                   "MagStack USB-A | Magnetic Auto-Coiling Tangle-Free Cable | 27W Fast Charge & 480Mbps Data Transfer | 10,000 Bend Durable Braided Nylon | Apple CarPlay",
+      "Date registered":                "4/21/2026",
+      "Total commission rate":          "40% / vs. open collab 20%",
+      "Total Shop Ads commission rate": "- / vs. open collab Shop Ads 10%",
+      "Sale price":                     "$13.39-$19.79",
+      "Stock":                          "2386",
+      "Available samples":              "150",
+      "Items sold":                     "448",
+      "Product rating":                 "4.3",
+      "Reviews":                        "32 reviews",
+      "Shop name":                      "STATIK US",
+      "Shop rating":                    "4.8",
+      "Shop email":                     "bruna.t@curvgroup.co...",
+      "Shop code":                      "USUSLCNHE6WD",
+      "Status":                         "Pending"
+    }
+  ]
+}</code></pre>
+
+  <h2>Partner Center</h2>
+  <p><a href="partner-center2.html">Partner Center test page</a> &mdash; a saved copy of a TikTok Shop Partner Collabs Agency Detail page for testing the bookmarklet locally.</p>
+
+  <h2>Graylog</h2>
+  <p>The Graylog message uses GELF <code>host: "tiktok-bookmarklet-sellers"</code> (Graylog indexes <code>host</code> as <code>source</code>) so this stream can be filtered separately from the creator/video bookmarklet. Search <code>source:tiktok-bookmarklet-sellers</code> in the Graylog UI. Custom GELF fields: <code>_page</code>, <code>_campaign_id</code>, <code>_status</code>, <code>_status_count</code>, <code>_scrapedAt</code>, <code>_tabs_count</code>, <code>_tabs_json</code>, <code>_sellers_count</code>, <code>_sellers_json</code>. The request uses <code>fetch(..., { mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' } })</code> so it's a CORS "simple request" (no preflight); the response is opaque and the bookmarklet cannot read it &mdash; check DevTools &rarr; Network for the request, or the Graylog UI for the message.</p>
+
+  <h2>No Sheet setup</h2>
+  <p>This bookmarklet is Graylog-only. The seller payload shape (products paired with shop info) doesn't fit the creator-oriented Sheet schema in <code>apps-script/Code.gs</code>, so the Apps Script POST has been removed entirely from the source. All persistence happens through Graylog &mdash; build dashboards / alerts there, or query the JSON fields below directly.</p>
+
+  <h2>Endpoint sync</h2>
+  <p>The drag link and source block above get rewritten on every <code>docker compose up</code> by <code>scripts/sync-bookmarklet.py</code> &mdash; the sidecar reads the current ngrok GELF tunnel URL and Graylog admin API token, splices them into <code>bookmarklet-sellers.js</code>, then re-URL-encodes the result into the <code>&lt;a class="bm" data-source="sellers"&gt;</code> href and the <code>&lt;pre&gt;&lt;code data-source="sellers"&gt;</code> block. Re-drag the bookmark after each sync to pick up the new endpoint.</p>
+</body>
+</html>

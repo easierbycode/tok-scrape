@@ -40,11 +40,11 @@
   <p>Inactive video rows are skipped. To enable the Google Sheet sync, see <a href="#sheet-setup">Google Sheet setup</a>.</p>
 
   <p>
-    <a class="bm" href="javascript:%28function%28%29%7B%0A%20%20%2F%2F%20----%20Google%20Sheets%20Apps%20Script%20Web%20App%20%28fill%20these%20in%20once%29%20----%0A%20%20var%20ENDPOINT%20%3D%20%27https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2FAKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG%2Fexec%27%3B%0A%20%20var%20TOKEN%20%20%20%20%3D%20%27%2A%2Adingleding%26%26%27%3B%0A%20%20%2F%2F%20----%20Local%20Graylog%20GELF%20HTTP%20input%20%28set%20to%20%27%27%20to%20disable%29%20----%0A%20%20%2F%2F%20The%20%60bookmarklet-sync%60%20sidecar%20in%20docker-compose.yml%20rewrites%0A%20%20%2F%2F%20GRAYLOG_ENDPOINT%20%28ngrok%20public%20URL%20of%20the%20%3A12202%20GELF%20tunnel%29%20and%0A%20%20%2F%2F%20GRAYLOG_TOKEN%20%28admin%20API%20token%29%20on%20every%20%60docker%20compose%20up%60.%0A%20%20var%20GRAYLOG_ENDPOINT%20%3D%20%27https%3A%2F%2Ftok-graylog-gelf.ngrok-free.dev%2Fgelf%27%3B%0A%20%20var%20GRAYLOG_TOKEN%20%20%20%20%3D%20%27jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5%27%3B%0A%20%20var%20GRAYLOG_HOST%20%20%20%20%20%3D%20%27tiktok-bookmarklet%27%3B%0A%20%20%2F%2F%20----------------------------------------------------------------%0A%0A%20%20var%20UP%20%3D%20%22M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z%22%3B%0A%20%20var%20items%20%3D%20document.querySelectorAll%28%27.arco-space-item%27%29%3B%0A%20%20var%20metricsRoot%20%3D%20items%5B2%5D%3B%0A%20%20if%20%28%21metricsRoot%29%20%7B%20console.warn%28%27Key%20metrics%20container%20not%20found%27%29%3B%20return%3B%20%7D%0A%0A%20%20var%20dateRoot%20%3D%20items%5B0%5D%3B%0A%20%20var%20dateRange%20%3D%20%7B%20start%3A%20%27%27%2C%20end%3A%20%27%27%20%7D%3B%0A%20%20if%20%28dateRoot%29%20%7B%0A%20%20%20%20var%20startEl%20%3D%20dateRoot.querySelector%28%27input%5Bplaceholder%3D%22Start%20month%22%5D%27%29%3B%0A%20%20%20%20var%20endEl%20%20%20%3D%20dateRoot.querySelector%28%27input%5Bplaceholder%3D%22End%20month%22%5D%27%29%3B%0A%20%20%20%20dateRange.start%20%3D%20startEl%20%3F%20startEl.value%20%3A%20%27%27%3B%0A%20%20%20%20dateRange.end%20%20%20%3D%20endEl%20%20%20%3F%20endEl.value%20%20%20%3A%20%27%27%3B%0A%20%20%7D%0A%0A%20%20var%20checked%20%3D%20items%5B1%5D%20%26%26%20items%5B1%5D.querySelector%28%27.arco-radio-checked%27%29%3B%0A%20%20var%20card%20%3D%20checked%20%26%26%20checked.closest%28%27.flex.w-full.flex-col%27%29%3B%0A%20%20var%20nameEl%20%3D%20card%20%26%26%20card.querySelector%28%27.text-body-s-medium%27%29%3B%0A%20%20var%20creator%20%3D%20nameEl%20%3F%20nameEl.textContent.trim%28%29%20%3A%20%27%27%3B%0A%0A%20%20var%20metrics%20%3D%20%5B%5D%3B%0A%20%20metricsRoot.querySelectorAll%28%27.flex.flex-col.items-start%27%29.forEach%28function%28c%29%7B%0A%20%20%20%20var%20k%20%3D%20c.querySelector%28%27.text-14%27%29%2C%0A%20%20%20%20%20%20%20%20v%20%3D%20c.querySelector%28%27.text-20%27%29%3B%0A%20%20%20%20if%20%28%21k%20%7C%7C%20%21v%29%20return%3B%0A%20%20%20%20var%20row%20%3D%20v.nextElementSibling%2C%0A%20%20%20%20%20%20%20%20p%20%3D%20row%20%26%26%20row.querySelector%28%27svg%20path%27%29%2C%0A%20%20%20%20%20%20%20%20pct%20%3D%20row%20%26%26%20row.querySelector%28%27span%27%29%3B%0A%20%20%20%20var%20dir%20%3D%20p%20%26%26%20p.getAttribute%28%27d%27%29%20%3D%3D%3D%20UP%20%3F%20%27%5Cu2191%27%20%3A%20%27%5Cu2193%27%3B%0A%20%20%20%20metrics.push%28%7B%0A%20%20%20%20%20%20name%3A%20%20k.textContent.trim%28%29%2C%0A%20%20%20%20%20%20value%3A%20v.textContent.trim%28%29%2C%0A%20%20%20%20%20%20trend%3A%20dir%20%2B%20%27%20%27%20%2B%20%28pct%20%3F%20pct.textContent.trim%28%29%20%3A%20%27%27%29%0A%20%20%20%20%7D%29%3B%0A%20%20%7D%29%3B%0A%0A%20%20var%20videos%20%3D%20%5B%5D%3B%0A%20%20var%20videosRoot%20%3D%20items%5Bitems.length%20-%201%5D%3B%0A%20%20if%20%28videosRoot%20%26%26%20videosRoot%20%21%3D%3D%20metricsRoot%29%20%7B%0A%20%20%20%20var%20rows%20%3D%20videosRoot.querySelectorAll%28%27tbody%20tr.arco-table-tr%27%29%3B%0A%20%20%20%20rows.forEach%28function%28row%29%7B%0A%20%20%20%20%20%20var%20link%20%3D%20row.querySelector%28%27a.text-12.hover%5C%5C%3Aunderline%27%29%3B%0A%20%20%20%20%20%20if%20%28%21link%29%20return%3B%0A%0A%20%20%20%20%20%20var%20href%20%3D%20link.getAttribute%28%27href%27%29%3B%0A%0A%20%20%20%20%20%20if%20%28%21creator%29%20%7B%0A%20%20%20%20%20%20%20%20var%20cm%20%3D%20href%20%26%26%20href.match%28%2F%40%28%5B%5E%2F%5D%2B%29%2F%29%3B%0A%20%20%20%20%20%20%20%20if%20%28cm%29%20creator%20%3D%20%27%40%27%20%2B%20cm%5B1%5D%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20linkParent%20%3D%20link.parentElement%3B%0A%20%20%20%20%20%20var%20infoCol%20%20%20%3D%20linkParent.parentElement%3B%0A%0A%20%20%20%20%20%20var%20nameContainer%20%3D%20infoCol.querySelector%28%27.whitespace-nowrap.overflow-ellipsis.overflow-hidden%27%29%3B%0A%20%20%20%20%20%20var%20nameEl2%20%3D%20nameContainer%20%26%26%20nameContainer.querySelector%28%27.overflow-hidden.overflow-ellipsis%27%29%3B%0A%20%20%20%20%20%20var%20name%20%3D%20nameEl2%20%3F%20nameEl2.textContent.replace%28%2F%5Cs%2B%2Fg%2C%20%27%20%27%29.trim%28%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%20%20var%20idText%20%3D%20%27%27%3B%0A%20%20%20%20%20%20var%20idDiv%20%3D%20linkParent.previousElementSibling%3B%0A%20%20%20%20%20%20if%20%28idDiv%29%20%7B%0A%20%20%20%20%20%20%20%20var%20idEl%20%3D%20idDiv.querySelector%28%27.text-12%27%29%3B%0A%20%20%20%20%20%20%20%20idText%20%3D%20idEl%20%3F%20idEl.textContent.trim%28%29.replace%28%2F%5EVideo%20ID%3A%5Cs%2A%2F%2C%20%27%27%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20posted%20%3D%20%27%27%2C%20duration%20%3D%20%27%27%3B%0A%20%20%20%20%20%20var%20postedDiv%20%3D%20linkParent.nextElementSibling%3B%0A%20%20%20%20%20%20if%20%28postedDiv%29%20%7B%0A%20%20%20%20%20%20%20%20var%20pEl%20%3D%20postedDiv.querySelector%28%27.text-12%27%29%3B%0A%20%20%20%20%20%20%20%20if%20%28pEl%29%20%7B%0A%20%20%20%20%20%20%20%20%20%20var%20m%20%3D%20pEl.textContent.trim%28%29.match%28%2FPosted%3A%5Cs%2A%28%5CS%2B%29%5Cs%2BDuration%3A%5Cs%2A%28%5CS%2B%29%2F%29%3B%0A%20%20%20%20%20%20%20%20%20%20if%20%28m%29%20%7B%20posted%20%3D%20m%5B1%5D%3B%20duration%20%3D%20m%5B2%5D%3B%20%7D%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20tds%20%3D%20row.querySelectorAll%28%27td.arco-table-td%27%29%3B%0A%20%20%20%20%20%20var%20get%20%3D%20function%28td%29%7B%0A%20%20%20%20%20%20%20%20var%20inner%20%3D%20td.querySelector%28%27.arco-table-cell-wrap-value%27%29%3B%0A%20%20%20%20%20%20%20%20return%20inner%20%3F%20inner.textContent.trim%28%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20%7D%3B%0A%0A%20%20%20%20%20%20var%20detailsLink%20%3D%20%27%27%3B%0A%20%20%20%20%20%20if%20%28tds%5B8%5D%29%20%7B%0A%20%20%20%20%20%20%20%20var%20a%20%3D%20tds%5B8%5D.querySelector%28%27a%27%29%3B%0A%20%20%20%20%20%20%20%20detailsLink%20%3D%20a%20%3F%20a.getAttribute%28%27href%27%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20videos.push%28%7B%0A%20%20%20%20%20%20%20%20%27Video%20ID%27%3A%20%20%20%20%20%20%20%20%20idText%2C%0A%20%20%20%20%20%20%20%20%27Name%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20name%2C%0A%20%20%20%20%20%20%20%20%27Link%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20href%2C%0A%20%20%20%20%20%20%20%20%27Posted%27%3A%20%20%20%20%20%20%20%20%20%20%20posted%2C%0A%20%20%20%20%20%20%20%20%27Duration%27%3A%20%20%20%20%20%20%20%20%20duration%2C%0A%20%20%20%20%20%20%20%20%27Affiliate%20GMV%27%3A%20%20%20%20tds%5B1%5D%20%3F%20get%28tds%5B1%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Items%20sold%27%3A%20%20%20%20%20%20%20tds%5B2%5D%20%3F%20get%28tds%5B2%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Est.%20commissions%27%3A%20tds%5B3%5D%20%3F%20get%28tds%5B3%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Direct%20GMV%27%3A%20%20%20%20%20%20%20tds%5B4%5D%20%3F%20get%28tds%5B4%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27RPM%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B5%5D%20%3F%20get%28tds%5B5%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Views%27%3A%20%20%20%20%20%20%20%20%20%20%20%20tds%5B6%5D%20%3F%20get%28tds%5B6%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Completion%20rate%27%3A%20%20tds%5B7%5D%20%3F%20get%28tds%5B7%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Details%27%3A%20%20%20%20%20%20%20%20%20%20detailsLink%0A%20%20%20%20%20%20%7D%29%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%7D%0A%0A%20%20var%20payload%20%3D%20%7B%0A%20%20%20%20creator%3A%20%20%20creator%2C%0A%20%20%20%20scrapedAt%3A%20new%20Date%28%29.toISOString%28%29%2C%0A%20%20%20%20dateRange%3A%20dateRange%2C%0A%20%20%20%20metrics%3A%20%20%20metrics%2C%0A%20%20%20%20videos%3A%20%20%20%20videos%0A%20%20%7D%3B%0A%20%20console.log%28payload%29%3B%0A%0A%20%20%2F%2F%203%29%20Post%20to%20Google%20Sheets%20via%20the%20Apps%20Script%20Web%20App%20%28if%20configured%29.%0A%20%20if%20%28ENDPOINT%20%26%26%20ENDPOINT.indexOf%28%27PASTE_%27%29%20%21%3D%3D%200%29%20%7B%0A%20%20%20%20fetch%28ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28%7B%0A%20%20%20%20%20%20%20%20token%3A%20%20%20%20%20TOKEN%2C%0A%20%20%20%20%20%20%20%20creator%3A%20%20%20payload.creator%2C%0A%20%20%20%20%20%20%20%20scrapedAt%3A%20payload.scrapedAt%2C%0A%20%20%20%20%20%20%20%20dateRange%3A%20payload.dateRange%2C%0A%20%20%20%20%20%20%20%20metrics%3A%20%20%20payload.metrics%2C%0A%20%20%20%20%20%20%20%20videos%3A%20%20%20%20payload.videos%0A%20%20%20%20%20%20%7D%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20return%20r.json%28%29%3B%20%7D%29%0A%20%20%20%20%20%20.then%28function%28j%29%7B%20console.log%28%27%5Bsheet%5D%27%2C%20j%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bsheet%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%0A%20%20%2F%2F%204%29%20Post%20to%20local%20Graylog%20GELF%20HTTP%20input%20%28if%20configured%29.%0A%20%20if%20%28GRAYLOG_ENDPOINT%29%20%7B%0A%20%20%20%20var%20gelf%20%3D%20%7B%0A%20%20%20%20%20%20version%3A%20%271.1%27%2C%0A%20%20%20%20%20%20host%3A%20GRAYLOG_HOST%2C%0A%20%20%20%20%20%20short_message%3A%20%27tiktok%20scrape%3A%20%27%20%2B%20%28payload.creator%20%7C%7C%20%27unknown%27%29%20%2B%20%27%20%28%27%20%2B%20videos.length%20%2B%20%27%20videos%29%27%2C%0A%20%20%20%20%20%20timestamp%3A%20Math.floor%28Date.now%28%29%20%2F%201000%29%2C%0A%20%20%20%20%20%20_creator%3A%20%20%20%20%20%20%20payload.creator%2C%0A%20%20%20%20%20%20_scrapedAt%3A%20%20%20%20%20payload.scrapedAt%2C%0A%20%20%20%20%20%20_date_start%3A%20%20%20%20dateRange.start%2C%0A%20%20%20%20%20%20_date_end%3A%20%20%20%20%20%20dateRange.end%2C%0A%20%20%20%20%20%20_metrics_count%3A%20metrics.length%2C%0A%20%20%20%20%20%20_videos_count%3A%20%20videos.length%2C%0A%20%20%20%20%20%20_metrics_json%3A%20%20JSON.stringify%28metrics%29%2C%0A%20%20%20%20%20%20_videos_json%3A%20%20%20JSON.stringify%28videos%29%2C%0A%20%20%20%20%20%20_graylog_key%3A%20%20%20GRAYLOG_TOKEN%0A%20%20%20%20%7D%3B%0A%20%20%20%20fetch%28GRAYLOG_ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20mode%3A%20%27no-cors%27%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28gelf%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20console.log%28%27%5Bgraylog%5D%20sent%27%2C%20r.status%20%7C%7C%20%27opaque%27%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bgraylog%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%7D%29%28%29%3B">Log Key Metrics</a>
+    <a class="bm" data-source="creator" href="javascript:%28function%28%29%7B%0A%20%20%2F%2F%20----%20Google%20Sheets%20Apps%20Script%20Web%20App%20%28fill%20these%20in%20once%29%20----%0A%20%20var%20ENDPOINT%20%3D%20%27https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2FAKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG%2Fexec%27%3B%0A%20%20var%20TOKEN%20%20%20%20%3D%20%27%2A%2Adingleding%26%26%27%3B%0A%20%20%2F%2F%20----%20Local%20Graylog%20GELF%20HTTP%20input%20%28set%20to%20%27%27%20to%20disable%29%20----%0A%20%20%2F%2F%20The%20%60bookmarklet-sync%60%20sidecar%20in%20docker-compose.yml%20rewrites%0A%20%20%2F%2F%20GRAYLOG_ENDPOINT%20%28ngrok%20public%20URL%20of%20the%20%3A12202%20GELF%20tunnel%29%20and%0A%20%20%2F%2F%20GRAYLOG_TOKEN%20%28admin%20API%20token%29%20on%20every%20%60docker%20compose%20up%60.%0A%20%20var%20GRAYLOG_ENDPOINT%20%3D%20%27https%3A%2F%2Ftok-graylog-gelf.ngrok-free.dev%2Fgelf%27%3B%0A%20%20var%20GRAYLOG_TOKEN%20%20%20%20%3D%20%27jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5%27%3B%0A%20%20var%20GRAYLOG_HOST%20%20%20%20%20%3D%20%27tiktok-bookmarklet%27%3B%0A%20%20%2F%2F%20----------------------------------------------------------------%0A%0A%20%20var%20UP%20%3D%20%22M2.97731%200.130983C3.11029%20-0.0430998%203.37217%20-0.0437687%203.50604%200.129632L6.44523%203.93668C6.6144%204.15581%206.45821%204.47372%206.18138%204.47372H4.60189V8.33326C4.60189%208.51735%204.45265%208.66659%204.26855%208.66659H2.26855C2.08446%208.66659%201.93522%208.51735%201.93522%208.33326V4.47372H0.333945C0.057903%204.47372%20-0.0985142%204.15739%200.0690572%203.93803L2.97731%200.130983Z%22%3B%0A%20%20var%20items%20%3D%20document.querySelectorAll%28%27.arco-space-item%27%29%3B%0A%20%20var%20metricsRoot%20%3D%20items%5B2%5D%3B%0A%20%20if%20%28%21metricsRoot%29%20%7B%20console.warn%28%27Key%20metrics%20container%20not%20found%27%29%3B%20return%3B%20%7D%0A%0A%20%20var%20dateRoot%20%3D%20items%5B0%5D%3B%0A%20%20var%20dateRange%20%3D%20%7B%20start%3A%20%27%27%2C%20end%3A%20%27%27%20%7D%3B%0A%20%20if%20%28dateRoot%29%20%7B%0A%20%20%20%20var%20startEl%20%3D%20dateRoot.querySelector%28%27input%5Bplaceholder%3D%22Start%20month%22%5D%27%29%3B%0A%20%20%20%20var%20endEl%20%20%20%3D%20dateRoot.querySelector%28%27input%5Bplaceholder%3D%22End%20month%22%5D%27%29%3B%0A%20%20%20%20dateRange.start%20%3D%20startEl%20%3F%20startEl.value%20%3A%20%27%27%3B%0A%20%20%20%20dateRange.end%20%20%20%3D%20endEl%20%20%20%3F%20endEl.value%20%20%20%3A%20%27%27%3B%0A%20%20%7D%0A%0A%20%20var%20checked%20%3D%20items%5B1%5D%20%26%26%20items%5B1%5D.querySelector%28%27.arco-radio-checked%27%29%3B%0A%20%20var%20card%20%3D%20checked%20%26%26%20checked.closest%28%27.flex.w-full.flex-col%27%29%3B%0A%20%20var%20nameEl%20%3D%20card%20%26%26%20card.querySelector%28%27.text-body-s-medium%27%29%3B%0A%20%20var%20creator%20%3D%20nameEl%20%3F%20nameEl.textContent.trim%28%29%20%3A%20%27%27%3B%0A%0A%20%20var%20metrics%20%3D%20%5B%5D%3B%0A%20%20metricsRoot.querySelectorAll%28%27.flex.flex-col.items-start%27%29.forEach%28function%28c%29%7B%0A%20%20%20%20var%20k%20%3D%20c.querySelector%28%27.text-14%27%29%2C%0A%20%20%20%20%20%20%20%20v%20%3D%20c.querySelector%28%27.text-20%27%29%3B%0A%20%20%20%20if%20%28%21k%20%7C%7C%20%21v%29%20return%3B%0A%20%20%20%20var%20row%20%3D%20v.nextElementSibling%2C%0A%20%20%20%20%20%20%20%20p%20%3D%20row%20%26%26%20row.querySelector%28%27svg%20path%27%29%2C%0A%20%20%20%20%20%20%20%20pct%20%3D%20row%20%26%26%20row.querySelector%28%27span%27%29%3B%0A%20%20%20%20var%20dir%20%3D%20p%20%26%26%20p.getAttribute%28%27d%27%29%20%3D%3D%3D%20UP%20%3F%20%27%5Cu2191%27%20%3A%20%27%5Cu2193%27%3B%0A%20%20%20%20metrics.push%28%7B%0A%20%20%20%20%20%20name%3A%20%20k.textContent.trim%28%29%2C%0A%20%20%20%20%20%20value%3A%20v.textContent.trim%28%29%2C%0A%20%20%20%20%20%20trend%3A%20dir%20%2B%20%27%20%27%20%2B%20%28pct%20%3F%20pct.textContent.trim%28%29%20%3A%20%27%27%29%0A%20%20%20%20%7D%29%3B%0A%20%20%7D%29%3B%0A%0A%20%20var%20videos%20%3D%20%5B%5D%3B%0A%20%20var%20videosRoot%20%3D%20items%5Bitems.length%20-%201%5D%3B%0A%20%20if%20%28videosRoot%20%26%26%20videosRoot%20%21%3D%3D%20metricsRoot%29%20%7B%0A%20%20%20%20var%20rows%20%3D%20videosRoot.querySelectorAll%28%27tbody%20tr.arco-table-tr%27%29%3B%0A%20%20%20%20rows.forEach%28function%28row%29%7B%0A%20%20%20%20%20%20var%20link%20%3D%20row.querySelector%28%27a.text-12.hover%5C%5C%3Aunderline%27%29%3B%0A%20%20%20%20%20%20if%20%28%21link%29%20return%3B%0A%0A%20%20%20%20%20%20var%20href%20%3D%20link.getAttribute%28%27href%27%29%3B%0A%0A%20%20%20%20%20%20if%20%28%21creator%29%20%7B%0A%20%20%20%20%20%20%20%20var%20cm%20%3D%20href%20%26%26%20href.match%28%2F%40%28%5B%5E%2F%5D%2B%29%2F%29%3B%0A%20%20%20%20%20%20%20%20if%20%28cm%29%20creator%20%3D%20%27%40%27%20%2B%20cm%5B1%5D%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20linkParent%20%3D%20link.parentElement%3B%0A%20%20%20%20%20%20var%20infoCol%20%20%20%3D%20linkParent.parentElement%3B%0A%0A%20%20%20%20%20%20var%20nameContainer%20%3D%20infoCol.querySelector%28%27.whitespace-nowrap.overflow-ellipsis.overflow-hidden%27%29%3B%0A%20%20%20%20%20%20var%20nameEl2%20%3D%20nameContainer%20%26%26%20nameContainer.querySelector%28%27.overflow-hidden.overflow-ellipsis%27%29%3B%0A%20%20%20%20%20%20var%20name%20%3D%20nameEl2%20%3F%20nameEl2.textContent.replace%28%2F%5Cs%2B%2Fg%2C%20%27%20%27%29.trim%28%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%20%20var%20idText%20%3D%20%27%27%3B%0A%20%20%20%20%20%20var%20idDiv%20%3D%20linkParent.previousElementSibling%3B%0A%20%20%20%20%20%20if%20%28idDiv%29%20%7B%0A%20%20%20%20%20%20%20%20var%20idEl%20%3D%20idDiv.querySelector%28%27.text-12%27%29%3B%0A%20%20%20%20%20%20%20%20idText%20%3D%20idEl%20%3F%20idEl.textContent.trim%28%29.replace%28%2F%5EVideo%20ID%3A%5Cs%2A%2F%2C%20%27%27%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20posted%20%3D%20%27%27%2C%20duration%20%3D%20%27%27%3B%0A%20%20%20%20%20%20var%20postedDiv%20%3D%20linkParent.nextElementSibling%3B%0A%20%20%20%20%20%20if%20%28postedDiv%29%20%7B%0A%20%20%20%20%20%20%20%20var%20pEl%20%3D%20postedDiv.querySelector%28%27.text-12%27%29%3B%0A%20%20%20%20%20%20%20%20if%20%28pEl%29%20%7B%0A%20%20%20%20%20%20%20%20%20%20var%20m%20%3D%20pEl.textContent.trim%28%29.match%28%2FPosted%3A%5Cs%2A%28%5CS%2B%29%5Cs%2BDuration%3A%5Cs%2A%28%5CS%2B%29%2F%29%3B%0A%20%20%20%20%20%20%20%20%20%20if%20%28m%29%20%7B%20posted%20%3D%20m%5B1%5D%3B%20duration%20%3D%20m%5B2%5D%3B%20%7D%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20tds%20%3D%20row.querySelectorAll%28%27td.arco-table-td%27%29%3B%0A%20%20%20%20%20%20var%20get%20%3D%20function%28td%29%7B%0A%20%20%20%20%20%20%20%20var%20inner%20%3D%20td.querySelector%28%27.arco-table-cell-wrap-value%27%29%3B%0A%20%20%20%20%20%20%20%20return%20inner%20%3F%20inner.textContent.trim%28%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20%7D%3B%0A%0A%20%20%20%20%20%20var%20detailsLink%20%3D%20%27%27%3B%0A%20%20%20%20%20%20if%20%28tds%5B8%5D%29%20%7B%0A%20%20%20%20%20%20%20%20var%20a%20%3D%20tds%5B8%5D.querySelector%28%27a%27%29%3B%0A%20%20%20%20%20%20%20%20detailsLink%20%3D%20a%20%3F%20a.getAttribute%28%27href%27%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20videos.push%28%7B%0A%20%20%20%20%20%20%20%20%27Video%20ID%27%3A%20%20%20%20%20%20%20%20%20idText%2C%0A%20%20%20%20%20%20%20%20%27Name%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20name%2C%0A%20%20%20%20%20%20%20%20%27Link%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20href%2C%0A%20%20%20%20%20%20%20%20%27Posted%27%3A%20%20%20%20%20%20%20%20%20%20%20posted%2C%0A%20%20%20%20%20%20%20%20%27Duration%27%3A%20%20%20%20%20%20%20%20%20duration%2C%0A%20%20%20%20%20%20%20%20%27Affiliate%20GMV%27%3A%20%20%20%20tds%5B1%5D%20%3F%20get%28tds%5B1%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Items%20sold%27%3A%20%20%20%20%20%20%20tds%5B2%5D%20%3F%20get%28tds%5B2%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Est.%20commissions%27%3A%20tds%5B3%5D%20%3F%20get%28tds%5B3%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Direct%20GMV%27%3A%20%20%20%20%20%20%20tds%5B4%5D%20%3F%20get%28tds%5B4%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27RPM%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B5%5D%20%3F%20get%28tds%5B5%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Views%27%3A%20%20%20%20%20%20%20%20%20%20%20%20tds%5B6%5D%20%3F%20get%28tds%5B6%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Completion%20rate%27%3A%20%20tds%5B7%5D%20%3F%20get%28tds%5B7%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%20%20%27Details%27%3A%20%20%20%20%20%20%20%20%20%20detailsLink%0A%20%20%20%20%20%20%7D%29%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%7D%0A%0A%20%20var%20payload%20%3D%20%7B%0A%20%20%20%20creator%3A%20%20%20creator%2C%0A%20%20%20%20scrapedAt%3A%20new%20Date%28%29.toISOString%28%29%2C%0A%20%20%20%20dateRange%3A%20dateRange%2C%0A%20%20%20%20metrics%3A%20%20%20metrics%2C%0A%20%20%20%20videos%3A%20%20%20%20videos%0A%20%20%7D%3B%0A%20%20console.log%28payload%29%3B%0A%0A%20%20%2F%2F%203%29%20Post%20to%20Google%20Sheets%20via%20the%20Apps%20Script%20Web%20App%20%28if%20configured%29.%0A%20%20if%20%28ENDPOINT%20%26%26%20ENDPOINT.indexOf%28%27PASTE_%27%29%20%21%3D%3D%200%29%20%7B%0A%20%20%20%20fetch%28ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28%7B%0A%20%20%20%20%20%20%20%20token%3A%20%20%20%20%20TOKEN%2C%0A%20%20%20%20%20%20%20%20creator%3A%20%20%20payload.creator%2C%0A%20%20%20%20%20%20%20%20scrapedAt%3A%20payload.scrapedAt%2C%0A%20%20%20%20%20%20%20%20dateRange%3A%20payload.dateRange%2C%0A%20%20%20%20%20%20%20%20metrics%3A%20%20%20payload.metrics%2C%0A%20%20%20%20%20%20%20%20videos%3A%20%20%20%20payload.videos%0A%20%20%20%20%20%20%7D%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20return%20r.json%28%29%3B%20%7D%29%0A%20%20%20%20%20%20.then%28function%28j%29%7B%20console.log%28%27%5Bsheet%5D%27%2C%20j%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bsheet%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%0A%20%20%2F%2F%204%29%20Post%20to%20local%20Graylog%20GELF%20HTTP%20input%20%28if%20configured%29.%0A%20%20if%20%28GRAYLOG_ENDPOINT%29%20%7B%0A%20%20%20%20var%20gelf%20%3D%20%7B%0A%20%20%20%20%20%20version%3A%20%271.1%27%2C%0A%20%20%20%20%20%20host%3A%20GRAYLOG_HOST%2C%0A%20%20%20%20%20%20short_message%3A%20%27tiktok%20scrape%3A%20%27%20%2B%20%28payload.creator%20%7C%7C%20%27unknown%27%29%20%2B%20%27%20%28%27%20%2B%20videos.length%20%2B%20%27%20videos%29%27%2C%0A%20%20%20%20%20%20timestamp%3A%20Math.floor%28Date.now%28%29%20%2F%201000%29%2C%0A%20%20%20%20%20%20_creator%3A%20%20%20%20%20%20%20payload.creator%2C%0A%20%20%20%20%20%20_scrapedAt%3A%20%20%20%20%20payload.scrapedAt%2C%0A%20%20%20%20%20%20_date_start%3A%20%20%20%20dateRange.start%2C%0A%20%20%20%20%20%20_date_end%3A%20%20%20%20%20%20dateRange.end%2C%0A%20%20%20%20%20%20_metrics_count%3A%20metrics.length%2C%0A%20%20%20%20%20%20_videos_count%3A%20%20videos.length%2C%0A%20%20%20%20%20%20_metrics_json%3A%20%20JSON.stringify%28metrics%29%2C%0A%20%20%20%20%20%20_videos_json%3A%20%20%20JSON.stringify%28videos%29%2C%0A%20%20%20%20%20%20_graylog_key%3A%20%20%20GRAYLOG_TOKEN%0A%20%20%20%20%7D%3B%0A%20%20%20%20fetch%28GRAYLOG_ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20mode%3A%20%27no-cors%27%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28gelf%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20console.log%28%27%5Bgraylog%5D%20sent%27%2C%20r.status%20%7C%7C%20%27opaque%27%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bgraylog%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%7D%29%28%29%3B">Log Key Metrics</a>
   </p>
 
   <h2>Source</h2>
-  <pre><code>javascript:(function(){
+  <pre><code data-source="creator">javascript:(function(){
   // ---- Google Sheets Apps Script Web App (fill these in once) ----
   var ENDPOINT = 'https://script.google.com/macros/s/AKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG/exec';
   var TOKEN    = '**dingleding&amp;&amp;';
@@ -205,6 +205,758 @@
       _metrics_json:  JSON.stringify(metrics),
       _videos_json:   JSON.stringify(videos),
       _graylog_key:   GRAYLOG_TOKEN
+    };
+    fetch(GRAYLOG_ENDPOINT, {
+      method: 'POST',
+      keepalive: true,
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(gelf)
+    }).then(function(r){ console.log('[graylog] sent', r.status || 'opaque'); })
+      .catch(function(e){ console.warn('[graylog] post failed', e); });
+  }
+})();</code></pre>
+
+  <h2 id="sellers-bookmarklet">Partner Collabs Sellers Bookmarklet</h2>
+  <p>A second bookmarklet that scrapes the <strong>Partner Collabs Agency Detail</strong> page (<code>partner.us.tiktokshop.com/affiliate-campaign/partner-collabs/agency/detail?campaign_id=&hellip;</code>). Each table row pairs a product with the seller (shop) that registered it for the campaign. Click it after switching the inner status tab (Pending / Approved / Rejected / Closed) — only the visible rows are scraped, and the active tab is included as <code>status</code> on every row plus on the GELF message. <strong>Graylog-only:</strong> this bookmarklet does not POST to Google Sheets — the seller schema doesn't fit the creator-oriented Sheet, so it ships only to Graylog. Or grab it from its dedicated page: <a href="sellers.html">sellers.html</a>.</p>
+  <pre><code>{
+  page,                       // "Collaboration details"
+  campaignId,                 // from URL ?campaign_id=...
+  status,                     // active inner tab (Pending / Approved / ...)
+  statusCount,                // count badge on the active tab
+  statusTabs: [ { label, count } ],
+  scrapedAt,                  // ISO timestamp
+  sellers: [ { "Product ID", "Product name", "Date registered",
+               "Total commission rate", "Total Shop Ads commission rate",
+               "Sale price", "Stock", "Available samples", "Items sold",
+               "Product rating", "Reviews", "Shop name", "Shop rating",
+               "Shop email", "Shop code", "Status" } ]
+}</code></pre>
+
+  <p>
+    <a class="bm" data-source="sellers" href="javascript:%28function%28%29%7B%0A%20%20%2F%2F%20----%20Local%20Graylog%20GELF%20HTTP%20input%20%28set%20to%20%27%27%20to%20disable%29%20----%0A%20%20%2F%2F%20Graylog-only%20%E2%80%94%20by%20design.%20The%20sellers%20payload%20doesn%27t%20fit%20the%20Apps%0A%20%20%2F%2F%20Script%20Sheet%20schema%20%28which%20is%20creator%2Fvideo%20oriented%29%2C%20so%20this%0A%20%20%2F%2F%20bookmarklet%20skips%20the%20Sheets%20POST%20and%20only%20ships%20to%20Graylog.%0A%20%20%2F%2F%20The%20%60bookmarklet-sync%60%20sidecar%20in%20docker-compose.yml%20rewrites%0A%20%20%2F%2F%20GRAYLOG_ENDPOINT%20%28ngrok%20public%20URL%20of%20the%20%3A12202%20GELF%20tunnel%29%20and%0A%20%20%2F%2F%20GRAYLOG_TOKEN%20%28admin%20API%20token%29%20on%20every%20%60docker%20compose%20up%60.%0A%20%20var%20GRAYLOG_ENDPOINT%20%3D%20%27https%3A%2F%2Ftok-graylog-gelf.ngrok-free.dev%2Fgelf%27%3B%0A%20%20var%20GRAYLOG_TOKEN%20%20%20%20%3D%20%27jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5%27%3B%0A%20%20%2F%2F%20Distinct%20source%20so%20Graylog%20can%20route%20this%20stream%20separately%20from%20the%0A%20%20%2F%2F%20creator%2Fvideo%20bookmarklet%20%28%60tiktok-bookmarklet%60%29.%0A%20%20var%20GRAYLOG_HOST%20%20%20%20%20%3D%20%27tiktok-bookmarklet-sellers%27%3B%0A%20%20%2F%2F%20----------------------------------------------------------------%0A%0A%20%20%2F%2F%20Targets%20the%20Partner%20Collabs%20Agency%20Detail%20page%3A%0A%20%20%2F%2F%20%20%20partner.us.tiktokshop.com%2Faffiliate-campaign%2Fpartner-collabs%2Fagency%2Fdetail%3Fcampaign_id%3D...%0A%20%20%2F%2F%20Each%20row%20pairs%20a%20product%20row%20with%20the%20seller%20%28shop%29%20that%20registered%20it.%0A%0A%20%20var%20clean%20%3D%20function%28s%29%7B%20return%20%28s%20%7C%7C%20%27%27%29.replace%28%2F%5Cs%2B%2Fg%2C%20%27%20%27%29.trim%28%29%3B%20%7D%3B%0A%0A%20%20var%20pageTitleEl%20%3D%20document.querySelector%28%27.text-head-l%27%29%3B%0A%20%20var%20pageTitle%20%3D%20pageTitleEl%20%3F%20clean%28pageTitleEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20var%20campaignId%20%3D%20%27%27%3B%0A%20%20var%20cm%20%3D%20location.href.match%28%2F%5B%3F%26%5Dcampaign_id%3D%28%5Cd%2B%29%2F%29%3B%0A%20%20if%20%28cm%29%20campaignId%20%3D%20cm%5B1%5D%3B%0A%0A%20%20%2F%2F%20The%20page%20nests%20two%20%60.arco-tabs%60%20groups%20%E2%80%94%20an%20outer%20one%20with%0A%20%20%2F%2F%20%22Collaboration%20info%22%20%2F%20%22Performance%22%2C%20and%20an%20inner%20one%20with%20the%0A%20%20%2F%2F%20product-status%20tabs%20%28Pending%2C%20Approved%2C%20Rejected%2C%20Pending%20closed%2C%0A%20%20%2F%2F%20Closed%29.%20We%20want%20the%20inner%20group%20only.%20The%20Pending%20span%20and%20its%20count%0A%20%20%2F%2F%20span%20both%20render%20inside%20the%20title-text%20element%20with%20no%20whitespace%0A%20%20%2F%2F%20between%20them%2C%20so%20textContent%20yields%20%22Pending8%22%20%E2%80%94%20strip%20the%20count.%0A%20%20var%20STATUS_RE%20%3D%20%2F%5E%28Pending%20closed%7CPending%7CApproved%7CRejected%7CClosed%29%24%2F%3B%0A%20%20var%20labelOf%20%3D%20function%28t%29%7B%0A%20%20%20%20var%20countEl%20%3D%20t.querySelector%28%27.tab-value%27%29%3B%0A%20%20%20%20var%20countText%20%3D%20countEl%20%3F%20clean%28countEl.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20var%20full%20%3D%20clean%28t.textContent%29%3B%0A%20%20%20%20var%20label%20%3D%20full%3B%0A%20%20%20%20if%20%28countText%29%20%7B%0A%20%20%20%20%20%20var%20i%20%3D%20label.lastIndexOf%28countText%29%3B%0A%20%20%20%20%20%20if%20%28i%20%3E%3D%200%29%20label%20%3D%20label.slice%280%2C%20i%29.trim%28%29%3B%0A%20%20%20%20%7D%0A%20%20%20%20return%20%7B%20label%3A%20label%2C%20count%3A%20countText%20%7D%3B%0A%20%20%7D%3B%0A%0A%20%20var%20statusTabs%20%3D%20%5B%5D%3B%0A%20%20document.querySelectorAll%28%27.arco-tabs-header-title%20.arco-tabs-header-title-text%27%29.forEach%28function%28t%29%7B%0A%20%20%20%20var%20lc%20%3D%20labelOf%28t%29%3B%0A%20%20%20%20if%20%28%21STATUS_RE.test%28lc.label%29%29%20return%3B%0A%20%20%20%20statusTabs.push%28lc%29%3B%0A%20%20%7D%29%3B%0A%20%20var%20activeStatus%20%3D%20%27%27%3B%0A%20%20var%20activeCount%20%20%3D%20%27%27%3B%0A%20%20document.querySelectorAll%28%27.arco-tabs-header-title-active%20.arco-tabs-header-title-text%27%29.forEach%28function%28t%29%7B%0A%20%20%20%20if%20%28activeStatus%29%20return%3B%0A%20%20%20%20var%20lc%20%3D%20labelOf%28t%29%3B%0A%20%20%20%20if%20%28STATUS_RE.test%28lc.label%29%29%20%7B%0A%20%20%20%20%20%20activeStatus%20%3D%20lc.label%3B%0A%20%20%20%20%20%20activeCount%20%20%3D%20lc.count%3B%0A%20%20%20%20%7D%0A%20%20%7D%29%3B%0A%0A%20%20var%20get%20%3D%20function%28td%29%7B%0A%20%20%20%20if%20%28%21td%29%20return%20%27%27%3B%0A%20%20%20%20var%20inner%20%3D%20td.querySelector%28%27.arco-table-cell-wrap-value%27%29%3B%0A%20%20%20%20if%20%28%21inner%29%20return%20%27%27%3B%0A%20%20%20%20%2F%2F%20Multi-paragraph%20cells%20%28e.g.%20commission%20rate%20w%2F%20%22vs.%20open%20collab%22%20line%29%0A%20%20%20%20%2F%2F%20render%20as%20sibling%20%3Cp%3Es%20with%20no%20whitespace%20between%20them%20%E2%80%94%20joining%20via%0A%20%20%20%20%2F%2F%20textContent%20collapses%20to%20%2240%25vs.%20open%20collab%2020%25%22.%20Split%20%2B%20rejoin.%0A%20%20%20%20var%20ps%20%3D%20inner.querySelectorAll%28%27p%27%29%3B%0A%20%20%20%20if%20%28ps.length%20%3E%201%29%20%7B%0A%20%20%20%20%20%20var%20parts%20%3D%20%5B%5D%3B%0A%20%20%20%20%20%20ps.forEach%28function%28p%29%7B%20var%20s%20%3D%20clean%28p.textContent%29%3B%20if%20%28s%29%20parts.push%28s%29%3B%20%7D%29%3B%0A%20%20%20%20%20%20if%20%28parts.length%29%20return%20parts.join%28%27%20%2F%20%27%29%3B%0A%20%20%20%20%7D%0A%20%20%20%20return%20clean%28inner.textContent%29%3B%0A%20%20%7D%3B%0A%0A%20%20var%20sellers%20%3D%20%5B%5D%3B%0A%20%20var%20rows%20%3D%20document.querySelectorAll%28%27tbody%20tr.arco-table-tr%27%29%3B%0A%20%20rows.forEach%28function%28row%29%7B%0A%20%20%20%20var%20checkbox%20%3D%20row.querySelector%28%27input%5Btype%3D%22checkbox%22%5D%27%29%3B%0A%20%20%20%20if%20%28%21checkbox%29%20return%3B%20%2F%2F%20skip%20header%20rows%20%2F%20no-data%20rows%0A%0A%20%20%20%20%2F%2F%20td.arco-table-td%20order%20%28the%20shop-info%20%3Ctd%3E%20has%20no%20%60arco-table-td%60%0A%20%20%20%20%2F%2F%20class%20on%20the%20outer%20element%20so%20it%27s%20excluded%20%E2%80%94%20we%20read%20it%20separately%29%3A%0A%20%20%20%20%2F%2F%20%20%20%5B0%5D%20checkbox%0A%20%20%20%20%2F%2F%20%20%20%5B1%5D%20product%0A%20%20%20%20%2F%2F%20%20%20%5B2%5D%20date%20registered%0A%20%20%20%20%2F%2F%20%20%20%5B3%5D%20total%20commission%20rate%0A%20%20%20%20%2F%2F%20%20%20%5B4%5D%20total%20shop%20ads%20commission%20rate%0A%20%20%20%20%2F%2F%20%20%20%5B5%5D%20sale%20price%0A%20%20%20%20%2F%2F%20%20%20%5B6%5D%20stock%0A%20%20%20%20%2F%2F%20%20%20%5B7%5D%20available%20samples%0A%20%20%20%20%2F%2F%20%20%20%5B8%5D%20items%20sold%0A%20%20%20%20%2F%2F%20%20%20%5B9%5D%20product%20rating%0A%20%20%20%20%2F%2F%20%20%20%5B10%5D%20actions%20%28right-fixed%29%0A%20%20%20%20var%20tds%20%3D%20row.querySelectorAll%28%27td.arco-table-td%27%29%3B%0A%0A%20%20%20%20var%20productId%20%3D%20checkbox.value%20%7C%7C%20%27%27%3B%0A%20%20%20%20var%20productNameEl%20%3D%20tds%5B1%5D%20%26%26%20tds%5B1%5D.querySelector%28%27.arco-typography%5Btitle%5D%27%29%3B%0A%20%20%20%20var%20productName%20%3D%20productNameEl%0A%20%20%20%20%20%20%3F%20clean%28productNameEl.getAttribute%28%27title%27%29%20%7C%7C%20productNameEl.textContent%29%0A%20%20%20%20%20%20%3A%20%27%27%3B%0A%0A%20%20%20%20if%20%28%21productId%20%26%26%20tds%5B1%5D%29%20%7B%0A%20%20%20%20%20%20var%20idEl%20%3D%20tds%5B1%5D.querySelector%28%27.text-body-s-regular%27%29%3B%0A%20%20%20%20%20%20var%20im%20%3D%20idEl%20%26%26%20idEl.textContent.match%28%2FID%3A%5Cs%2A%28%5CS%2B%29%2F%29%3B%0A%20%20%20%20%20%20if%20%28im%29%20productId%20%3D%20im%5B1%5D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20var%20ratingValueEl%20%3D%20tds%5B9%5D%20%26%26%20tds%5B9%5D.querySelector%28%27.text-body-m-regular%27%29%3B%0A%20%20%20%20var%20ratingValue%20%3D%20ratingValueEl%20%3F%20clean%28ratingValueEl.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20var%20reviewCountEl%20%3D%20tds%5B9%5D%20%26%26%20tds%5B9%5D.querySelector%28%27.text-body-s-regular%27%29%3B%0A%20%20%20%20var%20reviewCount%20%3D%20reviewCountEl%20%3F%20clean%28reviewCountEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%2F%2F%20Shop%20info%20column%20lives%20in%20a%20sibling%20%3Ctd%20id%3D%22shop-info-wrapper%22%3E%20that%0A%20%20%20%20%2F%2F%20sits%20between%20the%20regular%20cells%20and%20the%20right-fixed%20actions%20cell%2C%20but%0A%20%20%20%20%2F%2F%20doesn%27t%20carry%20the%20%60arco-table-td%60%20class%20on%20its%20outer%20element.%0A%20%20%20%20var%20shopWrap%20%3D%20row.querySelector%28%27%23shop-info-wrapper%2C%20.shop-info-td%27%29%3B%0A%20%20%20%20var%20shopName%20%3D%20%27%27%2C%20shopRating%20%3D%20%27%27%2C%20shopEmail%20%3D%20%27%27%2C%20shopCode%20%3D%20%27%27%3B%0A%20%20%20%20if%20%28shopWrap%29%20%7B%0A%20%20%20%20%20%20var%20nameEl%20%3D%20shopWrap.querySelector%28%27.arco-typography%27%29%3B%0A%20%20%20%20%20%20shopName%20%3D%20nameEl%20%3F%20clean%28nameEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%20%20var%20ratingEl%20%3D%20shopWrap.querySelector%28%27.font-semibold.ml-2%27%29%3B%0A%20%20%20%20%20%20shopRating%20%3D%20ratingEl%20%3F%20clean%28ratingEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%20%20var%20emailEls%20%3D%20shopWrap.querySelectorAll%28%27.arco-typography%27%29%3B%0A%20%20%20%20%20%20%2F%2F%20Index%20%5B0%5D%20%3D%20shop%20name%2C%20%5B1%5D%20%3D%20email%20%28truncated%20typography%29.%0A%20%20%20%20%20%20shopEmail%20%3D%20emailEls%5B1%5D%20%3F%20clean%28emailEls%5B1%5D.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%20%20var%20codeWrap%20%3D%20shopWrap.querySelector%28%27.shop_code%27%29%3B%0A%20%20%20%20%20%20if%20%28codeWrap%29%20%7B%0A%20%20%20%20%20%20%20%20shopCode%20%3D%20clean%28codeWrap.textContent.replace%28%2F%5E%5Cs%2AShop%20code%3A%5Cs%2A%2F%2C%20%27%27%29%29%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%0A%20%20%20%20sellers.push%28%7B%0A%20%20%20%20%20%20%27Product%20ID%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20productId%2C%0A%20%20%20%20%20%20%27Product%20name%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20productName%2C%0A%20%20%20%20%20%20%27Date%20registered%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B2%5D%20%3F%20get%28tds%5B2%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Total%20commission%20rate%27%3A%20%20%20%20%20%20%20%20%20%20tds%5B3%5D%20%3F%20get%28tds%5B3%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Total%20Shop%20Ads%20commission%20rate%27%3A%20tds%5B4%5D%20%3F%20get%28tds%5B4%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Sale%20price%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B5%5D%20%3F%20get%28tds%5B5%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Stock%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B6%5D%20%3F%20get%28tds%5B6%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Available%20samples%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B7%5D%20%3F%20get%28tds%5B7%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Items%20sold%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20tds%5B8%5D%20%3F%20get%28tds%5B8%5D%29%20%3A%20%27%27%2C%0A%20%20%20%20%20%20%27Product%20rating%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20ratingValue%2C%0A%20%20%20%20%20%20%27Reviews%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20reviewCount%2C%0A%20%20%20%20%20%20%27Shop%20name%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20shopName%2C%0A%20%20%20%20%20%20%27Shop%20rating%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20shopRating%2C%0A%20%20%20%20%20%20%27Shop%20email%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20shopEmail%2C%0A%20%20%20%20%20%20%27Shop%20code%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20shopCode%2C%0A%20%20%20%20%20%20%27Status%27%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20activeStatus%0A%20%20%20%20%7D%29%3B%0A%20%20%7D%29%3B%0A%0A%20%20var%20payload%20%3D%20%7B%0A%20%20%20%20page%3A%20%20%20%20%20%20%20%20pageTitle%2C%0A%20%20%20%20campaignId%3A%20%20campaignId%2C%0A%20%20%20%20status%3A%20%20%20%20%20%20activeStatus%2C%0A%20%20%20%20statusCount%3A%20activeCount%2C%0A%20%20%20%20statusTabs%3A%20%20statusTabs%2C%0A%20%20%20%20scrapedAt%3A%20%20%20new%20Date%28%29.toISOString%28%29%2C%0A%20%20%20%20sellers%3A%20%20%20%20%20sellers%0A%20%20%7D%3B%0A%20%20console.log%28payload%29%3B%0A%0A%20%20%2F%2F%20Post%20to%20local%20Graylog%20GELF%20HTTP%20input%20%28if%20configured%29.%0A%20%20if%20%28GRAYLOG_ENDPOINT%29%20%7B%0A%20%20%20%20var%20gelf%20%3D%20%7B%0A%20%20%20%20%20%20version%3A%20%271.1%27%2C%0A%20%20%20%20%20%20host%3A%20GRAYLOG_HOST%2C%0A%20%20%20%20%20%20short_message%3A%20%27tiktok%20seller%20scrape%3A%20%27%20%2B%20%28activeStatus%20%7C%7C%20pageTitle%20%7C%7C%20%27unknown%27%29%20%2B%20%27%20%28%27%20%2B%20sellers.length%20%2B%20%27%20sellers%29%27%2C%0A%20%20%20%20%20%20timestamp%3A%20Math.floor%28Date.now%28%29%20%2F%201000%29%2C%0A%20%20%20%20%20%20_page%3A%20%20%20%20%20%20%20%20%20%20payload.page%2C%0A%20%20%20%20%20%20_campaign_id%3A%20%20%20payload.campaignId%2C%0A%20%20%20%20%20%20_status%3A%20%20%20%20%20%20%20%20payload.status%2C%0A%20%20%20%20%20%20_status_count%3A%20%20payload.statusCount%2C%0A%20%20%20%20%20%20_scrapedAt%3A%20%20%20%20%20payload.scrapedAt%2C%0A%20%20%20%20%20%20_tabs_count%3A%20%20%20%20statusTabs.length%2C%0A%20%20%20%20%20%20_tabs_json%3A%20%20%20%20%20JSON.stringify%28statusTabs%29%2C%0A%20%20%20%20%20%20_sellers_count%3A%20sellers.length%2C%0A%20%20%20%20%20%20_sellers_json%3A%20%20JSON.stringify%28sellers%29%2C%0A%20%20%20%20%20%20_graylog_key%3A%20%20%20GRAYLOG_TOKEN%0A%20%20%20%20%7D%3B%0A%20%20%20%20fetch%28GRAYLOG_ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20mode%3A%20%27no-cors%27%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28gelf%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20console.log%28%27%5Bgraylog%5D%20sent%27%2C%20r.status%20%7C%7C%20%27opaque%27%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bgraylog%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%7D%29%28%29%3B">Log Sellers</a>
+  </p>
+
+  <p>The Graylog message uses GELF <code>host: "tiktok-bookmarklet-sellers"</code> (Graylog indexes <code>host</code> as <code>source</code>) so this stream can be filtered separately from the creator/video bookmarklet. Search <code>source:tiktok-bookmarklet-sellers</code> in the Graylog UI. Custom GELF fields: <code>_page</code>, <code>_campaign_id</code>, <code>_status</code>, <code>_status_count</code>, <code>_scrapedAt</code>, <code>_tabs_count</code>, <code>_tabs_json</code>, <code>_sellers_count</code>, <code>_sellers_json</code>.</p>
+
+  <h3>Source</h3>
+  <pre><code data-source="sellers">javascript:(function(){
+  // ---- Local Graylog GELF HTTP input (set to '' to disable) ----
+  // Graylog-only — by design. The sellers payload doesn't fit the Apps
+  // Script Sheet schema (which is creator/video oriented), so this
+  // bookmarklet skips the Sheets POST and only ships to Graylog.
+  // The `bookmarklet-sync` sidecar in docker-compose.yml rewrites
+  // GRAYLOG_ENDPOINT (ngrok public URL of the :12202 GELF tunnel) and
+  // GRAYLOG_TOKEN (admin API token) on every `docker compose up`.
+  var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+  var GRAYLOG_TOKEN    = 'jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5';
+  // Distinct source so Graylog can route this stream separately from the
+  // creator/video bookmarklet (`tiktok-bookmarklet`).
+  var GRAYLOG_HOST     = 'tiktok-bookmarklet-sellers';
+  // ----------------------------------------------------------------
+
+  // Targets the Partner Collabs Agency Detail page:
+  //   partner.us.tiktokshop.com/affiliate-campaign/partner-collabs/agency/detail?campaign_id=...
+  // Each row pairs a product row with the seller (shop) that registered it.
+
+  var clean = function(s){ return (s || '').replace(/\s+/g, ' ').trim(); };
+
+  var pageTitleEl = document.querySelector('.text-head-l');
+  var pageTitle = pageTitleEl ? clean(pageTitleEl.textContent) : '';
+
+  var campaignId = '';
+  var cm = location.href.match(/[?&amp;]campaign_id=(\d+)/);
+  if (cm) campaignId = cm[1];
+
+  // The page nests two `.arco-tabs` groups — an outer one with
+  // "Collaboration info" / "Performance", and an inner one with the
+  // product-status tabs (Pending, Approved, Rejected, Pending closed,
+  // Closed). We want the inner group only. The Pending span and its count
+  // span both render inside the title-text element with no whitespace
+  // between them, so textContent yields "Pending8" — strip the count.
+  var STATUS_RE = /^(Pending closed|Pending|Approved|Rejected|Closed)$/;
+  var labelOf = function(t){
+    var countEl = t.querySelector('.tab-value');
+    var countText = countEl ? clean(countEl.textContent) : '';
+    var full = clean(t.textContent);
+    var label = full;
+    if (countText) {
+      var i = label.lastIndexOf(countText);
+      if (i &gt;= 0) label = label.slice(0, i).trim();
+    }
+    return { label: label, count: countText };
+  };
+
+  var statusTabs = [];
+  document.querySelectorAll('.arco-tabs-header-title .arco-tabs-header-title-text').forEach(function(t){
+    var lc = labelOf(t);
+    if (!STATUS_RE.test(lc.label)) return;
+    statusTabs.push(lc);
+  });
+  var activeStatus = '';
+  var activeCount  = '';
+  document.querySelectorAll('.arco-tabs-header-title-active .arco-tabs-header-title-text').forEach(function(t){
+    if (activeStatus) return;
+    var lc = labelOf(t);
+    if (STATUS_RE.test(lc.label)) {
+      activeStatus = lc.label;
+      activeCount  = lc.count;
+    }
+  });
+
+  var get = function(td){
+    if (!td) return '';
+    var inner = td.querySelector('.arco-table-cell-wrap-value');
+    if (!inner) return '';
+    // Multi-paragraph cells (e.g. commission rate w/ "vs. open collab" line)
+    // render as sibling &lt;p&gt;s with no whitespace between them — joining via
+    // textContent collapses to "40%vs. open collab 20%". Split + rejoin.
+    var ps = inner.querySelectorAll('p');
+    if (ps.length &gt; 1) {
+      var parts = [];
+      ps.forEach(function(p){ var s = clean(p.textContent); if (s) parts.push(s); });
+      if (parts.length) return parts.join(' / ');
+    }
+    return clean(inner.textContent);
+  };
+
+  var sellers = [];
+  var rows = document.querySelectorAll('tbody tr.arco-table-tr');
+  rows.forEach(function(row){
+    var checkbox = row.querySelector('input[type="checkbox"]');
+    if (!checkbox) return; // skip header rows / no-data rows
+
+    // td.arco-table-td order (the shop-info &lt;td&gt; has no `arco-table-td`
+    // class on the outer element so it's excluded — we read it separately):
+    //   [0] checkbox
+    //   [1] product
+    //   [2] date registered
+    //   [3] total commission rate
+    //   [4] total shop ads commission rate
+    //   [5] sale price
+    //   [6] stock
+    //   [7] available samples
+    //   [8] items sold
+    //   [9] product rating
+    //   [10] actions (right-fixed)
+    var tds = row.querySelectorAll('td.arco-table-td');
+
+    var productId = checkbox.value || '';
+    var productNameEl = tds[1] &amp;&amp; tds[1].querySelector('.arco-typography[title]');
+    var productName = productNameEl
+      ? clean(productNameEl.getAttribute('title') || productNameEl.textContent)
+      : '';
+
+    if (!productId &amp;&amp; tds[1]) {
+      var idEl = tds[1].querySelector('.text-body-s-regular');
+      var im = idEl &amp;&amp; idEl.textContent.match(/ID:\s*(\S+)/);
+      if (im) productId = im[1];
+    }
+
+    var ratingValueEl = tds[9] &amp;&amp; tds[9].querySelector('.text-body-m-regular');
+    var ratingValue = ratingValueEl ? clean(ratingValueEl.textContent) : '';
+    var reviewCountEl = tds[9] &amp;&amp; tds[9].querySelector('.text-body-s-regular');
+    var reviewCount = reviewCountEl ? clean(reviewCountEl.textContent) : '';
+
+    // Shop info column lives in a sibling &lt;td id="shop-info-wrapper"&gt; that
+    // sits between the regular cells and the right-fixed actions cell, but
+    // doesn't carry the `arco-table-td` class on its outer element.
+    var shopWrap = row.querySelector('#shop-info-wrapper, .shop-info-td');
+    var shopName = '', shopRating = '', shopEmail = '', shopCode = '';
+    if (shopWrap) {
+      var nameEl = shopWrap.querySelector('.arco-typography');
+      shopName = nameEl ? clean(nameEl.textContent) : '';
+
+      var ratingEl = shopWrap.querySelector('.font-semibold.ml-2');
+      shopRating = ratingEl ? clean(ratingEl.textContent) : '';
+
+      var emailEls = shopWrap.querySelectorAll('.arco-typography');
+      // Index [0] = shop name, [1] = email (truncated typography).
+      shopEmail = emailEls[1] ? clean(emailEls[1].textContent) : '';
+
+      var codeWrap = shopWrap.querySelector('.shop_code');
+      if (codeWrap) {
+        shopCode = clean(codeWrap.textContent.replace(/^\s*Shop code:\s*/, ''));
+      }
+    }
+
+    sellers.push({
+      'Product ID':                     productId,
+      'Product name':                   productName,
+      'Date registered':                tds[2] ? get(tds[2]) : '',
+      'Total commission rate':          tds[3] ? get(tds[3]) : '',
+      'Total Shop Ads commission rate': tds[4] ? get(tds[4]) : '',
+      'Sale price':                     tds[5] ? get(tds[5]) : '',
+      'Stock':                          tds[6] ? get(tds[6]) : '',
+      'Available samples':              tds[7] ? get(tds[7]) : '',
+      'Items sold':                     tds[8] ? get(tds[8]) : '',
+      'Product rating':                 ratingValue,
+      'Reviews':                        reviewCount,
+      'Shop name':                      shopName,
+      'Shop rating':                    shopRating,
+      'Shop email':                     shopEmail,
+      'Shop code':                      shopCode,
+      'Status':                         activeStatus
+    });
+  });
+
+  var payload = {
+    page:        pageTitle,
+    campaignId:  campaignId,
+    status:      activeStatus,
+    statusCount: activeCount,
+    statusTabs:  statusTabs,
+    scrapedAt:   new Date().toISOString(),
+    sellers:     sellers
+  };
+  console.log(payload);
+
+  // Post to local Graylog GELF HTTP input (if configured).
+  if (GRAYLOG_ENDPOINT) {
+    var gelf = {
+      version: '1.1',
+      host: GRAYLOG_HOST,
+      short_message: 'tiktok seller scrape: ' + (activeStatus || pageTitle || 'unknown') + ' (' + sellers.length + ' sellers)',
+      timestamp: Math.floor(Date.now() / 1000),
+      _page:          payload.page,
+      _campaign_id:   payload.campaignId,
+      _status:        payload.status,
+      _status_count:  payload.statusCount,
+      _scrapedAt:     payload.scrapedAt,
+      _tabs_count:    statusTabs.length,
+      _tabs_json:     JSON.stringify(statusTabs),
+      _sellers_count: sellers.length,
+      _sellers_json:  JSON.stringify(sellers),
+      _graylog_key:   GRAYLOG_TOKEN
+    };
+    fetch(GRAYLOG_ENDPOINT, {
+      method: 'POST',
+      keepalive: true,
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(gelf)
+    }).then(function(r){ console.log('[graylog] sent', r.status || 'opaque'); })
+      .catch(function(e){ console.warn('[graylog] post failed', e); });
+  }
+})();</code></pre>
+
+  <h2 id="live-bookmarklet">Seller Center LIVE Dashboard Bookmarklet</h2>
+  <p>A third bookmarklet that scrapes the seller-side <strong>LIVE Dashboard</strong> on <code>shop.tiktok.com/workbench/live/overview?room_id=&hellip;</code> — per-session GMV, items sold, viewers, the Performance trends carousel (Impressions / Views / GMV per hour / etc.), the Traffic source breakdown (For You feed, LIVE swipe, &hellip;), and the Product List ranking. Click it after the live session loads:</p>
+  <pre><code>{
+  page,            // "LIVE Dashboard"
+  shop,            // shop handle, e.g. "boosteddealsdaily"
+  roomId,          // from URL ?room_id=...
+  duration,        // "1h1m37s"
+  sessionRange,    // "Apr 18 11:26:53 - Apr 18 12:28:30 UTC-07:00"
+  scrapedAt,       // ISO timestamp
+  gmv,             // headline GMV digits, concatenated
+  sideKpis: { "Items sold", "Viewers" },
+  performance: [ { name, value } ],          // Impressions / Views / GMV per hour / ...
+  trafficSources: [ { Channel, GMV, Impressions, Views } ],
+  products: [ { "Product ID", "Product name", "Product link", "Metrics": [...] } ]
+}</code></pre>
+
+  <p>
+    <a class="bm" data-source="live" href="javascript:%28function%28%29%7B%0A%20%20%2F%2F%20----%20Google%20Sheets%20Apps%20Script%20Web%20App%20%28fill%20these%20in%20once%29%20----%0A%20%20var%20ENDPOINT%20%3D%20%27https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2FAKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG%2Fexec%27%3B%0A%20%20var%20TOKEN%20%20%20%20%3D%20%27%2A%2Adingleding%26%26%27%3B%0A%20%20%2F%2F%20----%20Local%20Graylog%20GELF%20HTTP%20input%20%28set%20to%20%27%27%20to%20disable%29%20----%0A%20%20%2F%2F%20The%20%60bookmarklet-sync%60%20sidecar%20in%20docker-compose.yml%20rewrites%0A%20%20%2F%2F%20GRAYLOG_ENDPOINT%20%28ngrok%20public%20URL%20of%20the%20%3A12202%20GELF%20tunnel%29%20and%0A%20%20%2F%2F%20GRAYLOG_TOKEN%20%28admin%20API%20token%29%20on%20every%20%60docker%20compose%20up%60.%0A%20%20var%20GRAYLOG_ENDPOINT%20%3D%20%27https%3A%2F%2Ftok-graylog-gelf.ngrok-free.dev%2Fgelf%27%3B%0A%20%20var%20GRAYLOG_TOKEN%20%20%20%20%3D%20%27jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5%27%3B%0A%20%20%2F%2F%20Distinct%20source%20so%20Graylog%20can%20route%20this%20stream%20separately%20from%20the%0A%20%20%2F%2F%20creator%20%28%60tiktok-bookmarklet%60%29%20and%20sellers%20%28%60tiktok-bookmarklet-sellers%60%29%0A%20%20%2F%2F%20streams.%0A%20%20var%20GRAYLOG_HOST%20%20%20%20%20%3D%20%27tiktok-bookmarklet-live%27%3B%0A%20%20%2F%2F%20----------------------------------------------------------------%0A%0A%20%20%2F%2F%20Targets%20the%20seller-side%20LIVE%20Dashboard%3A%0A%20%20%2F%2F%20%20%20shop.tiktok.com%2Fworkbench%2Flive%2Foverview%3Froom_id%3D%3Cid%3E%26region%3D%3Cregion%3E%0A%20%20%2F%2F%20Pulls%20per-session%20KPIs%20%28GMV%2C%20Items%20sold%2C%20Viewers%29%2C%20the%20Performance%0A%20%20%2F%2F%20trends%20carousel%20%28Impressions%20%2F%20Views%20%2F%20GMV%20per%20hour%20%2F%20etc.%29%2C%20the%0A%20%20%2F%2F%20Traffic%20source%20breakdown%2C%20and%20the%20Product%20List%20ranking.%0A%0A%20%20var%20clean%20%3D%20function%28s%29%7B%20return%20%28s%20%7C%7C%20%27%27%29.replace%28%2F%5Cs%2B%2Fg%2C%20%27%20%27%29.trim%28%29%3B%20%7D%3B%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Shop%20identity%20%2B%20live%20session%20header%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20var%20pageTitleEl%20%3D%20document.querySelector%28%27.font-medium.text-xl.leading-9%27%29%3B%0A%20%20var%20pageTitle%20%3D%20pageTitleEl%20%3F%20clean%28pageTitleEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%2F%2F%20The%20shop%20name%20lives%20inside%20the%20only%20%60.flex.items-center.ml-7%60%20that%0A%20%20%2F%2F%20also%20contains%20an%20avatar%20%60%3Cimg%3E%60%20%E2%80%94%20narrow%20on%20that%20to%20skip%20the%20language%0A%20%20%2F%2F%20dropdown%20which%20uses%20similar%20wrapping%20classes.%0A%20%20var%20shop%20%3D%20%27%27%3B%0A%20%20document.querySelectorAll%28%27.flex.items-center.ml-7%27%29.forEach%28function%28el%29%7B%0A%20%20%20%20if%20%28shop%29%20return%3B%0A%20%20%20%20if%20%28%21el.querySelector%28%27img%5Balt%3D%22avatar%22%5D%27%29%29%20return%3B%0A%20%20%20%20var%20t%20%3D%20el.querySelector%28%27.truncate%27%29%3B%0A%20%20%20%20if%20%28t%29%20shop%20%3D%20clean%28t.textContent%29%3B%0A%20%20%7D%29%3B%0A%0A%20%20var%20roomId%20%3D%20%27%27%3B%0A%20%20var%20rm%20%3D%20location.href.match%28%2F%5B%3F%26%5Droom_id%3D%28%5Cd%2B%29%2F%29%3B%0A%20%20if%20%28rm%29%20roomId%20%3D%20rm%5B1%5D%3B%0A%0A%20%20%2F%2F%20Live%20session%20%22Duration%20...%201h1m37s%22%20%2B%20the%20absolute%20timestamp%20range.%0A%20%20var%20duration%20%3D%20%27%27%3B%0A%20%20var%20sessionRange%20%3D%20%27%27%3B%0A%20%20document.querySelectorAll%28%27.text-neutral-text-1.text-base.leading-6.font-medium%27%29.forEach%28function%28el%29%7B%0A%20%20%20%20var%20t%20%3D%20clean%28el.textContent%29%3B%0A%20%20%20%20if%20%28%21t%29%20return%3B%0A%20%20%20%20if%20%28%2F%5E%5Cd%2Bh%5Cd%2Bm%2F.test%28t%29%20%7C%7C%20%2F%5E%5Cd%2Bm%5Cd%2Bs%2F.test%28t%29%20%7C%7C%20%2F%5E%5Cd%2Bs%24%2F.test%28t%29%29%20%7B%0A%20%20%20%20%20%20if%20%28%21duration%29%20duration%20%3D%20t%3B%0A%20%20%20%20%7D%20else%20if%20%28%2F-%2F.test%28t%29%20%26%26%20%2F%5BA-Z%5D%5Ba-z%5D%7B2%7D%5Cs%2F.test%28t%29%29%20%7B%0A%20%20%20%20%20%20if%20%28%21sessionRange%29%20sessionRange%20%3D%20t%3B%0A%20%20%20%20%7D%0A%20%20%7D%29%3B%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Headline%20KPIs%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20%2F%2F%20GMV%3A%20animated%20odometer.%20Each%20digit%20is%20its%20own%20%60.odometer-digit%60%20with%20a%0A%20%20%2F%2F%20ribbon%3B%20the%20visible%20numeral%20is%20in%20%60.odometer-value%60.%20Concatenating%20all%0A%20%20%2F%2F%20values%20from%20the%20container%20gives%20the%20displayed%20integer.%20Scoping%20to%0A%20%20%2F%2F%20%60-container%60%20%28instead%20of%20%60-basic%60%29%20catches%20future%20markup%20variants%20where%0A%20%20%2F%2F%20the%20basic%20wrapper%20may%20be%20replaced%20or%20renamed.%0A%20%20var%20gmv%20%3D%20%27%27%3B%0A%20%20var%20odoBlock%20%3D%20document.querySelector%28%27.ecom-screen-animated-number-container%27%29%3B%0A%20%20if%20%28odoBlock%29%20%7B%0A%20%20%20%20var%20digits%20%3D%20%5B%5D%3B%0A%20%20%20%20odoBlock.querySelectorAll%28%27.odometer-value%27%29.forEach%28function%28d%29%7B%0A%20%20%20%20%20%20digits.push%28clean%28d.textContent%29%29%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%20%20gmv%20%3D%20digits.join%28%27%27%29%3B%0A%20%20%7D%0A%0A%20%20%2F%2F%20Items%20sold%20%2B%20Viewers%20%2B%20%28in%20some%20session%20states%29%20extra%20side%20badges.%0A%20%20%2F%2F%20Each%20badge%20uses%20%60.bg-state-normal%60%20and%20labels%20the%20metric%20via%20a%0A%20%20%2F%2F%20%60.text-xl.font-medium.text-neutral-text-1.ml-1%60%20div.%20The%20arco%20statistic%0A%20%20%2F%2F%20splits%20a%20number%20across%20%60-int%60%20%2F%20%60-decimal%60%20%2F%20%60-suffix%60%20spans%2C%20but%20the%0A%20%20%2F%2F%20suffix%20is%20nested%20%2Ainside%2A%20the%20decimal%20%E2%80%94%20so%20reading%20%60textContent%60%20of%0A%20%20%2F%2F%20the%20wrapping%20%60.arco-statistic-value%60%20already%20yields%20the%20right%20thing%0A%20%20%2F%2F%20%28%221.74K%22%29%20without%20a%20manual%20concat%20that%20would%20double%20the%20suffix.%0A%20%20var%20statValue%20%3D%20function%28stat%29%7B%0A%20%20%20%20return%20stat%20%3F%20clean%28stat.textContent%29%20%3A%20%27%27%3B%0A%20%20%7D%3B%0A%0A%20%20var%20sideKpis%20%3D%20%7B%7D%3B%0A%20%20document.querySelectorAll%28%27.bg-state-normal%27%29.forEach%28function%28badge%29%7B%0A%20%20%20%20var%20labelEl%20%3D%20badge.querySelector%28%27.text-xl.font-medium.text-neutral-text-1.ml-1%27%29%3B%0A%20%20%20%20if%20%28%21labelEl%29%20return%3B%0A%20%20%20%20var%20label%20%3D%20clean%28labelEl.textContent%29%3B%0A%20%20%20%20if%20%28%21label%29%20return%3B%0A%20%20%20%20var%20value%20%3D%20statValue%28badge.querySelector%28%27.arco-statistic-value%27%29%29%3B%0A%20%20%20%20sideKpis%5Blabel%5D%20%3D%20value%3B%0A%20%20%7D%29%3B%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Performance%20trends%20carousel%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20%2F%2F%20The%20carousel%20rotates%20between%20metrics%20like%20Impressions%20%2F%20Views%20%2F%0A%20%20%2F%2F%20GMV%20per%20hour%20%2F%20Impressions%20per%20hour%20%2F%20Show%20GPM.%20All%20slide%20DOM%20stays%0A%20%20%2F%2F%20mounted%20so%20we%20can%20read%20every%20%60.arco-col%60%20that%20has%20both%20a%20label%0A%20%20%2F%2F%20%28.text-base.text-neutral-text-1.truncate%29%20and%20a%20value%0A%20%20%2F%2F%20%28.arco-statistic-value%29.%20De-dupe%20by%20label%20since%20slides%20repeat%20as%20the%0A%20%20%2F%2F%20carousel%20cycles.%0A%20%20var%20perfMap%20%3D%20%7B%7D%3B%0A%20%20document.querySelectorAll%28%27.arco-col%27%29.forEach%28function%28col%29%7B%0A%20%20%20%20var%20labelEl%20%3D%20col.querySelector%28%27.text-base.text-neutral-text-1.truncate%27%29%3B%0A%20%20%20%20var%20valueEl%20%3D%20col.querySelector%28%27.arco-statistic-value%27%29%3B%0A%20%20%20%20if%20%28%21labelEl%20%7C%7C%20%21valueEl%29%20return%3B%0A%20%20%20%20var%20label%20%3D%20clean%28labelEl.textContent%29%3B%0A%20%20%20%20if%20%28%21label%20%7C%7C%20perfMap%5Blabel%5D%20%21%3D%20null%29%20return%3B%0A%20%20%20%20perfMap%5Blabel%5D%20%3D%20statValue%28valueEl%29%3B%0A%20%20%7D%29%3B%0A%20%20var%20performance%20%3D%20Object.keys%28perfMap%29.map%28function%28k%29%7B%0A%20%20%20%20return%20%7B%20name%3A%20k%2C%20value%3A%20perfMap%5Bk%5D%20%7D%3B%0A%20%20%7D%29%3B%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Section%20helpers%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20%2F%2F%20Find%20a%20section%27s%20nearest%20table%20by%20walking%20up%20to%20a%20common%20ancestor%20that%0A%20%20%2F%2F%20also%20contains%20a%20section%20header%2C%20then%20descending%20to%20its%20arco-table.%0A%20%20%2F%2F%20We%20match%20the%20header%20by%20%60startsWith%60%20so%20a%20trailing%20count%20badge%20%28the%0A%20%20%2F%2F%20Product%20List%20header%20has%20e.g.%20%22%2060%22%20appended%29%20doesn%27t%20trip%20equality.%0A%20%20var%20findSectionTable%20%3D%20function%28headerText%29%7B%0A%20%20%20%20var%20header%20%3D%20null%3B%0A%20%20%20%20document.querySelectorAll%28%27.text-xl.font-medium%27%29.forEach%28function%28el%29%7B%0A%20%20%20%20%20%20if%20%28header%29%20return%3B%0A%20%20%20%20%20%20if%20%28clean%28el.textContent%29.indexOf%28headerText%29%20%3D%3D%3D%200%29%20header%20%3D%20el%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%20%20if%20%28%21header%29%20return%20null%3B%0A%20%20%20%20var%20node%20%3D%20header%3B%0A%20%20%20%20for%20%28var%20i%20%3D%200%3B%20i%20%3C%206%20%26%26%20node%3B%20i%2B%2B%29%20%7B%0A%20%20%20%20%20%20node%20%3D%20node.parentElement%3B%0A%20%20%20%20%20%20if%20%28%21node%29%20break%3B%0A%20%20%20%20%20%20var%20tbl%20%3D%20node.querySelector%28%27.arco-table%27%29%3B%0A%20%20%20%20%20%20if%20%28tbl%29%20return%20tbl%3B%0A%20%20%20%20%7D%0A%20%20%20%20return%20null%3B%0A%20%20%7D%3B%0A%0A%20%20var%20cellText%20%3D%20function%28td%29%7B%0A%20%20%20%20if%20%28%21td%29%20return%20%27%27%3B%0A%20%20%20%20var%20inner%20%3D%20td.querySelector%28%27.arco-table-cell-wrap-value%27%29%3B%0A%20%20%20%20return%20inner%20%3F%20clean%28inner.textContent%29%20%3A%20%27%27%3B%0A%20%20%7D%3B%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Traffic%20source%20table%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20%2F%2F%20Header%3A%20Channel%20%7C%20GMV%20%7C%20Impressions%20%7C%20Views.%0A%20%20%2F%2F%20Each%20visible%20row%20is%20two%20%3Ctr%3Es%20%E2%80%94%20one%20with%20data%20%284%20td.colspan%3D%221%22%29%20and%20a%0A%20%20%2F%2F%20following%20one%20with%20a%20single%20colspan%3D%224%22%20td%20that%20holds%20the%20share-bar.%0A%20%20%2F%2F%20Filter%20to%20data%20rows%20by%20requiring%204%20cells.%0A%20%20var%20trafficSources%20%3D%20%5B%5D%3B%0A%20%20var%20trafficTable%20%3D%20findSectionTable%28%27Traffic%20source%27%29%3B%0A%20%20if%20%28trafficTable%29%20%7B%0A%20%20%20%20var%20headers%20%3D%20%5B%5D%3B%0A%20%20%20%20trafficTable.querySelectorAll%28%27thead%20.arco-table-th-item-title%27%29.forEach%28function%28h%29%7B%0A%20%20%20%20%20%20headers.push%28clean%28h.textContent%29%29%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%20%20trafficTable.querySelectorAll%28%27tbody%20tr.arco-table-tr%27%29.forEach%28function%28tr%29%7B%0A%20%20%20%20%20%20var%20tds%20%3D%20tr.querySelectorAll%28%27td.arco-table-td%27%29%3B%0A%20%20%20%20%20%20if%20%28tds.length%20%21%3D%3D%204%29%20return%3B%0A%20%20%20%20%20%20%2F%2F%20Visible%20rows%20are%20followed%20by%20a%20%22progress%20bar%22%20sibling%20row%20whose%0A%20%20%20%20%20%20%2F%2F%20first%20cell%20has%20%60colspan%3D%224%22%60%20and%20trailing%20empty%20cells%20%E2%80%94%20skip%20those%0A%20%20%20%20%20%20%2F%2F%20since%20they%27re%20decoration%2C%20not%20data.%0A%20%20%20%20%20%20var%20first%20%3D%20tds%5B0%5D%3B%0A%20%20%20%20%20%20if%20%28first.getAttribute%28%27colspan%27%29%20%21%3D%3D%20%271%27%29%20return%3B%0A%20%20%20%20%20%20if%20%28first.querySelector%28%27.arco-progress%27%29%29%20return%3B%0A%20%20%20%20%20%20trafficSources.push%28%7B%0A%20%20%20%20%20%20%20%20Channel%3A%20%20%20%20%20cellText%28tds%5B0%5D%29%2C%0A%20%20%20%20%20%20%20%20GMV%3A%20%20%20%20%20%20%20%20%20cellText%28tds%5B1%5D%29%2C%0A%20%20%20%20%20%20%20%20Impressions%3A%20cellText%28tds%5B2%5D%29%2C%0A%20%20%20%20%20%20%20%20Views%3A%20%20%20%20%20%20%20cellText%28tds%5B3%5D%29%0A%20%20%20%20%20%20%7D%29%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%20%20%2F%2F%20Persist%20header%20labels%20in%20case%20the%20column%20set%20changes%20server-side.%0A%20%20%20%20if%20%28headers.length%20%3D%3D%3D%204%29%20%7B%0A%20%20%20%20%20%20trafficSources._headers%20%3D%20headers%3B%0A%20%20%20%20%7D%0A%20%20%7D%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Product%20List%20ranking%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20%2F%2F%20Each%20row%3A%20fixed-left%20Product%20cell%20%28img%20%2B%20product%20link%20%2B%20product%20ID%29%20%2B%0A%20%20%2F%2F%20a%20stats%20column%20%28often%20blank%29%20%2B%20several%20metric%20cells%20with%20%60%3Cp%3E%60%20value.%0A%20%20%2F%2F%20Scrape%20every%20metric%20td%20as%20raw%20text%20so%20the%20column%20set%20can%20drift%20without%0A%20%20%2F%2F%20breaking%20the%20bookmarklet.%0A%20%20var%20products%20%3D%20%5B%5D%3B%0A%20%20var%20productTable%20%3D%20findSectionTable%28%27Product%20List%27%29%3B%0A%20%20if%20%28productTable%29%20%7B%0A%20%20%20%20var%20pHeaders%20%3D%20%5B%5D%3B%0A%20%20%20%20productTable.querySelectorAll%28%27thead%20.arco-table-th-item-title%27%29.forEach%28function%28h%29%7B%0A%20%20%20%20%20%20var%20inner%20%3D%20h.querySelector%28%27.text-wrap%2C%20.line-clamp-3%27%29%3B%0A%20%20%20%20%20%20pHeaders.push%28clean%28inner%20%3F%20inner.textContent%20%3A%20h.textContent%29%29%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%20%20productTable.querySelectorAll%28%27tbody%20tr.arco-table-tr%27%29.forEach%28function%28tr%29%7B%0A%20%20%20%20%20%20var%20tds%20%3D%20tr.querySelectorAll%28%27td.arco-table-td%27%29%3B%0A%20%20%20%20%20%20if%20%28tds.length%20%3C%202%29%20return%3B%0A%20%20%20%20%20%20var%20fixedCell%20%3D%20tds%5B0%5D%3B%0A%20%20%20%20%20%20var%20nameLink%20%3D%20fixedCell.querySelector%28%27a%5Bhref%2A%3D%22%2Fview%2Fproduct%2F%22%5D%27%29%3B%0A%20%20%20%20%20%20var%20idEl%20%20%20%20%20%3D%20fixedCell.querySelector%28%27span.opacity-50%27%29%3B%0A%20%20%20%20%20%20var%20productName%20%3D%20nameLink%20%3F%20clean%28nameLink.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20var%20productHref%20%3D%20nameLink%20%3F%20nameLink.getAttribute%28%27href%27%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20var%20productId%20%20%20%3D%20%27%27%3B%0A%20%20%20%20%20%20if%20%28idEl%29%20%7B%0A%20%20%20%20%20%20%20%20productId%20%3D%20clean%28idEl.textContent.replace%28%2F%5E%5Cs%2AID%3A%5Cs%2A%2F%2C%20%27%27%29%29%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20if%20%28%21productId%20%26%26%20productHref%29%20%7B%0A%20%20%20%20%20%20%20%20var%20pm%20%3D%20productHref.match%28%2F%5C%2Fview%5C%2Fproduct%5C%2F%28%5Cd%2B%29%2F%29%3B%0A%20%20%20%20%20%20%20%20if%20%28pm%29%20productId%20%3D%20pm%5B1%5D%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20var%20metrics%20%3D%20%5B%5D%3B%0A%20%20%20%20%20%20for%20%28var%20i%20%3D%201%3B%20i%20%3C%20tds.length%3B%20i%2B%2B%29%20%7B%0A%20%20%20%20%20%20%20%20metrics.push%28cellText%28tds%5Bi%5D%29%29%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20products.push%28%7B%0A%20%20%20%20%20%20%20%20%27Product%20ID%27%3A%20%20%20productId%2C%0A%20%20%20%20%20%20%20%20%27Product%20name%27%3A%20productName%2C%0A%20%20%20%20%20%20%20%20%27Product%20link%27%3A%20productHref%2C%0A%20%20%20%20%20%20%20%20%27Metrics%27%3A%20%20%20%20%20%20metrics%0A%20%20%20%20%20%20%7D%29%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%20%20if%20%28pHeaders.length%29%20products._headers%20%3D%20pHeaders%3B%0A%20%20%7D%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Payload%20%2B%20transport%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20var%20payload%20%3D%20%7B%0A%20%20%20%20page%3A%20%20%20%20%20%20%20%20%20%20%20pageTitle%2C%0A%20%20%20%20shop%3A%20%20%20%20%20%20%20%20%20%20%20shop%2C%0A%20%20%20%20roomId%3A%20%20%20%20%20%20%20%20%20roomId%2C%0A%20%20%20%20duration%3A%20%20%20%20%20%20%20duration%2C%0A%20%20%20%20sessionRange%3A%20%20%20sessionRange%2C%0A%20%20%20%20scrapedAt%3A%20%20%20%20%20%20new%20Date%28%29.toISOString%28%29%2C%0A%20%20%20%20gmv%3A%20%20%20%20%20%20%20%20%20%20%20%20gmv%2C%0A%20%20%20%20sideKpis%3A%20%20%20%20%20%20%20sideKpis%2C%0A%20%20%20%20performance%3A%20%20%20%20performance%2C%0A%20%20%20%20trafficSources%3A%20trafficSources%2C%0A%20%20%20%20products%3A%20%20%20%20%20%20%20products%0A%20%20%7D%3B%0A%20%20console.log%28payload%29%3B%0A%0A%20%20if%20%28ENDPOINT%20%26%26%20ENDPOINT.indexOf%28%27PASTE_%27%29%20%21%3D%3D%200%29%20%7B%0A%20%20%20%20fetch%28ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28%7B%0A%20%20%20%20%20%20%20%20token%3A%20%20%20%20%20%20%20%20%20%20TOKEN%2C%0A%20%20%20%20%20%20%20%20page%3A%20%20%20%20%20%20%20%20%20%20%20payload.page%2C%0A%20%20%20%20%20%20%20%20shop%3A%20%20%20%20%20%20%20%20%20%20%20payload.shop%2C%0A%20%20%20%20%20%20%20%20roomId%3A%20%20%20%20%20%20%20%20%20payload.roomId%2C%0A%20%20%20%20%20%20%20%20duration%3A%20%20%20%20%20%20%20payload.duration%2C%0A%20%20%20%20%20%20%20%20sessionRange%3A%20%20%20payload.sessionRange%2C%0A%20%20%20%20%20%20%20%20scrapedAt%3A%20%20%20%20%20%20payload.scrapedAt%2C%0A%20%20%20%20%20%20%20%20gmv%3A%20%20%20%20%20%20%20%20%20%20%20%20payload.gmv%2C%0A%20%20%20%20%20%20%20%20sideKpis%3A%20%20%20%20%20%20%20payload.sideKpis%2C%0A%20%20%20%20%20%20%20%20performance%3A%20%20%20%20payload.performance%2C%0A%20%20%20%20%20%20%20%20trafficSources%3A%20payload.trafficSources%2C%0A%20%20%20%20%20%20%20%20products%3A%20%20%20%20%20%20%20payload.products%0A%20%20%20%20%20%20%7D%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20return%20r.json%28%29%3B%20%7D%29%0A%20%20%20%20%20%20.then%28function%28j%29%7B%20console.log%28%27%5Bsheet%5D%27%2C%20j%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bsheet%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%0A%20%20if%20%28GRAYLOG_ENDPOINT%29%20%7B%0A%20%20%20%20var%20gelf%20%3D%20%7B%0A%20%20%20%20%20%20version%3A%20%271.1%27%2C%0A%20%20%20%20%20%20host%3A%20GRAYLOG_HOST%2C%0A%20%20%20%20%20%20short_message%3A%20%27tiktok%20live%20scrape%3A%20%27%20%2B%20%28shop%20%7C%7C%20%27unknown%27%29%20%2B%20%27%20%28%27%20%2B%20products.length%20%2B%20%27%20products%2C%20gmv%3D%27%20%2B%20%28gmv%20%7C%7C%20%27%3F%27%29%20%2B%20%27%29%27%2C%0A%20%20%20%20%20%20timestamp%3A%20Math.floor%28Date.now%28%29%20%2F%201000%29%2C%0A%20%20%20%20%20%20_page%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20payload.page%2C%0A%20%20%20%20%20%20_shop%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20payload.shop%2C%0A%20%20%20%20%20%20_room_id%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20payload.roomId%2C%0A%20%20%20%20%20%20_duration%3A%20%20%20%20%20%20%20%20%20%20%20%20%20payload.duration%2C%0A%20%20%20%20%20%20_session_range%3A%20%20%20%20%20%20%20%20payload.sessionRange%2C%0A%20%20%20%20%20%20_scrapedAt%3A%20%20%20%20%20%20%20%20%20%20%20%20payload.scrapedAt%2C%0A%20%20%20%20%20%20_gmv%3A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20payload.gmv%2C%0A%20%20%20%20%20%20_side_kpis_json%3A%20%20%20%20%20%20%20JSON.stringify%28payload.sideKpis%29%2C%0A%20%20%20%20%20%20_performance_count%3A%20%20%20%20payload.performance.length%2C%0A%20%20%20%20%20%20_performance_json%3A%20%20%20%20%20JSON.stringify%28payload.performance%29%2C%0A%20%20%20%20%20%20_traffic_count%3A%20%20%20%20%20%20%20%20payload.trafficSources.length%2C%0A%20%20%20%20%20%20_traffic_sources_json%3A%20JSON.stringify%28payload.trafficSources%29%2C%0A%20%20%20%20%20%20_products_count%3A%20%20%20%20%20%20%20payload.products.length%2C%0A%20%20%20%20%20%20_products_json%3A%20%20%20%20%20%20%20%20JSON.stringify%28payload.products%29%2C%0A%20%20%20%20%20%20_graylog_key%3A%20%20%20%20%20%20%20%20%20%20GRAYLOG_TOKEN%0A%20%20%20%20%7D%3B%0A%20%20%20%20fetch%28GRAYLOG_ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20mode%3A%20%27no-cors%27%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28gelf%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20console.log%28%27%5Bgraylog%5D%20sent%27%2C%20r.status%20%7C%7C%20%27opaque%27%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bgraylog%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%7D%29%28%29%3B">Log Live Session</a>
+  </p>
+
+  <p>The Graylog message uses GELF <code>host: "tiktok-bookmarklet-live"</code> so this stream can be filtered separately from the creator and sellers streams. Search <code>source:tiktok-bookmarklet-live</code> in the Graylog UI. Custom GELF fields: <code>_page</code>, <code>_shop</code>, <code>_room_id</code>, <code>_duration</code>, <code>_session_range</code>, <code>_scrapedAt</code>, <code>_gmv</code>, <code>_side_kpis_json</code>, <code>_performance_count</code>, <code>_performance_json</code>, <code>_traffic_count</code>, <code>_traffic_sources_json</code>, <code>_products_count</code>, <code>_products_json</code>.</p>
+
+  <h3>Source</h3>
+  <pre><code data-source="live">javascript:(function(){
+  // ---- Google Sheets Apps Script Web App (fill these in once) ----
+  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG/exec';
+  var TOKEN    = '**dingleding&amp;&amp;';
+  // ---- Local Graylog GELF HTTP input (set to '' to disable) ----
+  // The `bookmarklet-sync` sidecar in docker-compose.yml rewrites
+  // GRAYLOG_ENDPOINT (ngrok public URL of the :12202 GELF tunnel) and
+  // GRAYLOG_TOKEN (admin API token) on every `docker compose up`.
+  var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+  var GRAYLOG_TOKEN    = 'jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5';
+  // Distinct source so Graylog can route this stream separately from the
+  // creator (`tiktok-bookmarklet`) and sellers (`tiktok-bookmarklet-sellers`)
+  // streams.
+  var GRAYLOG_HOST     = 'tiktok-bookmarklet-live';
+  // ----------------------------------------------------------------
+
+  // Targets the seller-side LIVE Dashboard:
+  //   shop.tiktok.com/workbench/live/overview?room_id=&lt;id&gt;&amp;region=&lt;region&gt;
+  // Pulls per-session KPIs (GMV, Items sold, Viewers), the Performance
+  // trends carousel (Impressions / Views / GMV per hour / etc.), the
+  // Traffic source breakdown, and the Product List ranking.
+
+  var clean = function(s){ return (s || '').replace(/\s+/g, ' ').trim(); };
+
+  // ── Shop identity + live session header ─────────────────────────────────
+  var pageTitleEl = document.querySelector('.font-medium.text-xl.leading-9');
+  var pageTitle = pageTitleEl ? clean(pageTitleEl.textContent) : '';
+
+  // The shop name lives inside the only `.flex.items-center.ml-7` that
+  // also contains an avatar `&lt;img&gt;` — narrow on that to skip the language
+  // dropdown which uses similar wrapping classes.
+  var shop = '';
+  document.querySelectorAll('.flex.items-center.ml-7').forEach(function(el){
+    if (shop) return;
+    if (!el.querySelector('img[alt="avatar"]')) return;
+    var t = el.querySelector('.truncate');
+    if (t) shop = clean(t.textContent);
+  });
+
+  var roomId = '';
+  var rm = location.href.match(/[?&amp;]room_id=(\d+)/);
+  if (rm) roomId = rm[1];
+
+  // Live session "Duration ... 1h1m37s" + the absolute timestamp range.
+  var duration = '';
+  var sessionRange = '';
+  document.querySelectorAll('.text-neutral-text-1.text-base.leading-6.font-medium').forEach(function(el){
+    var t = clean(el.textContent);
+    if (!t) return;
+    if (/^\d+h\d+m/.test(t) || /^\d+m\d+s/.test(t) || /^\d+s$/.test(t)) {
+      if (!duration) duration = t;
+    } else if (/-/.test(t) &amp;&amp; /[A-Z][a-z]{2}\s/.test(t)) {
+      if (!sessionRange) sessionRange = t;
+    }
+  });
+
+  // ── Headline KPIs ───────────────────────────────────────────────────────
+  // GMV: animated odometer. Each digit is its own `.odometer-digit` with a
+  // ribbon; the visible numeral is in `.odometer-value`. Concatenating all
+  // values from the container gives the displayed integer. Scoping to
+  // `-container` (instead of `-basic`) catches future markup variants where
+  // the basic wrapper may be replaced or renamed.
+  var gmv = '';
+  var odoBlock = document.querySelector('.ecom-screen-animated-number-container');
+  if (odoBlock) {
+    var digits = [];
+    odoBlock.querySelectorAll('.odometer-value').forEach(function(d){
+      digits.push(clean(d.textContent));
+    });
+    gmv = digits.join('');
+  }
+
+  // Items sold + Viewers + (in some session states) extra side badges.
+  // Each badge uses `.bg-state-normal` and labels the metric via a
+  // `.text-xl.font-medium.text-neutral-text-1.ml-1` div. The arco statistic
+  // splits a number across `-int` / `-decimal` / `-suffix` spans, but the
+  // suffix is nested *inside* the decimal — so reading `textContent` of
+  // the wrapping `.arco-statistic-value` already yields the right thing
+  // ("1.74K") without a manual concat that would double the suffix.
+  var statValue = function(stat){
+    return stat ? clean(stat.textContent) : '';
+  };
+
+  var sideKpis = {};
+  document.querySelectorAll('.bg-state-normal').forEach(function(badge){
+    var labelEl = badge.querySelector('.text-xl.font-medium.text-neutral-text-1.ml-1');
+    if (!labelEl) return;
+    var label = clean(labelEl.textContent);
+    if (!label) return;
+    var value = statValue(badge.querySelector('.arco-statistic-value'));
+    sideKpis[label] = value;
+  });
+
+  // ── Performance trends carousel ─────────────────────────────────────────
+  // The carousel rotates between metrics like Impressions / Views /
+  // GMV per hour / Impressions per hour / Show GPM. All slide DOM stays
+  // mounted so we can read every `.arco-col` that has both a label
+  // (.text-base.text-neutral-text-1.truncate) and a value
+  // (.arco-statistic-value). De-dupe by label since slides repeat as the
+  // carousel cycles.
+  var perfMap = {};
+  document.querySelectorAll('.arco-col').forEach(function(col){
+    var labelEl = col.querySelector('.text-base.text-neutral-text-1.truncate');
+    var valueEl = col.querySelector('.arco-statistic-value');
+    if (!labelEl || !valueEl) return;
+    var label = clean(labelEl.textContent);
+    if (!label || perfMap[label] != null) return;
+    perfMap[label] = statValue(valueEl);
+  });
+  var performance = Object.keys(perfMap).map(function(k){
+    return { name: k, value: perfMap[k] };
+  });
+
+  // ── Section helpers ─────────────────────────────────────────────────────
+  // Find a section's nearest table by walking up to a common ancestor that
+  // also contains a section header, then descending to its arco-table.
+  // We match the header by `startsWith` so a trailing count badge (the
+  // Product List header has e.g. " 60" appended) doesn't trip equality.
+  var findSectionTable = function(headerText){
+    var header = null;
+    document.querySelectorAll('.text-xl.font-medium').forEach(function(el){
+      if (header) return;
+      if (clean(el.textContent).indexOf(headerText) === 0) header = el;
+    });
+    if (!header) return null;
+    var node = header;
+    for (var i = 0; i &lt; 6 &amp;&amp; node; i++) {
+      node = node.parentElement;
+      if (!node) break;
+      var tbl = node.querySelector('.arco-table');
+      if (tbl) return tbl;
+    }
+    return null;
+  };
+
+  var cellText = function(td){
+    if (!td) return '';
+    var inner = td.querySelector('.arco-table-cell-wrap-value');
+    return inner ? clean(inner.textContent) : '';
+  };
+
+  // ── Traffic source table ────────────────────────────────────────────────
+  // Header: Channel | GMV | Impressions | Views.
+  // Each visible row is two &lt;tr&gt;s — one with data (4 td.colspan="1") and a
+  // following one with a single colspan="4" td that holds the share-bar.
+  // Filter to data rows by requiring 4 cells.
+  var trafficSources = [];
+  var trafficTable = findSectionTable('Traffic source');
+  if (trafficTable) {
+    var headers = [];
+    trafficTable.querySelectorAll('thead .arco-table-th-item-title').forEach(function(h){
+      headers.push(clean(h.textContent));
+    });
+    trafficTable.querySelectorAll('tbody tr.arco-table-tr').forEach(function(tr){
+      var tds = tr.querySelectorAll('td.arco-table-td');
+      if (tds.length !== 4) return;
+      // Visible rows are followed by a "progress bar" sibling row whose
+      // first cell has `colspan="4"` and trailing empty cells — skip those
+      // since they're decoration, not data.
+      var first = tds[0];
+      if (first.getAttribute('colspan') !== '1') return;
+      if (first.querySelector('.arco-progress')) return;
+      trafficSources.push({
+        Channel:     cellText(tds[0]),
+        GMV:         cellText(tds[1]),
+        Impressions: cellText(tds[2]),
+        Views:       cellText(tds[3])
+      });
+    });
+    // Persist header labels in case the column set changes server-side.
+    if (headers.length === 4) {
+      trafficSources._headers = headers;
+    }
+  }
+
+  // ── Product List ranking ────────────────────────────────────────────────
+  // Each row: fixed-left Product cell (img + product link + product ID) +
+  // a stats column (often blank) + several metric cells with `&lt;p&gt;` value.
+  // Scrape every metric td as raw text so the column set can drift without
+  // breaking the bookmarklet.
+  var products = [];
+  var productTable = findSectionTable('Product List');
+  if (productTable) {
+    var pHeaders = [];
+    productTable.querySelectorAll('thead .arco-table-th-item-title').forEach(function(h){
+      var inner = h.querySelector('.text-wrap, .line-clamp-3');
+      pHeaders.push(clean(inner ? inner.textContent : h.textContent));
+    });
+    productTable.querySelectorAll('tbody tr.arco-table-tr').forEach(function(tr){
+      var tds = tr.querySelectorAll('td.arco-table-td');
+      if (tds.length &lt; 2) return;
+      var fixedCell = tds[0];
+      var nameLink = fixedCell.querySelector('a[href*="/view/product/"]');
+      var idEl     = fixedCell.querySelector('span.opacity-50');
+      var productName = nameLink ? clean(nameLink.textContent) : '';
+      var productHref = nameLink ? nameLink.getAttribute('href') : '';
+      var productId   = '';
+      if (idEl) {
+        productId = clean(idEl.textContent.replace(/^\s*ID:\s*/, ''));
+      }
+      if (!productId &amp;&amp; productHref) {
+        var pm = productHref.match(/\/view\/product\/(\d+)/);
+        if (pm) productId = pm[1];
+      }
+      var metrics = [];
+      for (var i = 1; i &lt; tds.length; i++) {
+        metrics.push(cellText(tds[i]));
+      }
+      products.push({
+        'Product ID':   productId,
+        'Product name': productName,
+        'Product link': productHref,
+        'Metrics':      metrics
+      });
+    });
+    if (pHeaders.length) products._headers = pHeaders;
+  }
+
+  // ── Payload + transport ─────────────────────────────────────────────────
+  var payload = {
+    page:           pageTitle,
+    shop:           shop,
+    roomId:         roomId,
+    duration:       duration,
+    sessionRange:   sessionRange,
+    scrapedAt:      new Date().toISOString(),
+    gmv:            gmv,
+    sideKpis:       sideKpis,
+    performance:    performance,
+    trafficSources: trafficSources,
+    products:       products
+  };
+  console.log(payload);
+
+  if (ENDPOINT &amp;&amp; ENDPOINT.indexOf('PASTE_') !== 0) {
+    fetch(ENDPOINT, {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        token:          TOKEN,
+        page:           payload.page,
+        shop:           payload.shop,
+        roomId:         payload.roomId,
+        duration:       payload.duration,
+        sessionRange:   payload.sessionRange,
+        scrapedAt:      payload.scrapedAt,
+        gmv:            payload.gmv,
+        sideKpis:       payload.sideKpis,
+        performance:    payload.performance,
+        trafficSources: payload.trafficSources,
+        products:       payload.products
+      })
+    }).then(function(r){ return r.json(); })
+      .then(function(j){ console.log('[sheet]', j); })
+      .catch(function(e){ console.warn('[sheet] post failed', e); });
+  }
+
+  if (GRAYLOG_ENDPOINT) {
+    var gelf = {
+      version: '1.1',
+      host: GRAYLOG_HOST,
+      short_message: 'tiktok live scrape: ' + (shop || 'unknown') + ' (' + products.length + ' products, gmv=' + (gmv || '?') + ')',
+      timestamp: Math.floor(Date.now() / 1000),
+      _page:                 payload.page,
+      _shop:                 payload.shop,
+      _room_id:              payload.roomId,
+      _duration:             payload.duration,
+      _session_range:        payload.sessionRange,
+      _scrapedAt:            payload.scrapedAt,
+      _gmv:                  payload.gmv,
+      _side_kpis_json:       JSON.stringify(payload.sideKpis),
+      _performance_count:    payload.performance.length,
+      _performance_json:     JSON.stringify(payload.performance),
+      _traffic_count:        payload.trafficSources.length,
+      _traffic_sources_json: JSON.stringify(payload.trafficSources),
+      _products_count:       payload.products.length,
+      _products_json:        JSON.stringify(payload.products),
+      _graylog_key:          GRAYLOG_TOKEN
+    };
+    fetch(GRAYLOG_ENDPOINT, {
+      method: 'POST',
+      keepalive: true,
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(gelf)
+    }).then(function(r){ console.log('[graylog] sent', r.status || 'opaque'); })
+      .catch(function(e){ console.warn('[graylog] post failed', e); });
+  }
+})();</code></pre>
+
+  <h2 id="streamer-bookmarklet">Streamer Compass Video Analysis Bookmarklet</h2>
+  <p>A fourth bookmarklet that scrapes the seller-side <strong>Streamer Compass video analysis</strong> view at <code>shop.tiktok.com/streamer/compass/video-analysis/view</code> &mdash; the seller's own creator dashboard. Different DOM than the agency-side <em>creator</em> bookmarklet (Tailwind utility classes + CSS-module hashes, no arco table) but similar shape: 5 KPI tiles (GMV, Items sold, Views, New followers, Videos) plus a stack of video cards, each with its own metrics row (GMV / Views / Items sold / CTR / Completion).</p>
+  <pre><code>{
+  page,                       // "video analysis"
+  dateLabel,                  // "Last 28 days"
+  dateRange: { start, end },  // selected dates from the arco picker
+  scrapedAt,
+  metrics: [ { name, value, currency, compareKey, delta } ],
+  videos:  [ { Thumbnail, Title, Posted, Duration,
+               Metrics: [ { name, value } ] } ]
+}</code></pre>
+
+  <p>
+    <a class="bm" data-source="streamer" href="javascript:%28function%28%29%7B%0A%20%20%2F%2F%20----%20Google%20Sheets%20Apps%20Script%20Web%20App%20%28fill%20these%20in%20once%29%20----%0A%20%20var%20ENDPOINT%20%3D%20%27https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2FAKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG%2Fexec%27%3B%0A%20%20var%20TOKEN%20%20%20%20%3D%20%27%2A%2Adingleding%26%26%27%3B%0A%20%20%2F%2F%20----%20Local%20Graylog%20GELF%20HTTP%20input%20%28set%20to%20%27%27%20to%20disable%29%20----%0A%20%20%2F%2F%20The%20%60bookmarklet-sync%60%20sidecar%20in%20docker-compose.yml%20rewrites%0A%20%20%2F%2F%20GRAYLOG_ENDPOINT%20%28ngrok%20public%20URL%20of%20the%20%3A12202%20GELF%20tunnel%29%20and%0A%20%20%2F%2F%20GRAYLOG_TOKEN%20%28admin%20API%20token%29%20on%20every%20%60docker%20compose%20up%60.%0A%20%20var%20GRAYLOG_ENDPOINT%20%3D%20%27https%3A%2F%2Ftok-graylog-gelf.ngrok-free.dev%2Fgelf%27%3B%0A%20%20var%20GRAYLOG_TOKEN%20%20%20%20%3D%20%27jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5%27%3B%0A%20%20%2F%2F%20Distinct%20source%20so%20Graylog%20can%20route%20this%20stream%20separately%20from%20the%0A%20%20%2F%2F%20creator%20%28%60tiktok-bookmarklet%60%29%2C%20sellers%20%28%60tiktok-bookmarklet-sellers%60%29%2C%0A%20%20%2F%2F%20and%20live%20%28%60tiktok-bookmarklet-live%60%29%20streams.%0A%20%20var%20GRAYLOG_HOST%20%20%20%20%20%3D%20%27tiktok-bookmarklet-streamer%27%3B%0A%20%20%2F%2F%20----------------------------------------------------------------%0A%0A%20%20%2F%2F%20Targets%20the%20seller-side%20Streamer%20Compass%20video-analysis%20view%3A%0A%20%20%2F%2F%20%20%20shop.tiktok.com%2Fstreamer%2Fcompass%2Fvideo-analysis%2Fview%0A%20%20%2F%2F%20This%20is%20the%20seller%27s%20own%20video%20dashboard%20%E2%80%94%20same%20metric%20%22shape%22%20as%20the%0A%20%20%2F%2F%20partner-center%20creator%20bookmarklet%2C%20but%20a%20different%20DOM%20%28Tailwind-only%0A%20%20%2F%2F%20utility%20classes%2C%20CSS%20module%20hashes%2C%20no%20arco%20table%29.%20Pulls%20the%20date%0A%20%20%2F%2F%20range%2C%20the%205%20KPI%20tiles%2C%20and%20the%20full%20video%20card%20stack%20with%20per-video%0A%20%20%2F%2F%20metrics%20%28GMV%20%2F%20Views%20%2F%20Items%20sold%20%2F%20CTR%20%2F%20Completion%29.%0A%0A%20%20var%20clean%20%3D%20function%28s%29%7B%20return%20%28s%20%7C%7C%20%27%27%29.replace%28%2F%5Cs%2B%2Fg%2C%20%27%20%27%29.trim%28%29%3B%20%7D%3B%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Page%20title%20%2B%20date%20range%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20%2F%2F%20The%20header%20span%20wraps%20both%20the%20title%20and%20the%20date-picker%20%E2%80%94%20descend%20to%0A%20%20%2F%2F%20the%20inner%20%3Cspan%3E%20so%20we%20don%27t%20pick%20up%20%22Last%2028%20days%3A%20%E2%80%A6%22%20too.%0A%20%20var%20titleHeader%20%3D%20document.querySelector%28%27span.text-head-l.font-bold.text-neutral-text1%27%29%3B%0A%20%20var%20titleEl%20%3D%20titleHeader%20%3F%20titleHeader.querySelector%28%27span%27%29%20%3A%20null%3B%0A%20%20var%20pageTitle%20%3D%20titleEl%20%3F%20clean%28titleEl.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20var%20startInput%20%3D%20document.querySelector%28%27input%5Bplaceholder%3D%22Start%20date%22%5D%27%29%3B%0A%20%20var%20endInput%20%20%20%3D%20document.querySelector%28%27input%5Bplaceholder%3D%22End%20date%22%5D%27%29%3B%0A%20%20var%20dateRange%20%3D%20%7B%0A%20%20%20%20start%3A%20startInput%20%3F%20startInput.value%20%3A%20%27%27%2C%0A%20%20%20%20end%3A%20%20%20endInput%20%20%20%3F%20endInput.value%20%20%20%3A%20%27%27%0A%20%20%7D%3B%0A%20%20var%20prefixEl%20%3D%20document.querySelector%28%27.arco-picker-prefix%27%29%3B%0A%20%20var%20dateLabel%20%3D%20prefixEl%20%3F%20clean%28prefixEl.textContent.replace%28%2F%3A%5Cs%2A%24%2F%2C%20%27%27%29%29%20%3A%20%27%27%3B%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Core%20data%20%E2%80%94%20five%20KPI%20tiles%20in%20a%203-col%20grid%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20%2F%2F%20Each%20tile%20renders%3A%0A%20%20%2F%2F%20%20%20%3Cdiv%20index-module__container--W6C8V%3E%0A%20%20%2F%2F%20%20%20%20%20%3Cdiv%20text-body-m-medium%20...%3ELabel%3C%2Fdiv%3E%20%20%20%20%20%20%20%20%20%20%E2%86%90%20.text-body-m-medium.text-neutral-text1.pr-2%0A%20%20%2F%2F%20%20%20%20%20%3Cdiv%20text-body-l-regular%3E%24%3C%2Fdiv%3E%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%86%90%20optional%20currency%20prefix%0A%20%20%2F%2F%20%20%20%20%20%3Cdiv%20text-head-l%20text-neutral-text1%3EVALUE%3C%2Fdiv%3E%20%20%E2%86%90%20the%20headline%20value%0A%20%20%2F%2F%20%20%20%20%20%3Cdiv%20text-body-s-medium%20text-neutral-text3%3E%20%20%20%20%20%20%E2%86%90%20compare%20row%0A%20%20%2F%2F%20%20%20%20%20%20%20%3Cdiv%3Evs_last_28d_us-style%20key%3C%2Fdiv%3E%0A%20%20%2F%2F%20%20%20%20%20%20%20%3Cdiv%20mx-4%3E%2B0.00%3C%2Fdiv%3E%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%E2%86%90%20delta%20with%20leading%20sign%0A%20%20%2F%2F%20%20%20%20%20%3C%2Fdiv%3E%0A%20%20%2F%2F%20%20%20%3C%2Fdiv%3E%0A%20%20%2F%2F%20The%20hashed%20CSS-module%20class%20can%20drift%20on%20rebuilds%3B%20we%20anchor%20on%20the%0A%20%20%2F%2F%20grid%20container%20instead%20and%20treat%20each%20direct%20child%20as%20a%20card.%0A%20%20var%20metrics%20%3D%20%5B%5D%3B%0A%20%20var%20grid%20%3D%20document.querySelector%28%27.grid.grid-cols-3%27%29%3B%0A%20%20if%20%28grid%29%20%7B%0A%20%20%20%20grid.querySelectorAll%28%27%3Ascope%20%3E%20div%27%29.forEach%28function%28card%29%7B%0A%20%20%20%20%20%20var%20labelEl%20%3D%20card.querySelector%28%27.text-body-m-medium.text-neutral-text1%27%29%3B%0A%20%20%20%20%20%20if%20%28%21labelEl%29%20return%3B%0A%20%20%20%20%20%20var%20name%20%3D%20clean%28labelEl.textContent%29%3B%0A%20%20%20%20%20%20var%20valueEl%20%3D%20card.querySelector%28%27.text-head-l.text-neutral-text1%27%29%3B%0A%20%20%20%20%20%20var%20value%20%3D%20valueEl%20%3F%20clean%28valueEl.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20var%20currencyEl%20%3D%20card.querySelector%28%27.text-body-l-regular.mr-2%27%29%3B%0A%20%20%20%20%20%20var%20currency%20%3D%20currencyEl%20%3F%20clean%28currencyEl.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20var%20compareKeyEl%20%3D%20card.querySelector%28%27.text-body-s-medium.text-neutral-text3%20%3E%20div%27%29%3B%0A%20%20%20%20%20%20var%20compareKey%20%3D%20compareKeyEl%20%3F%20clean%28compareKeyEl.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20var%20deltaEl%20%3D%20card.querySelector%28%27.text-body-s-medium.text-neutral-text3%20.mx-4%27%29%3B%0A%20%20%20%20%20%20var%20delta%20%3D%20deltaEl%20%3F%20clean%28deltaEl.textContent%29%20%3A%20%27%27%3B%0A%20%20%20%20%20%20metrics.push%28%7B%0A%20%20%20%20%20%20%20%20name%3A%20%20%20%20%20%20%20%20name%2C%0A%20%20%20%20%20%20%20%20value%3A%20%20%20%20%20%20%20value%2C%0A%20%20%20%20%20%20%20%20currency%3A%20%20%20%20currency%2C%0A%20%20%20%20%20%20%20%20compareKey%3A%20%20compareKey%2C%0A%20%20%20%20%20%20%20%20delta%3A%20%20%20%20%20%20%20delta%0A%20%20%20%20%20%20%7D%29%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%7D%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Video%20Details%20%E2%80%94%20flex%20card%20stack%20%28no%20arco-table%20here%29%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20%2F%2F%20Find%20each%20card%20by%20walking%20up%20from%20its%20thumbnail%20image.%20Each%20card%20has%20a%0A%20%20%2F%2F%20common%20ancestor%20%60.mb-32%60%20wrapper%20that%20contains%20the%20title%2Fheader%20and%0A%20%20%2F%2F%20the%20%60.bg-neutral-bg2%60%20metrics%20row.%0A%20%20var%20videos%20%3D%20%5B%5D%3B%0A%20%20document.querySelectorAll%28%27img%5Balt%3D%22video%20thumbnail%22%5D%27%29.forEach%28function%28thumb%29%7B%0A%20%20%20%20var%20card%20%3D%20thumb.closest%28%27.mb-32%27%29%3B%0A%20%20%20%20if%20%28%21card%29%20return%3B%0A%0A%20%20%20%20%2F%2F%20Title%20lives%20inside%20the%20first%20%60%3Cspan%20class%3D%22text-body-l-medium%20...%22%3E%60%0A%20%20%20%20%2F%2F%20%E2%80%94%20the%20same%20class%20is%20used%20for%20cell%20values%20too%2C%20so%20we%20look%20for%20the%0A%20%20%20%20%2F%2F%20%2Aspan%2A%20variant%20which%20only%20wraps%20the%20title.%0A%20%20%20%20var%20titleSpan%20%3D%20card.querySelector%28%27span.text-body-l-medium.text-neutral-text1%27%29%3B%0A%20%20%20%20var%20title%20%3D%20titleSpan%20%3F%20clean%28titleSpan.textContent%29%20%3A%20%27%27%3B%0A%0A%20%20%20%20%2F%2F%20Posted%20%2B%20Duration%3A%20each%20is%20a%20%60%3Cspan%20class%3D%22text-body-m-regular%20...%22%3E%60%0A%20%20%20%20%2F%2F%20wrapping%20a%20label%20span%20and%20a%20value%20span.%20The%20label%20text%20is%0A%20%20%20%20%2F%2F%20%22Posted%3A%22%20%2F%20%22Duration%3A%22%20%E2%80%94%20match%20on%20that%20to%20disambiguate.%0A%20%20%20%20var%20posted%20%3D%20%27%27%2C%20duration%20%3D%20%27%27%3B%0A%20%20%20%20card.querySelectorAll%28%27.text-body-m-regular.text-neutral-text3%27%29.forEach%28function%28s%29%7B%0A%20%20%20%20%20%20var%20spans%20%3D%20s.querySelectorAll%28%27span%27%29%3B%0A%20%20%20%20%20%20if%20%28spans.length%20%3C%202%29%20return%3B%0A%20%20%20%20%20%20var%20label%20%3D%20clean%28spans%5B0%5D.textContent%29%3B%0A%20%20%20%20%20%20var%20value%20%3D%20clean%28s.querySelector%28%27.text-body-m-medium%27%29%0A%20%20%20%20%20%20%20%20%3F%20s.querySelector%28%27.text-body-m-medium%27%29.textContent%0A%20%20%20%20%20%20%20%20%3A%20%27%27%29%3B%0A%20%20%20%20%20%20if%20%28%2F%5EPosted%2F.test%28label%29%29%20posted%20%3D%20value%3B%0A%20%20%20%20%20%20else%20if%20%28%2F%5EDuration%2F.test%28label%29%29%20duration%20%3D%20value%3B%0A%20%20%20%20%7D%29%3B%0A%0A%20%20%20%20%2F%2F%20Per-video%20metrics%20row.%20Container%20has%20%60.bg-neutral-bg2%60%20%E2%80%94%20children%0A%20%20%20%20%2F%2F%20are%20the%20individual%20metric%20cells.%20Note%3A%20the%20row%20often%20shows%20two%0A%20%20%20%20%2F%2F%20%22GMV%22%20cells%20%28total%20%2B%20a%20comparison%29%2C%20so%20we%20keep%20order%20via%20array%0A%20%20%20%20%2F%2F%20rather%20than%20collapsing%20into%20an%20object%20that%20would%20clobber%20dupes.%0A%20%20%20%20var%20videoMetrics%20%3D%20%5B%5D%3B%0A%20%20%20%20var%20metricsRow%20%3D%20card.querySelector%28%27.bg-neutral-bg2%27%29%3B%0A%20%20%20%20if%20%28metricsRow%29%20%7B%0A%20%20%20%20%20%20metricsRow.querySelectorAll%28%27%3Ascope%20%3E%20div%27%29.forEach%28function%28cell%29%7B%0A%20%20%20%20%20%20%20%20var%20labelEl%20%3D%20cell.querySelector%28%27.text-body-s-regular.text-neutral-text2%27%29%3B%0A%20%20%20%20%20%20%20%20var%20valueEl%20%3D%20cell.querySelector%28%27.text-body-l-medium.text-neutral-text1%27%29%3B%0A%20%20%20%20%20%20%20%20if%20%28labelEl%20%26%26%20valueEl%29%20%7B%0A%20%20%20%20%20%20%20%20%20%20videoMetrics.push%28%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20name%3A%20%20clean%28labelEl.textContent%29%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20value%3A%20clean%28valueEl.textContent%29%0A%20%20%20%20%20%20%20%20%20%20%7D%29%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%29%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20videos.push%28%7B%0A%20%20%20%20%20%20Thumbnail%3A%20thumb.getAttribute%28%27src%27%29%20%7C%7C%20%27%27%2C%0A%20%20%20%20%20%20Title%3A%20%20%20%20%20title%2C%0A%20%20%20%20%20%20Posted%3A%20%20%20%20posted%2C%0A%20%20%20%20%20%20Duration%3A%20%20duration%2C%0A%20%20%20%20%20%20Metrics%3A%20%20%20videoMetrics%0A%20%20%20%20%7D%29%3B%0A%20%20%7D%29%3B%0A%0A%20%20%2F%2F%20%E2%94%80%E2%94%80%20Payload%20%2B%20transport%20%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%E2%94%80%0A%20%20var%20payload%20%3D%20%7B%0A%20%20%20%20page%3A%20%20%20%20%20%20%20pageTitle%2C%0A%20%20%20%20dateLabel%3A%20%20dateLabel%2C%0A%20%20%20%20dateRange%3A%20%20dateRange%2C%0A%20%20%20%20scrapedAt%3A%20%20new%20Date%28%29.toISOString%28%29%2C%0A%20%20%20%20metrics%3A%20%20%20%20metrics%2C%0A%20%20%20%20videos%3A%20%20%20%20%20videos%0A%20%20%7D%3B%0A%20%20console.log%28payload%29%3B%0A%0A%20%20if%20%28ENDPOINT%20%26%26%20ENDPOINT.indexOf%28%27PASTE_%27%29%20%21%3D%3D%200%29%20%7B%0A%20%20%20%20fetch%28ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28%7B%0A%20%20%20%20%20%20%20%20token%3A%20%20%20%20%20TOKEN%2C%0A%20%20%20%20%20%20%20%20page%3A%20%20%20%20%20%20payload.page%2C%0A%20%20%20%20%20%20%20%20dateLabel%3A%20payload.dateLabel%2C%0A%20%20%20%20%20%20%20%20dateRange%3A%20payload.dateRange%2C%0A%20%20%20%20%20%20%20%20scrapedAt%3A%20payload.scrapedAt%2C%0A%20%20%20%20%20%20%20%20metrics%3A%20%20%20payload.metrics%2C%0A%20%20%20%20%20%20%20%20videos%3A%20%20%20%20payload.videos%0A%20%20%20%20%20%20%7D%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20return%20r.json%28%29%3B%20%7D%29%0A%20%20%20%20%20%20.then%28function%28j%29%7B%20console.log%28%27%5Bsheet%5D%27%2C%20j%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bsheet%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%0A%20%20if%20%28GRAYLOG_ENDPOINT%29%20%7B%0A%20%20%20%20var%20gelf%20%3D%20%7B%0A%20%20%20%20%20%20version%3A%20%271.1%27%2C%0A%20%20%20%20%20%20host%3A%20GRAYLOG_HOST%2C%0A%20%20%20%20%20%20short_message%3A%20%27tiktok%20streamer%20scrape%3A%20%27%20%2B%20%28pageTitle%20%7C%7C%20%27unknown%27%29%20%2B%20%27%20%28%27%20%2B%20videos.length%20%2B%20%27%20videos%2C%20%27%20%2B%20metrics.length%20%2B%20%27%20kpis%29%27%2C%0A%20%20%20%20%20%20timestamp%3A%20Math.floor%28Date.now%28%29%20%2F%201000%29%2C%0A%20%20%20%20%20%20_page%3A%20%20%20%20%20%20%20%20%20%20%20payload.page%2C%0A%20%20%20%20%20%20_date_label%3A%20%20%20%20%20payload.dateLabel%2C%0A%20%20%20%20%20%20_date_start%3A%20%20%20%20%20dateRange.start%2C%0A%20%20%20%20%20%20_date_end%3A%20%20%20%20%20%20%20dateRange.end%2C%0A%20%20%20%20%20%20_scrapedAt%3A%20%20%20%20%20%20payload.scrapedAt%2C%0A%20%20%20%20%20%20_metrics_count%3A%20%20metrics.length%2C%0A%20%20%20%20%20%20_metrics_json%3A%20%20%20JSON.stringify%28metrics%29%2C%0A%20%20%20%20%20%20_videos_count%3A%20%20%20videos.length%2C%0A%20%20%20%20%20%20_videos_json%3A%20%20%20%20JSON.stringify%28videos%29%2C%0A%20%20%20%20%20%20_graylog_key%3A%20%20%20%20GRAYLOG_TOKEN%0A%20%20%20%20%7D%3B%0A%20%20%20%20fetch%28GRAYLOG_ENDPOINT%2C%20%7B%0A%20%20%20%20%20%20method%3A%20%27POST%27%2C%0A%20%20%20%20%20%20keepalive%3A%20true%2C%0A%20%20%20%20%20%20mode%3A%20%27no-cors%27%2C%0A%20%20%20%20%20%20headers%3A%20%7B%20%27Content-Type%27%3A%20%27text%2Fplain%3Bcharset%3Dutf-8%27%20%7D%2C%0A%20%20%20%20%20%20body%3A%20JSON.stringify%28gelf%29%0A%20%20%20%20%7D%29.then%28function%28r%29%7B%20console.log%28%27%5Bgraylog%5D%20sent%27%2C%20r.status%20%7C%7C%20%27opaque%27%29%3B%20%7D%29%0A%20%20%20%20%20%20.catch%28function%28e%29%7B%20console.warn%28%27%5Bgraylog%5D%20post%20failed%27%2C%20e%29%3B%20%7D%29%3B%0A%20%20%7D%0A%7D%29%28%29%3B">Log Streamer Compass</a>
+  </p>
+
+  <p>The Graylog message uses GELF <code>host: "tiktok-bookmarklet-streamer"</code> so this stream filters separately from creator/sellers/live. Search <code>source:tiktok-bookmarklet-streamer</code>. Custom GELF fields: <code>_page</code>, <code>_date_label</code>, <code>_date_start</code>, <code>_date_end</code>, <code>_scrapedAt</code>, <code>_metrics_count</code>, <code>_metrics_json</code>, <code>_videos_count</code>, <code>_videos_json</code>.</p>
+
+  <h3>Source</h3>
+  <pre><code data-source="streamer">javascript:(function(){
+  // ---- Google Sheets Apps Script Web App (fill these in once) ----
+  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG/exec';
+  var TOKEN    = '**dingleding&amp;&amp;';
+  // ---- Local Graylog GELF HTTP input (set to '' to disable) ----
+  // The `bookmarklet-sync` sidecar in docker-compose.yml rewrites
+  // GRAYLOG_ENDPOINT (ngrok public URL of the :12202 GELF tunnel) and
+  // GRAYLOG_TOKEN (admin API token) on every `docker compose up`.
+  var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+  var GRAYLOG_TOKEN    = 'jg547fq9fpkam4nft6jhmujfjvsba6vm6gpv6db692aab95sav5';
+  // Distinct source so Graylog can route this stream separately from the
+  // creator (`tiktok-bookmarklet`), sellers (`tiktok-bookmarklet-sellers`),
+  // and live (`tiktok-bookmarklet-live`) streams.
+  var GRAYLOG_HOST     = 'tiktok-bookmarklet-streamer';
+  // ----------------------------------------------------------------
+
+  // Targets the seller-side Streamer Compass video-analysis view:
+  //   shop.tiktok.com/streamer/compass/video-analysis/view
+  // This is the seller's own video dashboard — same metric "shape" as the
+  // partner-center creator bookmarklet, but a different DOM (Tailwind-only
+  // utility classes, CSS module hashes, no arco table). Pulls the date
+  // range, the 5 KPI tiles, and the full video card stack with per-video
+  // metrics (GMV / Views / Items sold / CTR / Completion).
+
+  var clean = function(s){ return (s || '').replace(/\s+/g, ' ').trim(); };
+
+  // ── Page title + date range ─────────────────────────────────────────────
+  // The header span wraps both the title and the date-picker — descend to
+  // the inner &lt;span&gt; so we don't pick up "Last 28 days: …" too.
+  var titleHeader = document.querySelector('span.text-head-l.font-bold.text-neutral-text1');
+  var titleEl = titleHeader ? titleHeader.querySelector('span') : null;
+  var pageTitle = titleEl ? clean(titleEl.textContent) : '';
+
+  var startInput = document.querySelector('input[placeholder="Start date"]');
+  var endInput   = document.querySelector('input[placeholder="End date"]');
+  var dateRange = {
+    start: startInput ? startInput.value : '',
+    end:   endInput   ? endInput.value   : ''
+  };
+  var prefixEl = document.querySelector('.arco-picker-prefix');
+  var dateLabel = prefixEl ? clean(prefixEl.textContent.replace(/:\s*$/, '')) : '';
+
+  // ── Core data — five KPI tiles in a 3-col grid ──────────────────────────
+  // Each tile renders:
+  //   &lt;div index-module__container--W6C8V&gt;
+  //     &lt;div text-body-m-medium ...&gt;Label&lt;/div&gt;          ← .text-body-m-medium.text-neutral-text1.pr-2
+  //     &lt;div text-body-l-regular&gt;$&lt;/div&gt;                 ← optional currency prefix
+  //     &lt;div text-head-l text-neutral-text1&gt;VALUE&lt;/div&gt;  ← the headline value
+  //     &lt;div text-body-s-medium text-neutral-text3&gt;      ← compare row
+  //       &lt;div&gt;vs_last_28d_us-style key&lt;/div&gt;
+  //       &lt;div mx-4&gt;+0.00&lt;/div&gt;                          ← delta with leading sign
+  //     &lt;/div&gt;
+  //   &lt;/div&gt;
+  // The hashed CSS-module class can drift on rebuilds; we anchor on the
+  // grid container instead and treat each direct child as a card.
+  var metrics = [];
+  var grid = document.querySelector('.grid.grid-cols-3');
+  if (grid) {
+    grid.querySelectorAll(':scope &gt; div').forEach(function(card){
+      var labelEl = card.querySelector('.text-body-m-medium.text-neutral-text1');
+      if (!labelEl) return;
+      var name = clean(labelEl.textContent);
+      var valueEl = card.querySelector('.text-head-l.text-neutral-text1');
+      var value = valueEl ? clean(valueEl.textContent) : '';
+      var currencyEl = card.querySelector('.text-body-l-regular.mr-2');
+      var currency = currencyEl ? clean(currencyEl.textContent) : '';
+      var compareKeyEl = card.querySelector('.text-body-s-medium.text-neutral-text3 &gt; div');
+      var compareKey = compareKeyEl ? clean(compareKeyEl.textContent) : '';
+      var deltaEl = card.querySelector('.text-body-s-medium.text-neutral-text3 .mx-4');
+      var delta = deltaEl ? clean(deltaEl.textContent) : '';
+      metrics.push({
+        name:        name,
+        value:       value,
+        currency:    currency,
+        compareKey:  compareKey,
+        delta:       delta
+      });
+    });
+  }
+
+  // ── Video Details — flex card stack (no arco-table here) ────────────────
+  // Find each card by walking up from its thumbnail image. Each card has a
+  // common ancestor `.mb-32` wrapper that contains the title/header and
+  // the `.bg-neutral-bg2` metrics row.
+  var videos = [];
+  document.querySelectorAll('img[alt="video thumbnail"]').forEach(function(thumb){
+    var card = thumb.closest('.mb-32');
+    if (!card) return;
+
+    // Title lives inside the first `&lt;span class="text-body-l-medium ..."&gt;`
+    // — the same class is used for cell values too, so we look for the
+    // *span* variant which only wraps the title.
+    var titleSpan = card.querySelector('span.text-body-l-medium.text-neutral-text1');
+    var title = titleSpan ? clean(titleSpan.textContent) : '';
+
+    // Posted + Duration: each is a `&lt;span class="text-body-m-regular ..."&gt;`
+    // wrapping a label span and a value span. The label text is
+    // "Posted:" / "Duration:" — match on that to disambiguate.
+    var posted = '', duration = '';
+    card.querySelectorAll('.text-body-m-regular.text-neutral-text3').forEach(function(s){
+      var spans = s.querySelectorAll('span');
+      if (spans.length &lt; 2) return;
+      var label = clean(spans[0].textContent);
+      var value = clean(s.querySelector('.text-body-m-medium')
+        ? s.querySelector('.text-body-m-medium').textContent
+        : '');
+      if (/^Posted/.test(label)) posted = value;
+      else if (/^Duration/.test(label)) duration = value;
+    });
+
+    // Per-video metrics row. Container has `.bg-neutral-bg2` — children
+    // are the individual metric cells. Note: the row often shows two
+    // "GMV" cells (total + a comparison), so we keep order via array
+    // rather than collapsing into an object that would clobber dupes.
+    var videoMetrics = [];
+    var metricsRow = card.querySelector('.bg-neutral-bg2');
+    if (metricsRow) {
+      metricsRow.querySelectorAll(':scope &gt; div').forEach(function(cell){
+        var labelEl = cell.querySelector('.text-body-s-regular.text-neutral-text2');
+        var valueEl = cell.querySelector('.text-body-l-medium.text-neutral-text1');
+        if (labelEl &amp;&amp; valueEl) {
+          videoMetrics.push({
+            name:  clean(labelEl.textContent),
+            value: clean(valueEl.textContent)
+          });
+        }
+      });
+    }
+
+    videos.push({
+      Thumbnail: thumb.getAttribute('src') || '',
+      Title:     title,
+      Posted:    posted,
+      Duration:  duration,
+      Metrics:   videoMetrics
+    });
+  });
+
+  // ── Payload + transport ─────────────────────────────────────────────────
+  var payload = {
+    page:       pageTitle,
+    dateLabel:  dateLabel,
+    dateRange:  dateRange,
+    scrapedAt:  new Date().toISOString(),
+    metrics:    metrics,
+    videos:     videos
+  };
+  console.log(payload);
+
+  if (ENDPOINT &amp;&amp; ENDPOINT.indexOf('PASTE_') !== 0) {
+    fetch(ENDPOINT, {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        token:     TOKEN,
+        page:      payload.page,
+        dateLabel: payload.dateLabel,
+        dateRange: payload.dateRange,
+        scrapedAt: payload.scrapedAt,
+        metrics:   payload.metrics,
+        videos:    payload.videos
+      })
+    }).then(function(r){ return r.json(); })
+      .then(function(j){ console.log('[sheet]', j); })
+      .catch(function(e){ console.warn('[sheet] post failed', e); });
+  }
+
+  if (GRAYLOG_ENDPOINT) {
+    var gelf = {
+      version: '1.1',
+      host: GRAYLOG_HOST,
+      short_message: 'tiktok streamer scrape: ' + (pageTitle || 'unknown') + ' (' + videos.length + ' videos, ' + metrics.length + ' kpis)',
+      timestamp: Math.floor(Date.now() / 1000),
+      _page:           payload.page,
+      _date_label:     payload.dateLabel,
+      _date_start:     dateRange.start,
+      _date_end:       dateRange.end,
+      _scrapedAt:      payload.scrapedAt,
+      _metrics_count:  metrics.length,
+      _metrics_json:   JSON.stringify(metrics),
+      _videos_count:   videos.length,
+      _videos_json:    JSON.stringify(videos),
+      _graylog_key:    GRAYLOG_TOKEN
     };
     fetch(GRAYLOG_ENDPOINT, {
       method: 'POST',

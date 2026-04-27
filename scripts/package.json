@@ -7,7 +7,13 @@
     "bookmarklet": "tsx run-bookmarklet.ts",
     "bookmarklet:dev": "tsx run-bookmarklet.ts --env=dev",
     "bookmarklet:prod": "tsx run-bookmarklet.ts --env=prod",
-    "bookmarklet:login": "tsx run-bookmarklet.ts --env=prod --login-only"
+    "bookmarklet:login": "tsx run-bookmarklet.ts --env=prod --login-only",
+    "bookmarklet:sellers": "tsx run-bookmarklet.ts --target=sellers --env=dev",
+    "bookmarklet:sellers:prod": "tsx run-bookmarklet.ts --target=sellers --env=prod",
+    "bookmarklet:live": "tsx run-bookmarklet.ts --target=live --env=dev",
+    "bookmarklet:live:prod": "tsx run-bookmarklet.ts --target=live --env=prod",
+    "bookmarklet:streamer": "tsx run-bookmarklet.ts --target=streamer --env=dev",
+    "bookmarklet:streamer:prod": "tsx run-bookmarklet.ts --target=streamer --env=prod"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

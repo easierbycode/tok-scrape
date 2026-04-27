@@ -7,9 +7,14 @@ It:
      `graylog-api` and `graylog-gelf` tunnels (defined in ngrok.yml) are live.
   2. Polls the Graylog REST API until healthy.
   3. Creates (or reuses) an admin API token named $GRAYLOG_TOKEN_NAME.
-  4. Rewrites `bookmarklet-src.js` with the current GELF ngrok URL + token,
-     then re-URL-encodes and splices the result into the <a class="bm"> href
-     and the visible <pre><code> source block in `index.html`.
+  4. Rewrites every bookmarklet source file (`bookmarklet-src.js`,
+     `bookmarklet-sellers.js`) with the current GELF ngrok URL + token, then
+     re-URL-encodes each result and splices it into every host HTML page
+     (`index.html`, `sellers.html`) that carries a matching `data-source`
+     attribute on its <a class="bm"> anchor and <pre><code> block. Pages
+     may carry any subset of slugs — splicing is tolerant of missing markers,
+     so `sellers.html` (sellers only) and `index.html` (both) both stay in
+     sync without per-file branches.
   5. Prints a summary block so `docker compose logs bookmarklet-sync` shows
      the public URLs + token to paste into the mobile app.
 
@@ -129,9 +134,33 @@ def get_graylog_token() -> str:
     raise RuntimeError("could not create or find Graylog API token")
 
 
-def rewrite_bookmarklet(gelf_endpoint: str, token: str) -> None:
-    src_path = WORKSPACE / "bookmarklet-src.js"
-    idx_path = WORKSPACE / "index.html"
+# Each entry maps a bookmarklet source file → the `data-source` slug used to
+# identify its matching anchor + <pre><code> block in any HTML page that
+# wants to host its drag link. Add another tuple here to wire up more.
+BOOKMARKLETS = (
+    ("bookmarklet-src.js",      "creator"),
+    ("bookmarklet-sellers.js",  "sellers"),
+    ("bookmarklet-live.js",     "live"),
+    ("bookmarklet-streamer.js", "streamer"),
+)
+
+# Every HTML file we splice rewritten bookmarklet source into. A slug can
+# appear in some pages and not others — `splice_into_index` is tolerant of
+# missing markers so e.g. `sellers.html` only has the sellers slug while
+# `index.html` carries both.
+INDEX_FILES = ("index.html", "sellers.html")
+
+
+def rewrite_source_file(filename: str, gelf_endpoint: str, token: str) -> str | None:
+    """Rewrite GRAYLOG_ENDPOINT + GRAYLOG_TOKEN in a bookmarklet source file.
+
+    Returns the new source body (without the trailing newline), or `None` if
+    the file doesn't exist (caller should skip splicing for that slug).
+    """
+    src_path = WORKSPACE / filename
+    if not src_path.exists():
+        log(f"skipping {filename}: not found")
+        return None
 
     src = src_path.read_text()
     src, n1 = re.subn(
@@ -145,30 +174,74 @@ def rewrite_bookmarklet(gelf_endpoint: str, token: str) -> None:
         src, count=1,
     )
     if n1 != 1 or n2 != 1:
-        raise SystemExit(f"bookmarklet-src.js: endpoint replaced={n1}, token replaced={n2}")
+        raise SystemExit(f"{filename}: endpoint replaced={n1}, token replaced={n2}")
     src_path.write_text(src)
+    return src.rstrip()
 
-    body = src.rstrip()
+
+def splice_into_index(idx: str, slug: str, body: str) -> str:
+    """Splice `body` into the `<a class="bm" data-source="<slug>">` href and
+    the matching `<pre><code data-source="<slug>">` block in `idx`.
+
+    If the slug doesn't appear at all, returns `idx` unchanged. If only one
+    of the two markers appears, raises — that indicates a bug in the HTML.
+    """
     href   = "javascript:" + urllib.parse.quote(body, safe="")
     pretty = "javascript:" + html.escape(body, quote=False)
 
-    idx = idx_path.read_text()
-    idx, n_href = re.subn(
-        r'(<a class="bm" href=")[^"]*(")',
+    anchor_re = re.compile(
+        r'(<a class="bm" data-source="' + re.escape(slug) + r'" href=")[^"]*(")'
+    )
+    new_idx, n_href = anchor_re.subn(
         lambda m: m.group(1) + href.replace("\\", r"\\") + m.group(2),
         idx, count=1,
     )
-    if n_href != 1:
-        raise SystemExit('failed to locate <a class="bm"> in index.html')
 
-    start_marker = "<pre><code>javascript:(function(){"
+    # <pre><code data-source="<slug>">javascript:(function(){...})();</code></pre>
+    start_marker = f'<pre><code data-source="{slug}">javascript:(function()' + "{"
     end_marker   = "})();</code></pre>"
-    s = idx.find(start_marker)
-    e = idx.find(end_marker, s) if s >= 0 else -1
+    s = new_idx.find(start_marker)
+    e = new_idx.find(end_marker, s) if s >= 0 else -1
+
+    if n_href == 0 and s < 0:
+        return idx  # slug not present in this page — nothing to do
+    if n_href == 0:
+        raise SystemExit(
+            f'<pre><code data-source="{slug}"> present but anchor missing'
+        )
     if s < 0 or e < 0:
-        raise SystemExit("failed to locate <pre><code> bookmarklet source block in index.html")
-    idx = idx[:s] + "<pre><code>" + pretty + "</code></pre>" + idx[e + len(end_marker):]
-    idx_path.write_text(idx)
+        raise SystemExit(
+            f'<a class="bm" data-source="{slug}"> present but <pre><code> block missing'
+        )
+
+    new_idx = (
+        new_idx[:s]
+        + f'<pre><code data-source="{slug}">'
+        + pretty
+        + "</code></pre>"
+        + new_idx[e + len(end_marker):]
+    )
+    return new_idx
+
+
+def rewrite_bookmarklet(gelf_endpoint: str, token: str) -> None:
+    # 1. Rewrite each bookmarklet source file once. Collect the bodies.
+    bodies: dict[str, str] = {}
+    for filename, slug in BOOKMARKLETS:
+        body = rewrite_source_file(filename, gelf_endpoint, token)
+        if body is not None:
+            bodies[slug] = body
+
+    # 2. For every host HTML page, splice in whichever slugs it carries.
+    for index_filename in INDEX_FILES:
+        idx_path = WORKSPACE / index_filename
+        if not idx_path.exists():
+            log(f"skipping {index_filename}: not found")
+            continue
+        idx = idx_path.read_text()
+        for slug, body in bodies.items():
+            idx = splice_into_index(idx, slug, body)
+        idx_path.write_text(idx)
 
 
 def main() -> int:

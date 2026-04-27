@@ -1,48 +1,43 @@
 import { define } from "../../../utils.ts";
+import { BottomNav } from "../../../components/BottomNav.tsx";
+import { MobileHeader } from "../../../components/MobileHeader.tsx";
+import { NavBar } from "../../../components/NavBar.tsx";
+
+const STUB_USER = {
+  id: "stub-user",
+  email: "daniel@easierbycode.com",
+  name: "Daniel Nguyen",
+  initials: "DN",
+};
 
 /**
- * Port of `apps/web/app/(saas)/app/layout.tsx`.
+ * Port of `apps/web/app/(saas)/app/layout.tsx` + `AppWrapper`.
  *
- * The original calls `getSession()`, `getOrganizationList()`, `getPurchases()`
- * and redirects to `/auth/login`, `/onboarding`, `/new-organization`, or
- * `/choose-plan`. Those depend on Better Auth + Prisma which aren't wired up
- * here yet — replace this stub with real session/billing checks (or a Deno
- * port of `@repo/auth`) when porting auth.
+ * The Next.js original calls `getSession()`, `getOrganizationList()`,
+ * `getPurchases()` and redirects to `/auth/login`, `/onboarding`,
+ * `/new-organization`, or `/choose-plan`. Those depend on Better Auth + Prisma
+ * which aren't wired up here yet — replace this stub with real session/billing
+ * checks (or a Deno port of `@repo/auth`) when porting auth.
  */
-export default define.layout(({ Component }) => {
+export default define.layout(({ Component, url, state }) => {
+  const user = state.user ?? STUB_USER;
+  const pathname = url.pathname;
+
   return (
-    <>
-      {/* <ImpersonationBanner /> — port from @saas/admin when needed */}
-      <div class="saas-app-shell">
-        <div class="saas-app-shell-container">
-          {/* <NotificationBanner /> — port from @saas/shared when needed */}
-        </div>
-        <Component />
+    <div class="lp-shell">
+      {/* SubscriptionStatusBanner — port from @/components/subscription-status-banner */}
+      <MobileHeader pathname={pathname} user={user} />
+      <NavBar pathname={pathname} user={user} />
+      <div class="lp-shell__body">
+        <main class="lp-shell__main">
+          <div class="lp-shell__container">
+            {/* ImpersonationBanner — port from @saas/admin when needed */}
+            {/* NotificationBanner — port from @saas/shared when needed */}
+            <Component />
+          </div>
+        </main>
       </div>
-      <style>
-        {`
-          .saas-app-shell {
-            padding-top: 0;
-            min-height: 100vh;
-            background:
-              radial-gradient(
-                farthest-corner at 0% 0%,
-                color-mix(in oklch, #f54e00, transparent 90%) 0%,
-                #1a1916 50%
-              );
-          }
-          @media (min-width: 1024px) {
-            .saas-app-shell { padding-top: 2rem; }
-          }
-          .saas-app-shell-container {
-            max-width: 1280px;
-            margin-left: auto;
-            margin-right: auto;
-            padding-left: 1rem;
-            padding-right: 1rem;
-          }
-        `}
-      </style>
-    </>
+      <BottomNav pathname={pathname} />
+    </div>
   );
 });
