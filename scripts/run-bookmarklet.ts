@@ -29,8 +29,10 @@
  * 
  * .: SELLER :. URL resolution:
  *   LIVE ANALYTICS:
- *   livestream dev → file://.../live-stream.html (local fixture)
+ *   livestream dev → file://.../live-stream.html (bookmarklet)
+ *                    fixtures/livestream-analytics_view.html (fixture)
  *   livestream prd → shop.tiktok.com/streamer/compass/livestream-analytics/view
+ *                    (graylog source: tiktok-bookmarklet-livestream-analytics)
  * 
  *   LIVE DETAILS:
  *   livestream session dev → file://.../live-session-details.html (local fixture)
@@ -41,7 +43,7 @@
  *                    --room-id=<id> required (each live session is unique).
  *   streamer + dev  → file://.../seller-center2.html (local fixture)
  *   streamer + prod → shop.tiktok.com/streamer/compass/video-analysis/view
- *                     (single canonical URL — no extra flag needed)
+ *                     (graylog source: tiktok-bookmarklet-streamer)
  *
  * Usage:
  *   npx tsx scripts/run-bookmarklet.ts                                       # creator + dev

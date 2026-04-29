@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "tok-scrape (agency)",
+  "version": "0.1.0",
+  "description": "Scrape Partner Center creator + sellers dashboards on partner.us.tiktokshop.com and ship to Graylog / Sheets.",
+  "background": { "service_worker": "background.js" },
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": [
+    "https://partner.us.tiktokshop.com/*",
+    "https://script.google.com/*",
+    "https://*.googleusercontent.com/*",
+    "https://*.ngrok-free.dev/*",
+    "https://*.ngrok-free.app/*",
+    "https://*.ngrok.app/*",
+    "https://*.ngrok.io/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_title": "tok-scrape: scrape this page"
+  }
+}

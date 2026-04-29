@@ -1,20 +1,19 @@
-(function(){
-  // ---- Google Sheets Apps Script Web App (fill these in once) ----
-  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbzRGJMcZGvdRsAd9UHHATRG5ilpeh4JHCZ11ye5CMhHbs4LulaYJJsnndw8I2NfgvdG/exec';
-  var TOKEN    = '**dingleding&&';
-  // ---- Local Graylog GELF HTTP input (set to '' to disable) ----
-  // The `bookmarklet-sync` sidecar in docker-compose.yml rewrites
-  // GRAYLOG_ENDPOINT (ngrok public URL of the :12202 GELF tunnel) and
-  // GRAYLOG_TOKEN (admin API token) on every `docker compose up`.
-  var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
-  var GRAYLOG_TOKEN    = '9dipsuq5er4puc1eikb9gcvq1msgelf8565caotiqpeh1hf7jeq';
+// Partner Center video-analysis dashboard scraper.
+// Injected by background.js via chrome.scripting.executeScript when the user
+// clicks the action icon on partner.us.tiktokshop.com/compass/video-analysis.
+// Runs alongside config.js (same isolated world), so TOK_CONFIG is available.
+(function () {
+  var CFG = globalThis.TOK_CONFIG || {};
+  var GRAYLOG_ENDPOINT = CFG.GRAYLOG_ENDPOINT;
+  var GRAYLOG_TOKEN    = CFG.GRAYLOG_TOKEN;
   var GRAYLOG_HOST     = 'tiktok-bookmarklet';
-  // ----------------------------------------------------------------
+  var SHEET_ENDPOINT   = CFG.SHEET_ENDPOINT;
+  var SHEET_TOKEN      = CFG.SHEET_TOKEN;
 
   var UP = "M2.97731 0.130983C3.11029 -0.0430998 3.37217 -0.0437687 3.50604 0.129632L6.44523 3.93668C6.6144 4.15581 6.45821 4.47372 6.18138 4.47372H4.60189V8.33326C4.60189 8.51735 4.45265 8.66659 4.26855 8.66659H2.26855C2.08446 8.66659 1.93522 8.51735 1.93522 8.33326V4.47372H0.333945C0.057903 4.47372 -0.0985142 4.15739 0.0690572 3.93803L2.97731 0.130983Z";
   var items = document.querySelectorAll('.arco-space-item');
   var metricsRoot = items[2];
-  if (!metricsRoot) { console.warn('Key metrics container not found'); return; }
+  if (!metricsRoot) { console.warn('[tok-scrape] Key metrics container not found'); return; }
 
   var dateRoot = items[0];
   var dateRange = { start: '', end: '' };
@@ -31,14 +30,14 @@
   var creator = nameEl ? nameEl.textContent.trim() : '';
 
   var metrics = [];
-  metricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function(c){
+  metricsRoot.querySelectorAll('.flex.flex-col.items-start').forEach(function (c) {
     var k = c.querySelector('.text-14'),
         v = c.querySelector('.text-20');
     if (!k || !v) return;
     var row = v.nextElementSibling,
         p = row && row.querySelector('svg path'),
         pct = row && row.querySelector('span');
-    var dir = p && p.getAttribute('d') === UP ? '\u2191' : '\u2193';
+    var dir = p && p.getAttribute('d') === UP ? '↑' : '↓';
     metrics.push({
       name:  k.textContent.trim(),
       value: v.textContent.trim(),
@@ -50,7 +49,7 @@
   var videosRoot = items[items.length - 1];
   if (videosRoot && videosRoot !== metricsRoot) {
     var rows = videosRoot.querySelectorAll('tbody tr.arco-table-tr');
-    rows.forEach(function(row){
+    rows.forEach(function (row) {
       var link = row.querySelector('a.text-12.hover\\:underline');
       if (!link) return;
 
@@ -86,7 +85,7 @@
       }
 
       var tds = row.querySelectorAll('td.arco-table-td');
-      var get = function(td){
+      var get = function (td) {
         var inner = td.querySelector('.arco-table-cell-wrap-value');
         return inner ? inner.textContent.trim() : '';
       };
@@ -122,28 +121,32 @@
     metrics:   metrics,
     videos:    videos
   };
-  console.log(payload);
+  console.log('[tok-scrape:creator]', payload);
 
-  // 3) Post to Google Sheets via the Apps Script Web App (if configured).
-  if (ENDPOINT && ENDPOINT.indexOf('PASTE_') !== 0) {
-    fetch(ENDPOINT, {
-      method: 'POST',
-      keepalive: true,
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        token:     TOKEN,
+  if (SHEET_ENDPOINT) {
+    chrome.runtime.sendMessage({
+      source: 'tok-scrape',
+      type:   'sheet',
+      endpoint: SHEET_ENDPOINT,
+      payload: {
+        token:     SHEET_TOKEN,
         creator:   payload.creator,
         scrapedAt: payload.scrapedAt,
         dateRange: payload.dateRange,
         metrics:   payload.metrics,
         videos:    payload.videos
-      })
-    }).then(function(r){ return r.json(); })
-      .then(function(j){ console.log('[sheet]', j); })
-      .catch(function(e){ console.warn('[sheet] post failed', e); });
+      }
+    }, function (resp) {
+      if (chrome.runtime.lastError) {
+        console.warn('[sheet] post failed', chrome.runtime.lastError.message);
+      } else if (resp && resp.ok) {
+        console.log('[sheet]', resp.body || resp.status);
+      } else {
+        console.warn('[sheet] post failed', resp && (resp.error || resp.status));
+      }
+    });
   }
 
-  // 4) Post to local Graylog GELF HTTP input (if configured).
   if (GRAYLOG_ENDPOINT) {
     var gelf = {
       version: '1.1',
@@ -160,13 +163,19 @@
       _videos_json:   JSON.stringify(videos),
       _graylog_key:   GRAYLOG_TOKEN
     };
-    fetch(GRAYLOG_ENDPOINT, {
-      method: 'POST',
-      keepalive: true,
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(gelf)
-    }).then(function(r){ console.log('[graylog] sent', r.status || 'opaque'); })
-      .catch(function(e){ console.warn('[graylog] post failed', e); });
+    chrome.runtime.sendMessage({
+      source: 'tok-scrape',
+      type:   'gelf',
+      endpoint: GRAYLOG_ENDPOINT,
+      payload: gelf
+    }, function (resp) {
+      if (chrome.runtime.lastError) {
+        console.warn('[graylog] post failed', chrome.runtime.lastError.message);
+      } else if (resp && resp.ok) {
+        console.log('[graylog] sent', resp.status);
+      } else {
+        console.warn('[graylog] post failed', resp && (resp.error || resp.status));
+      }
+    });
   }
 })();

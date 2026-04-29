@@ -1,3 +1,5 @@
+scripts/__pycache__
+**/.DS_Store
 .vite
 mobile-app/node_modules
 mobile-app/platforms
