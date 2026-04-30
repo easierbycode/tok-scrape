@@ -294,3 +294,32 @@ graylog:
 ```
 
 Then `docker compose up -d graylog` — the stock image has no branding overlay.
+
+## Common dashboard ("Seller Comparison")
+
+The mobile-app's pre-loaded build (`npm --prefix mobile-app run build:preloaded`)
+embeds a Graylog dashboard inside the Cordova WebView so every member sees
+the same "Seller Comparison" view. Two prerequisites:
+
+1. **The dashboard must exist in Graylog.** Either pass an existing id via
+   `COMMON_DASHBOARD_ID=...` to `build:preloaded`, or seed it once:
+
+       python3 scripts/seed-graylog.py \
+         --create-dashboard \
+         --api-base http://localhost:9000 \
+         --api-token <YOUR_API_TOKEN>
+
+   The script is idempotent on title — re-running finds the existing
+   "Seller Comparison" view and prints its id.
+
+2. **Graylog must allow framing.** Graylog 7 unconditionally sends
+   `X-Frame-Options: DENY` from its embedded Jetty server with no config
+   flag to disable. The mobile-app embeds `<GRAYLOG_URL>/dashboards/<id>`
+   in an iframe, which Chromium WebView refuses to render under DENY.
+
+   The supported workaround is to put Graylog behind a tiny nginx sidecar
+   that strips the header. Example config: `graylog-branding/nginx-frame-strip.conf`.
+   When using the sidecar, point `GRAYLOG_URL` at the sidecar's port (e.g.
+   `http://10.0.2.2:9001`) when calling `build:preloaded`. Without this,
+   the rest of the per-member preload (auto-login, scoped dashboard) still
+   works — only the embedded Seller Comparison view will render blank.

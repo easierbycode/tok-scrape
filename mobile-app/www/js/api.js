@@ -34,6 +34,35 @@
     };
   };
 
+  // Mint a Graylog UI session cookie so the WebView can load the dashboard
+  // page (e.g. /dashboards/<id>) without a separate username/password prompt.
+  // Graylog accepts the API token in the same Basic auth slot as a username,
+  // and `POST /api/system/sessions` returns a session_id that the browser
+  // stores and replays on subsequent navigations to the same origin.
+  // We rely on the response setting a Set-Cookie header (default behaviour);
+  // `credentials: 'include'` is mandatory for the cookie to stick.
+  GraylogClient.prototype.establishSession = function () {
+    if (!this.baseUrl) return Promise.reject(new Error('Graylog URL not set'));
+    if (!this.token)   return Promise.reject(new Error('Graylog API token not set'));
+    var url = this.baseUrl + '/api/system/sessions';
+    var body = JSON.stringify({ username: this.token, password: 'token', host: '' });
+    var headers = this._headers();
+    headers['Content-Type'] = 'application/json';
+    return fetch(url, { method: 'POST', headers: headers, body: body, credentials: 'include' })
+      .then(function (r) {
+        if (!r.ok && r.status !== 200 && r.status !== 201) {
+          return r.text().then(function (t) {
+            var err = new Error('Graylog session ' + r.status + ': ' + (t || r.statusText));
+            err.status = r.status;
+            throw err;
+          });
+        }
+        // Best-effort: response body has { session_id, valid_until } but the
+        // cookie is what the WebView actually needs.
+        return r.json().catch(function () { return {}; });
+      });
+  };
+
   GraylogClient.prototype.search = function (query, rangeSeconds, fields, limit) {
     if (!this.baseUrl) return Promise.reject(new Error('Graylog URL not set'));
     if (!this.token)   return Promise.reject(new Error('Graylog API token not set'));

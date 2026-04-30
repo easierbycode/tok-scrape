@@ -8,6 +8,8 @@
     "prepare": "cordova prepare",
     "build": "cordova build android",
     "build:release": "cordova build android --release",
+    "build:preloaded": "node scripts/build-preloaded.js",
+    "build:preloaded:release": "RELEASE=1 node scripts/build-preloaded.js",
     "run": "cordova run android"
   },
   "private": true,

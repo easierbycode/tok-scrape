@@ -4,4 +4,5 @@ scripts/__pycache__
 mobile-app/node_modules
 mobile-app/platforms
 mobile-app/plugins
+mobile-app/dist
 .pw-profile

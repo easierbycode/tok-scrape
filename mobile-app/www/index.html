@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: gap: https://ssl.gstatic.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://code.highcharts.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.highcharts.com; img-src 'self' data: blob: https:; connect-src *;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: gap: https://ssl.gstatic.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://code.highcharts.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.highcharts.com; img-src 'self' data: blob: https:; connect-src *; frame-src *;">
   <title>TokScrape Dashboard</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
@@ -85,6 +85,19 @@
       </div>
     </section>
   </main>
+
+  <!-- Seller Comparison: full-bleed iframe over the dashboard, populated by app.js
+       only when commonDashboard.v1 is enabled. The iframe src is set after a
+       Graylog session is established (see api.js:establishGraylogSession). -->
+  <section id="commonDashboardView" class="common-dash hidden" aria-hidden="true">
+    <header class="common-dash-bar">
+      <button type="button" id="commonDashClose" class="btn btn-ghost" aria-label="Close Seller Comparison">&larr; Back</button>
+      <span class="common-dash-title">Seller Comparison</span>
+      <span class="common-dash-spacer"></span>
+    </header>
+    <div class="common-dash-status" id="commonDashStatus">Loading dashboard&hellip;</div>
+    <iframe id="commonDashFrame" title="Graylog: Seller Comparison" referrerpolicy="no-referrer"></iframe>
+  </section>
 
   <nav class="bottomnav" aria-label="Dashboard navigation">
     <div class="bottomnav-inner">
@@ -197,6 +210,8 @@
   <script src="https://code.highcharts.com/highcharts.js"></script>
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <!-- Build-time seed (no-op by default; rewritten by scripts/build-preloaded.js). -->
+  <script src="js/preload.js"></script>
   <script src="js/users.js"></script>
   <script src="js/api.js"></script>
   <script src="js/charts.js"></script>

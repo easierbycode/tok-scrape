@@ -18,10 +18,12 @@
   'use strict';
 
   var SETTINGS_KEY = 'tok-scrape.settings.v1';
+  var COMMON_DASH_KEY = 'tok-scrape.commonDashboard.v1';
   var els = {};
   var autoTimer = null;
   var loading = false;
   var routeLock = null;
+  var commonDashSessionPromise = null; // memoizes establishSession() per app run
 
   // -------- Settings persistence -----------------------------------
 
@@ -50,6 +52,27 @@
     return { url: '', token: '', query: 'source:tiktok-bookmarklet', autoRefresh: false };
   }
   function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+
+  // -------- Common dashboard (Seller Comparison) -------------------
+  //
+  // Configured at build time by scripts/build-preloaded.js, which writes
+  //   { enabled: true, name: "Seller Comparison", graylogDashboardId: "<id>" }
+  // into localStorage under tok-scrape.commonDashboard.v1. When `enabled` is
+  // false (the default in committed preload.js), the menu entry is hidden
+  // and the iframe view is never shown.
+  function loadCommonDashConfig() {
+    try {
+      var raw = localStorage.getItem(COMMON_DASH_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !parsed.enabled || !parsed.graylogDashboardId) return null;
+      return {
+        enabled: true,
+        name: parsed.name || 'Seller Comparison',
+        graylogDashboardId: String(parsed.graylogDashboardId)
+      };
+    } catch (e) { return null; }
+  }
 
   // -------- UI helpers --------------------------------------------
 
@@ -249,6 +272,16 @@
       dd.appendChild(divider());
     }
 
+    // Common dashboard (build-time-seeded; same view for every member).
+    var common = loadCommonDashConfig();
+    if (common) {
+      dd.appendChild(menuItem(common.name, function () {
+        closeDropdown();
+        openCommonDashboard();
+      }));
+      dd.appendChild(divider());
+    }
+
     dd.appendChild(menuItem('Switch user\u2026', function () {
       closeDropdown();
       openSignIn();
@@ -354,6 +387,67 @@
       '</span>';
     row.addEventListener('click', onClick);
     return row;
+  }
+
+  // -------- Common dashboard view ---------------------------------
+
+  function setCommonDashStatus(msg, isError) {
+    if (!els.commonDashStatus) return;
+    if (!msg) { els.commonDashStatus.classList.add('hidden'); return; }
+    els.commonDashStatus.textContent = msg;
+    els.commonDashStatus.classList.toggle('error', !!isError);
+    els.commonDashStatus.classList.remove('hidden');
+  }
+
+  // Mint the Graylog session cookie once per app run; the cookie outlives
+  // any single iframe load so we don't have to re-call this every open.
+  function ensureGraylogSession(s) {
+    if (commonDashSessionPromise) return commonDashSessionPromise;
+    var client = new GraylogClient({ baseUrl: s.url, token: s.token });
+    commonDashSessionPromise = client.establishSession()
+      .catch(function (err) {
+        // Reset so a future re-open can retry after the user fixes config.
+        commonDashSessionPromise = null;
+        throw err;
+      });
+    return commonDashSessionPromise;
+  }
+
+  function openCommonDashboard() {
+    var common = loadCommonDashConfig();
+    if (!common) return;
+    var s = loadSettings();
+    if (!s.url || !s.token) {
+      showError('Settings missing — cannot load Seller Comparison.');
+      return;
+    }
+    lockRoute('profile');
+    els.commonDashView.classList.remove('hidden');
+    els.commonDashView.setAttribute('aria-hidden', 'false');
+    setCommonDashStatus('Signing in to Graylog…', false);
+    els.commonDashFrame.src = 'about:blank';
+
+    ensureGraylogSession(s)
+      .then(function () {
+        setCommonDashStatus('Loading dashboard…', false);
+        // Graylog 7's dashboard route. The session cookie established above
+        // authenticates this navigation; the X-Frame-Options header on the
+        // Graylog server must permit framing (see graylog-local-setup.md).
+        var url = s.url.replace(/\/+$/, '') + '/dashboards/' + encodeURIComponent(common.graylogDashboardId);
+        els.commonDashFrame.onload = function () { setCommonDashStatus('', false); };
+        els.commonDashFrame.src = url;
+      })
+      .catch(function (err) {
+        setCommonDashStatus('Could not sign in to Graylog: ' + (err && err.message || err), true);
+      });
+  }
+
+  function closeCommonDashboard() {
+    els.commonDashView.classList.add('hidden');
+    els.commonDashView.setAttribute('aria-hidden', 'true');
+    els.commonDashFrame.src = 'about:blank';
+    setCommonDashStatus('', false);
+    if (routeLock === 'profile') unlockRoute();
   }
 
   // -------- View-as banner ----------------------------------------
@@ -481,6 +575,11 @@
       refresh();
     });
 
+    // Common dashboard view (Seller Comparison)
+    if (els.commonDashClose) {
+      els.commonDashClose.addEventListener('click', closeCommonDashboard);
+    }
+
     document.addEventListener('deviceready', function () {
       if (window.StatusBar) StatusBar.styleLightContent();
     }, false);
@@ -505,6 +604,10 @@
     els.bottomnav     = document.querySelector('.bottomnav');
     els.campaignsSection = $('campaignsSection');
     els.goalsSection  = $('goalsSection');
+    els.commonDashView   = $('commonDashboardView');
+    els.commonDashFrame  = $('commonDashFrame');
+    els.commonDashClose  = $('commonDashClose');
+    els.commonDashStatus = $('commonDashStatus');
 
     if (window.Highcharts && window.Dashboard) Dashboard.applyTheme();
     bind();
