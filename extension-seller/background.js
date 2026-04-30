@@ -9,6 +9,19 @@ const ROUTES = [
     label: 'live'
   },
   {
+    // Local dev fixture for the LIVE Dashboard, served either as a file:// URL
+    // (Chrome needs "Allow access to file URLs" enabled on the extension) or
+    // via a local HTTP server (e.g. `python -m http.server`, Vite, etc.):
+    //   file:///.../fixtures/live_overview.html
+    //   http://localhost:5173/fixtures/live_overview.html
+    //   http://localhost:5173/fixtures/live_overview__boosted.html?foo=bar
+    // The trailing group allows optional ?query / #fragment so dev URLs with
+    // a cache-buster or anchor still match.
+    test: /\/fixtures\/live_overview(?:__[^/]*)?\.html(?:[?#]|$)/,
+    files: ['config.js', 'scrape-live.js'],
+    label: 'live'
+  },
+  {
     test: /https:\/\/shop\.tiktok\.com\/streamer\/compass\/video-analysis\/view/,
     files: ['config.js', 'scrape-streamer.js'],
     label: 'streamer'

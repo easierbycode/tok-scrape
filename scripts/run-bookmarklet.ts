@@ -38,7 +38,8 @@
  *   livestream session dev → file://.../live-session-details.html (local fixture)
  *   livestream session prd → shop.tiktok.com/streamer/compass/livestream-analytics/view/detail?roomId=<id>
  *                    --room-id=<id> required (each live session is unique).
- *   live + dev     → file://.../seller-center.html (local fixture)
+ *   live + dev     → fixtures/live_overview.html (fixture)
+ *                    fixtures/live_overview__boosted.html (fixture)
  *   live + prod    → shop.tiktok.com/workbench/live/overview?room_id=<id>
  *                    --room-id=<id> required (each live session is unique).
  *   streamer + dev  → file://.../seller-center2.html (local fixture)

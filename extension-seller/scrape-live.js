@@ -209,6 +209,28 @@
   }
 
   if (GRAYLOG_ENDPOINT) {
+    // Graylog stores custom GELF additional fields as OpenSearch `keyword`,
+    // and Lucene caps a single keyword term at 32,766 bytes. A long product
+    // list blows that limit (~50KB for ~140 products) — the GELF input still
+    // returns 202, but OpenSearch then rejects the entire document at index
+    // time, so the message never appears in search. Sheets gets the full
+    // payload, so for the GELF copy we just omit any blob that would trip
+    // the limit and leave the *_count fields as the queryable summary.
+    //
+    // Threshold is conservative: Lucene's 32766 minus headroom for UTF-8
+    // expansion of multi-byte characters (emoji, CJK in product titles).
+    var MAX_GELF_KEYWORD_BYTES = 30000;
+    var safeJson = function (v) {
+      var s = JSON.stringify(v);
+      // Byte length, not char length — Lucene checks UTF-8 size.
+      var bytes = new TextEncoder().encode(s).length;
+      return bytes > MAX_GELF_KEYWORD_BYTES ? null : s;
+    };
+    var sideKpisJson  = safeJson(payload.sideKpis);
+    var perfJson      = safeJson(payload.performance);
+    var trafficJson   = safeJson(payload.trafficSources);
+    var productsJson  = safeJson(payload.products);
+
     var gelf = {
       version: '1.1',
       host: GRAYLOG_HOST,
@@ -221,15 +243,16 @@
       _session_range:        payload.sessionRange,
       _scrapedAt:            payload.scrapedAt,
       _gmv:                  payload.gmv,
-      _side_kpis_json:       JSON.stringify(payload.sideKpis),
       _performance_count:    payload.performance.length,
-      _performance_json:     JSON.stringify(payload.performance),
       _traffic_count:        payload.trafficSources.length,
-      _traffic_sources_json: JSON.stringify(payload.trafficSources),
       _products_count:       payload.products.length,
-      _products_json:        JSON.stringify(payload.products),
       _graylog_key:          GRAYLOG_TOKEN
     };
+    if (sideKpisJson !== null) gelf._side_kpis_json       = sideKpisJson;
+    if (perfJson     !== null) gelf._performance_json     = perfJson;
+    if (trafficJson  !== null) gelf._traffic_sources_json = trafficJson;
+    if (productsJson !== null) gelf._products_json        = productsJson;
+    else gelf._products_json_omitted = 'too large for index (>' + MAX_GELF_KEYWORD_BYTES + ' bytes); see Sheets';
     chrome.runtime.sendMessage({
       source: 'tok-scrape',
       type:   'gelf',
