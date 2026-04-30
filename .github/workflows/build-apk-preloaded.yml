@@ -1,0 +1,96 @@
+# Build a per-member, pre-loaded APK.
+#
+# Triggered manually. The Graylog URL/token are passed via repo secrets
+# (GRAYLOG_URL_PROD / GRAYLOG_TOKEN_PROD) -- the workflow_dispatch input
+# `member_id` selects which member's identity is baked into the APK. The
+# resulting APK is uploaded as a workflow artifact named
+# app-<member_id>.apk so it can be downloaded and side-loaded.
+#
+# To produce APKs for every member in one run, use the matrix dispatch path
+# (`member_id: all`) which fans out across the roster from
+# mobile-app/www/js/users.js.
+name: build-apk-preloaded
+
+on:
+  workflow_dispatch:
+    inputs:
+      member_id:
+        description: 'Member id from mobile-app/www/js/users.js (or "all" for every member).'
+        required: true
+        default: 'wizardofdealz'
+      common_dashboard_id:
+        description: 'Optional Graylog dashboard id to embed. Leave blank to look up/create "Seller Comparison".'
+        required: false
+        default: ''
+
+jobs:
+  resolve-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      members: ${{ steps.pick.outputs.members }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: pick
+        # If member_id == "all", parse the user roster out of users.js. Else
+        # emit a single-element JSON array.
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.member_id }}" = "all" ]; then
+            ids=$(grep -oE "id:\s*'[^']+'" mobile-app/www/js/users.js | sed -E "s/id:\s*'([^']+)'/\1/" | grep -v '^daniel$' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          else
+            ids=$(printf '["%s"]' "${{ inputs.member_id }}")
+          fi
+          echo "members=$ids" >> "$GITHUB_OUTPUT"
+          echo "members: $ids"
+
+  build:
+    needs: resolve-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        member_id: ${{ fromJSON(needs.resolve-matrix.outputs.members) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+
+      - name: Install Cordova
+        run: npm install -g cordova@12
+
+      - name: Install mobile-app deps
+        working-directory: mobile-app
+        run: npm ci
+
+      - name: Add Android platform
+        working-directory: mobile-app
+        run: cordova platform add android
+
+      - name: Build pre-loaded APK
+        working-directory: mobile-app
+        env:
+          MEMBER_ID: ${{ matrix.member_id }}
+          GRAYLOG_URL: ${{ secrets.GRAYLOG_URL_PROD }}
+          GRAYLOG_TOKEN: ${{ secrets.GRAYLOG_TOKEN_PROD }}
+          COMMON_DASHBOARD_ID: ${{ inputs.common_dashboard_id }}
+        run: npm run build:preloaded
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.member_id }}
+          path: mobile-app/dist/app-${{ matrix.member_id }}.apk
+          if-no-files-found: error
+          retention-days: 30

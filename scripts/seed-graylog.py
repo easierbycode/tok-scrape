@@ -225,6 +225,92 @@ def post(endpoint: str, payload: dict, timeout: float = 5.0) -> int:
         return resp.status
 
 
+# ---------------------------------------------------------------------------
+# Common-dashboard seeding (Graylog Views API)
+# ---------------------------------------------------------------------------
+#
+# The mobile-app's "Seller Comparison" view embeds the Graylog dashboard at
+# /dashboards/<id> directly in the WebView. We materialise that dashboard
+# here so every member's APK opens the exact same view; the helper is
+# idempotent (looks up by title before creating).
+#
+# Auth: Graylog API tokens go in the Basic-auth username slot, password
+# literal "token". Same scheme the mobile-app uses (see api.js).
+
+import base64
+
+DEFAULT_DASHBOARD_TITLE = "Seller Comparison"
+
+
+def _api_request(api_base: str, path: str, token: str, method: str = "GET", payload: dict | None = None, timeout: float = 10.0):
+    url = api_base.rstrip("/") + path
+    headers = {
+        "Authorization": "Basic " + base64.b64encode(f"{token}:token".encode()).decode(),
+        "Accept": "application/json",
+        "X-Requested-By": "tok-scrape-seed-graylog",
+    }
+    data = None
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = resp.read().decode("utf-8")
+    return json.loads(body) if body else None
+
+
+def _seller_comparison_view(title: str) -> dict:
+    """Minimal Views API payload that produces a one-widget creator
+    comparison. Graylog fills in defaults for anything we omit; admins can
+    further tune the dashboard in the UI after creation."""
+    import secrets
+    qid = "q-" + secrets.token_hex(4)
+    sid = "s-" + secrets.token_hex(4)
+    wid = "w-" + secrets.token_hex(4)
+    return {
+        "title": title,
+        "summary": "Cross-creator comparison shared by every member.",
+        "description": "Auto-created by scripts/seed-graylog.py --create-dashboard.",
+        "type": "DASHBOARD",
+        "search_id": sid,
+        "properties": [],
+        "state": {
+            qid: {
+                "titles": {"tab": {"title": title}, "widget": {wid: "Scrapes per creator"}},
+                "widgets": [{
+                    "id": wid, "type": "aggregation",
+                    "filter": None, "timerange": None, "query": None, "streams": [],
+                    "config": {
+                        "row_pivots":    [{"field": "creator", "config": {"limit": 15}}],
+                        "column_pivots": [],
+                        "series":        [{"config": {"name": "count()"}, "function": "count()"}],
+                        "sort":          [],
+                        "visualization": "bar",
+                        "rollup": True,
+                        "event_annotation": False,
+                    },
+                }],
+                "positions":     {wid: {"col": 1, "row": 1, "height": 6, "width": 12}},
+                "widget_mapping": {wid: []},
+                "formatting":    {"highlighting": []},
+                "display_mode_settings": {"positions": {}},
+            },
+        },
+    }
+
+
+def ensure_dashboard(api_base: str, token: str, title: str) -> str:
+    """Look up by title; create if missing. Returns the dashboard id."""
+    listing = _api_request(api_base, "/api/views?per_page=200", token) or {}
+    for view in (listing.get("views") or []):
+        if view.get("title") == title:
+            return view["id"]
+    created = _api_request(api_base, "/api/views", token, method="POST", payload=_seller_comparison_view(title))
+    if not created or not created.get("id"):
+        raise RuntimeError(f"Graylog returned no id for created view: {created!r}")
+    return created["id"]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--endpoint", default="http://localhost:12202/gelf",
@@ -240,7 +326,34 @@ def main() -> int:
                     help="Random seed for reproducibility (default: %(default)s)")
     ap.add_argument("--dry-run", action="store_true",
                     help="Don't POST, just print one sample payload and exit.")
+    ap.add_argument("--create-dashboard", action="store_true",
+                    help='Create (or look up) the "Seller Comparison" dashboard '
+                         "via the Graylog Views API and print its id, then exit. "
+                         "Skips the GELF seeding entirely.")
+    ap.add_argument("--api-base", default="http://localhost:9000",
+                    help="Graylog REST API base URL (default: %(default)s). "
+                         "Used by --create-dashboard.")
+    ap.add_argument("--api-token", default=None,
+                    help="Graylog API token (required by --create-dashboard).")
+    ap.add_argument("--dashboard-title", default=DEFAULT_DASHBOARD_TITLE,
+                    help='Dashboard title (default: "%(default)s"). Idempotent '
+                         "by title.")
     args = ap.parse_args()
+
+    if args.create_dashboard:
+        if not args.api_token:
+            print("--create-dashboard requires --api-token", file=sys.stderr)
+            return 2
+        try:
+            dashboard_id = ensure_dashboard(args.api_base, args.api_token, args.dashboard_title)
+        except urllib.error.HTTPError as e:
+            print(f"Graylog API error: {e.code} {e.reason}\n{e.read().decode('utf-8', 'replace')}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Failed to create/find dashboard: {e}", file=sys.stderr)
+            return 1
+        print(dashboard_id)
+        return 0
 
     members = [m for m in MEMBERS if args.creator is None or m[0] == args.creator]
     if not members:
