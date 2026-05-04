@@ -1,0 +1,120 @@
+:root {
+  --bg: #101012;
+  --panel: #17171b;
+  --panel-2: #1f1f25;
+  --line: #2a2a32;
+  --ink: #f4f4f6;
+  --ink-mute: #9b9ba5;
+  --accent: #ff3366;
+  --accent-2: #25f4ee;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px 12px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(255, 51, 102, 0.18);
+}
+
+.topbar-copy { display: flex; flex-direction: column; }
+.brand { font-weight: 700; letter-spacing: 0.02em; font-size: 13px; color: var(--ink-mute); text-transform: uppercase; }
+.brand-accent { color: var(--accent); }
+.title { margin: 2px 0 0; font-size: 22px; font-weight: 700; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 8px 16px 4px;
+}
+
+.card {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  min-height: 120px;
+  cursor: pointer;
+  transition: transform 80ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.card:active {
+  transform: scale(0.98);
+  background: var(--panel-2);
+  border-color: var(--accent);
+}
+
+.card-eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-mute);
+}
+
+.card-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.card-sub {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-top: auto;
+}
+
+.hint {
+  margin: 16px 20px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink-mute);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hint strong { color: var(--accent); }
+
+.status {
+  margin: 4px 20px 24px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #0a0a0c;
+  border: 1px solid var(--line);
+  color: #8be88b;
+  font: 11px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 18px;
+  max-height: 200px;
+  overflow: auto;
+}
+

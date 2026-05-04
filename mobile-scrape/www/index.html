@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: gap: 'unsafe-inline'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob: https:; connect-src *;">
+  <title>TokScrape Mobile</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <span class="dot"></span>
+    <div class="topbar-copy">
+      <span class="brand">Tok<span class="brand-accent">Scrape</span></span>
+      <h1 class="title">Mobile</h1>
+    </div>
+  </header>
+
+  <main class="grid">
+    <button class="card" data-target="creator">
+      <span class="card-eyebrow">Partner Center</span>
+      <span class="card-title">Creator</span>
+      <span class="card-sub">compass / video-analysis</span>
+    </button>
+
+    <button class="card" data-target="sellers">
+      <span class="card-eyebrow">Partner Collabs</span>
+      <span class="card-title">Sellers</span>
+      <span class="card-sub">agency / detail (pick a campaign)</span>
+    </button>
+
+    <button class="card" data-target="live">
+      <span class="card-eyebrow">Seller Center</span>
+      <span class="card-title">Live</span>
+      <span class="card-sub">workbench / live (pick a session)</span>
+    </button>
+
+    <button class="card" data-target="streamer">
+      <span class="card-eyebrow">Streamer Compass</span>
+      <span class="card-title">Streamer</span>
+      <span class="card-sub">streamer / video-analysis / view</span>
+    </button>
+  </main>
+
+  <p class="hint">
+    Tap a target to open it in an in-app browser. Log in if prompted, navigate to the page you want to scrape,
+    then tap the pink <strong>Run scrape</strong> button that floats over the page.
+  </p>
+
+  <pre id="status" class="status" aria-live="polite">html parsed; waiting for js…</pre>
+
+  <script>
+    (function () {
+      var pre = document.getElementById('status');
+      function append(line) {
+        if (!pre) return;
+        var div = document.createElement('div');
+        div.textContent = line;
+        pre.appendChild(div);
+        while (pre.children.length > 14) pre.removeChild(pre.firstChild);
+      }
+      window.__tokScrapeDiag = append;
+      window.addEventListener('error', function (ev) {
+        var src = ev && ev.filename ? ev.filename.replace(/^.*\//, '') : '?';
+        var loc = ev && ev.lineno ? ':' + ev.lineno + (ev.colno ? ':' + ev.colno : '') : '';
+        append('[error] ' + (ev && ev.message || ev) + ' @ ' + src + loc);
+      });
+      window.addEventListener('unhandledrejection', function (ev) {
+        var r = ev && ev.reason;
+        append('[reject] ' + (r && (r.stack || r.message) || r || ev));
+      });
+      append('diag installed; loading scripts…');
+    })();
+  </script>
+  <script src="cordova.js"></script>
+  <script src="js/payloads.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
