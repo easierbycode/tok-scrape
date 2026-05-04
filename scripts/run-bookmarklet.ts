@@ -34,10 +34,13 @@
  *   livestream prd → shop.tiktok.com/streamer/compass/livestream-analytics/view
  *                    (graylog source: tiktok-bookmarklet-livestream-analytics)
  * 
- *   LIVE DETAILS:
+ *   LIVE DETAILS: (NOT PARSING CORRECTLY, all 0's)
  *   livestream session dev → file://.../live-session-details.html (local fixture)
  *   livestream session prd → shop.tiktok.com/streamer/compass/livestream-analytics/view/detail?roomId=<id>
- *                    --room-id=<id> required (each live session is unique).
+ *                    --room-id=<id> required (each live session is unique). 
+ *    ex:
+ *    https://shop.tiktok.com/streamer/compass/livestream-analytics/view/detail?roomId=7612069741565430559
+ * 
  *   live + dev     → fixtures/live_overview.html (fixture)
  *                    fixtures/live_overview__boosted.html (fixture)
  *   live + prod    → shop.tiktok.com/workbench/live/overview?room_id=<id>

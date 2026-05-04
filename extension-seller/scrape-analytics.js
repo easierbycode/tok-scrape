@@ -16,9 +16,39 @@
 
   var clean = function (s) { return (s || '').replace(/\s+/g, ' ').trim(); };
 
+  // textContent concatenates adjacent block children with no separator, so a
+  // cell containing <div>Title</div><div>16:48 2026-03-30</div><div>3h11min</div>
+  // collapses into "Title16:48 2026-03-303h11min". Walk text nodes and join
+  // with whitespace so block boundaries become spaces.
+  var cellText = function (el) {
+    if (!el) return '';
+    var parts = [];
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    var node;
+    while ((node = walker.nextNode())) {
+      if (node.nodeValue) parts.push(node.nodeValue);
+    }
+    return clean(parts.join(' '));
+  };
+
   var titleHeader = document.querySelector('span.text-head-l.font-bold.text-neutral-text1');
   var titleEl = titleHeader ? titleHeader.querySelector('span') : null;
   var pageTitle = titleEl ? clean(titleEl.textContent) : '';
+
+  // Username is the <span> directly after <div class="m4b-avatar …"> in the
+  // top-right header. Iterate so a hidden duplicate doesn't shadow the real one.
+  var creator = '';
+  var avatarEls = document.querySelectorAll('div.m4b-avatar');
+  for (var ai = 0; ai < avatarEls.length && !creator; ai++) {
+    var sib = avatarEls[ai].nextElementSibling;
+    if (sib && sib.tagName === 'SPAN') {
+      var raw = clean(sib.textContent);
+      if (raw) creator = '@' + raw.replace(/^@/, '');
+    }
+  }
+  if (!creator) {
+    console.warn('[tok-scrape:analytics] could not extract username; m4b-avatar count=' + avatarEls.length);
+  }
 
   // Each section is wrapped in a card with `index__module-container--<hash>`.
   var readDateRange = function (mod) {
@@ -73,7 +103,7 @@
       if (tr.classList.contains('zep-table-empty-row')) return;
       var cells = [];
       tr.querySelectorAll('td.zep-table-td').forEach(function (td) {
-        cells.push(clean(td.textContent));
+        cells.push(cellText(td));
       });
       rows.push(cells);
     });
@@ -92,10 +122,15 @@
     });
   });
 
-  var coreData    = sections.find(function (s) { return /core data/i.test(s.name); }) || null;
-  var livestreams = sections.find(function (s) { return /^all livestreams$/i.test(s.name); }) || null;
+  // Identify by structure rather than by section-name text (which has
+  // localized/A-B variants). The "Livestreams Core Data" module is the only
+  // one with trend-card groups; the "All livestreams" module is the only one
+  // with a zep-table.
+  var coreData    = sections.find(function (s) { return s.groups && s.groups.length > 0; }) || null;
+  var livestreams = sections.find(function (s) { return s.table; }) || null;
 
   var payload = {
+    creator:     creator,
     page:        pageTitle,
     scrapedAt:   new Date().toISOString(),
     sections:    sections,
@@ -118,6 +153,7 @@
       endpoint: SHEET_ENDPOINT,
       payload: {
         token:       SHEET_TOKEN,
+        creator:     payload.creator,
         page:        payload.page,
         scrapedAt:   payload.scrapedAt,
         sections:    payload.sections,
@@ -139,10 +175,11 @@
     var gelf = {
       version: '1.1',
       host: GRAYLOG_HOST,
-      short_message: 'tiktok livestream-analytics scrape: ' + (pageTitle || 'unknown') +
+      short_message: 'tiktok livestream-analytics scrape: ' + (creator || pageTitle || 'unknown') +
         ' (' + sections.length + ' sections, ' + groupCount + ' groups, ' +
         metricCount + ' metrics, ' + rowCount + ' rows)',
       timestamp: Math.floor(Date.now() / 1000),
+      _creator:          payload.creator,
       _page:             payload.page,
       _scrapedAt:        payload.scrapedAt,
       _sections_count:   sections.length,

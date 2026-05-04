@@ -17,6 +17,22 @@
   var titleEl = titleHeader ? titleHeader.querySelector('span') : null;
   var pageTitle = titleEl ? clean(titleEl.textContent) : '';
 
+  // Username is the <span> directly after <div class="m4b-avatar …">. Prod
+  // sometimes renders extra m4b-avatar nodes (e.g. inside a hidden dropdown),
+  // so iterate and take the first whose nextElementSibling is a non-empty span.
+  var creator = '';
+  var avatarEls = document.querySelectorAll('div.m4b-avatar');
+  for (var ai = 0; ai < avatarEls.length && !creator; ai++) {
+    var sib = avatarEls[ai].nextElementSibling;
+    if (sib && sib.tagName === 'SPAN') {
+      var raw = clean(sib.textContent);
+      if (raw) creator = '@' + raw.replace(/^@/, '');
+    }
+  }
+  if (!creator) {
+    console.warn('[tok-scrape:streamer] could not extract username; m4b-avatar count=' + avatarEls.length);
+  }
+
   var startInput = document.querySelector('input[placeholder="Start date"]');
   var endInput   = document.querySelector('input[placeholder="End date"]');
   var dateRange = {
@@ -96,6 +112,7 @@
   });
 
   var payload = {
+    creator:    creator,
     page:       pageTitle,
     dateLabel:  dateLabel,
     dateRange:  dateRange,
@@ -112,6 +129,7 @@
       endpoint: SHEET_ENDPOINT,
       payload: {
         token:     SHEET_TOKEN,
+        creator:   payload.creator,
         page:      payload.page,
         dateLabel: payload.dateLabel,
         dateRange: payload.dateRange,
@@ -149,8 +167,9 @@
     var gelf = {
       version: '1.1',
       host: GRAYLOG_HOST,
-      short_message: 'tiktok streamer scrape: ' + (pageTitle || 'unknown') + ' (' + videos.length + ' videos, ' + metrics.length + ' kpis)',
+      short_message: 'tiktok streamer scrape: ' + (creator || pageTitle || 'unknown') + ' (' + videos.length + ' videos, ' + metrics.length + ' kpis)',
       timestamp: Math.floor(Date.now() / 1000),
+      _creator:        payload.creator,
       _page:           payload.page,
       _date_label:     payload.dateLabel,
       _date_start:     toISODate(dateRange.start),
