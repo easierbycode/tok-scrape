@@ -192,5 +192,24 @@
       });
   };
 
+  // Pull the unique set of `creator` handles observed across both the video
+  // bookmarklet source (configurable via Settings.query) and the seller-side
+  // livestream-analytics source. Used to populate the user/login roster.
+  GraylogClient.prototype.fetchCreators = function (lucene, rangeSeconds) {
+    var range = rangeSeconds && rangeSeconds > 0 ? rangeSeconds : (5 * 365 * 24 * 3600);
+    var base = lucene || 'source:tiktok-bookmarklet';
+    var query = '(' + base + ') OR source:tiktok-bookmarklet-livestream-analytics';
+    return this.search(query, range, ['creator'], 1000)
+      .then(function (resp) {
+        var msgs = (resp && resp.messages) || [];
+        var seen = Object.create(null);
+        msgs.forEach(function (entry) {
+          var c = entry.message && entry.message.creator;
+          if (c) seen[c] = true;
+        });
+        return Object.keys(seen).sort();
+      });
+  };
+
   global.GraylogClient = GraylogClient;
 })(window);

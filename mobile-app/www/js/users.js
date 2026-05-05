@@ -1,9 +1,12 @@
-// Scaffolded users for the TokScrape dashboard.
+// Users for the TokScrape dashboard.
 //
 // There's no real auth here — this is a local analytics tool that uses a single
-// Graylog API token (stored in Settings) to talk to Graylog. The user roster
-// below is a *client-side* mapping from display name -> role -> creator handle
-// that drives:
+// Graylog API token (stored in Settings) to talk to Graylog. The roster is:
+//   - one hardcoded admin (Daniel)
+//   - members derived dynamically from Graylog: each unique `creator` value
+//     observed in the configured sources becomes a member entry.
+//
+// Roster drives:
 //   - what the dashboard is filtered by (members only see their own creator)
 //   - which menu items show (admins get "Admin" + "Login As...")
 //
@@ -14,73 +17,52 @@
 // (tok-scrape.viewAs.v1) that scopes the dashboard to one member without
 // changing the admin's actual identity — a banner indicates the impersonation
 // and lets the admin return to the admin view.
+//
+// Because the member list is fetched async, app.js awaits Users.ready() (which
+// resolves after the first refresh attempt) before deciding whether the
+// persisted auth points at a known user.
 
 (function (global) {
   'use strict';
 
   // --- Roster ----------------------------------------------------------
-  // Edit this list to add/remove members. `id` is stored in localStorage, so
-  // changing it for an existing user will log them out. `creator` must match
-  // the `creator` field the bookmarklet sends to Graylog (the TikTok handle
-  // including the leading @).
-  var USERS = [
-    {
-      id:      'daniel',
-      name:    'Daniel',
-      email:   'daniel@easierbycode.com',
-      role:    'admin',
-      creator: null,                    // admin has no creator of their own
-      avatar:  'LP'
-    },
-    {
-      id:      'wizardofdealz',
-      name:    'Wizard of Dealz',
-      email:   'wizard@wizardofdealz.example',
+  var ADMIN = {
+    id:      'daniel',
+    name:    'Daniel',
+    email:   'daniel@easierbycode.com',
+    role:    'admin',
+    creator: null,                    // admin has no creator of their own
+    avatar:  'LP'
+  };
+
+  var creators = [];                  // [{id, name, role:'member', creator, avatar}]
+
+  // Resolves after the first refresh() attempt (success or failure) so the app
+  // can decide post-load what to do with any persisted auth state.
+  var readyResolve;
+  var readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
+  var readyFired = false;
+  function fireReady() { if (!readyFired) { readyFired = true; readyResolve(); } }
+
+  function handleToId(handle) {
+    return String(handle || '').replace(/^@+/, '').toLowerCase();
+  }
+  function handleToAvatar(handle) {
+    var s = String(handle || '').replace(/^@+/, '');
+    return (s.slice(0, 2) || '??').toUpperCase();
+  }
+  function makeCreator(handle) {
+    var id = handleToId(handle);
+    if (!id || id === ADMIN.id) return null;
+    return {
+      id:      id,
+      name:    id,
+      email:   '',
       role:    'member',
-      creator: '@wizardofdealz',
-      avatar:  'WD'
-    },
-    {
-      id:      'beautybybri',
-      name:    'Beauty by Bri',
-      email:   'bri@beautybybri.example',
-      role:    'member',
-      creator: '@beautybybri',
-      avatar:  'BB'
-    },
-    {
-      id:      'techguruak',
-      name:    'Tech Guru AK',
-      email:   'ak@techguruak.example',
-      role:    'member',
-      creator: '@techguruak',
-      avatar:  'AK'
-    },
-    {
-      id:      'fitnesswithmia',
-      name:    'Fitness with Mia',
-      email:   'mia@fitnesswithmia.example',
-      role:    'member',
-      creator: '@fitnesswithmia',
-      avatar:  'FM'
-    },
-    {
-      id:      'cookingwithkenji',
-      name:    'Cooking with Kenji',
-      email:   'kenji@cookingwithkenji.example',
-      role:    'member',
-      creator: '@cookingwithkenji',
-      avatar:  'CK'
-    },
-    {
-      id:      'boosteddealsdaily',
-      name:    'Boosted Deals Daily',
-      email:   'boosted@boosteddealsdaily.example',
-      role:    'member',
-      creator: '@boosteddealsdaily',
-      avatar:  'BD'
-    }
-  ];
+      creator: handle.charAt(0) === '@' ? handle : '@' + handle,
+      avatar:  handleToAvatar(handle)
+    };
+  }
 
   // --- Storage ---------------------------------------------------------
   var AUTH_KEY    = 'tok-scrape.auth.v1';
@@ -110,7 +92,9 @@
   // --- Queries ---------------------------------------------------------
 
   function byId(id) {
-    for (var i = 0; i < USERS.length; i++) if (USERS[i].id === id) return USERS[i];
+    if (!id) return null;
+    if (id === ADMIN.id) return ADMIN;
+    for (var i = 0; i < creators.length; i++) if (creators[i].id === id) return creators[i];
     return null;
   }
 
@@ -144,11 +128,8 @@
     return eff ? eff.creator : null;
   }
 
-  function members() {
-    return USERS.filter(function (u) { return u.role === 'member'; });
-  }
-
-  function all() { return USERS.slice(); }
+  function members() { return creators.slice(); }
+  function all()     { return [ADMIN].concat(creators); }
 
   // --- Actions ---------------------------------------------------------
 
@@ -170,6 +151,36 @@
   }
   function clearLoginAs() { writeViewAs(null); }
 
+  // --- Refresh from Graylog -------------------------------------------
+  // Replaces the cached `creators` array with the unique creator handles
+  // observed in Graylog. Resolves with the new array; rejects if the
+  // request itself fails (the cache is left untouched in that case).
+  // Always fires Users.ready() exactly once, on first call.
+  function refresh(client, lucene, rangeSeconds) {
+    if (!client || typeof client.fetchCreators !== 'function') {
+      fireReady();
+      return Promise.reject(new Error('refresh requires a GraylogClient'));
+    }
+    return client.fetchCreators(lucene, rangeSeconds)
+      .then(function (handles) {
+        var next = [];
+        var seenIds = Object.create(null);
+        (handles || []).forEach(function (h) {
+          var entry = makeCreator(h);
+          if (entry && !seenIds[entry.id]) { seenIds[entry.id] = true; next.push(entry); }
+        });
+        next.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        creators = next;
+        return creators.slice();
+      })
+      .then(
+        function (out) { fireReady(); return out; },
+        function (err) { fireReady(); throw err; }
+      );
+  }
+
+  function ready() { return readyPromise; }
+
   // --- Exports ---------------------------------------------------------
   global.Users = {
     all:              all,
@@ -182,6 +193,8 @@
     login:            login,
     logout:           logout,
     loginAs:          loginAs,
-    clearLoginAs:     clearLoginAs
+    clearLoginAs:     clearLoginAs,
+    refresh:          refresh,
+    ready:            ready
   };
 })(window);

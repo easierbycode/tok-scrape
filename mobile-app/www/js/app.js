@@ -253,6 +253,20 @@
     return s;
   }
 
+  // Pull the unique creator list from Graylog and rebuild the roster.
+  // Best-effort: failures are logged but do not block the UI (the admin can
+  // still sign in and fix Settings).
+  function refreshRoster() {
+    var s = loadSettings();
+    if (!s.url || !s.token) return Promise.resolve([]);
+    var client = new GraylogClient({ baseUrl: s.url, token: s.token });
+    return Users.refresh(client, s.query)
+      .catch(function (err) {
+        console.warn('Users.refresh failed:', err && err.message || err);
+        return [];
+      });
+  }
+
   // -------- Auth / user menu --------------------------------------
 
   function renderUserButton() {
@@ -368,8 +382,7 @@
 
   // -------- Sign-in modal -----------------------------------------
 
-  function openSignIn() {
-    lockRoute('profile');
+  function renderSignInList() {
     var list = $('signInList');
     list.innerHTML = '';
     Users.all().forEach(function (u) {
@@ -380,6 +393,10 @@
         refresh();
       }));
     });
+  }
+  function openSignIn() {
+    lockRoute('profile');
+    renderSignInList();
     els.signInModal.classList.remove('hidden');
   }
   function closeSignIn() {
@@ -389,8 +406,7 @@
 
   // -------- Login-As modal (admin only) ---------------------------
 
-  function openLoginAs() {
-    lockRoute('profile');
+  function renderLoginAsList() {
     var list = $('loginAsList');
     list.innerHTML = '';
     Users.members().forEach(function (u) {
@@ -401,6 +417,10 @@
         refresh();
       }));
     });
+  }
+  function openLoginAs() {
+    lockRoute('profile');
+    renderLoginAsList();
     els.loginAsModal.classList.remove('hidden');
   }
   function closeLoginAs() {
@@ -412,11 +432,12 @@
     var row = document.createElement('button');
     row.type = 'button';
     row.className = 'user-row';
+    var meta = [u.email, u.role, u.creator].filter(Boolean).map(escapeHtml).join(' \u00B7 ');
     row.innerHTML =
       '<span class="avatar">' + escapeHtml(u.avatar || u.name.slice(0, 2).toUpperCase()) + '</span>' +
       '<span class="user-row-text">' +
         '<span class="user-row-name">' + escapeHtml(u.name) + '</span>' +
-        '<span class="user-row-meta">' + escapeHtml(u.email || '') + ' \u00B7 ' + escapeHtml(u.role) + (u.creator ? ' \u00B7 ' + escapeHtml(u.creator) : '') + '</span>' +
+        '<span class="user-row-meta">' + meta + '</span>' +
       '</span>';
     row.addEventListener('click', onClick);
     return row;
@@ -594,7 +615,13 @@
       persistFromForm();
       closeSettings();
       setupAutoRefresh();
-      refresh();
+      // New settings -> re-pull the creator roster, then refresh dashboard.
+      refreshRoster().then(function () {
+        if (!els.signInModal.classList.contains('hidden')) renderSignInList();
+        if (!els.loginAsModal.classList.contains('hidden')) renderLoginAsList();
+        renderUserDropdown();
+        refresh();
+      });
     });
 
     // User menu
@@ -668,8 +695,14 @@
     reflectAuthChange();
     setupAutoRefresh();
 
-    if (!Users.getCurrentUser()) openSignIn();
-    else refresh();
+    // Pull the creator roster from Graylog before deciding sign-in vs.
+    // dashboard refresh — the persisted auth might point at a creator that
+    // only exists once we've fetched the dynamic list.
+    refreshRoster().then(function () {
+      reflectAuthChange();   // current user may now be resolvable
+      if (!Users.getCurrentUser()) openSignIn();
+      else refresh();
+    });
   }
 
   if (document.readyState === 'loading') {

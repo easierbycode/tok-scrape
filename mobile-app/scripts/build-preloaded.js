@@ -28,8 +28,9 @@ const ROOT       = path.resolve(__dirname, '..');
 const WWW_JS     = path.join(ROOT, 'www', 'js');
 const PRELOAD    = path.join(WWW_JS, 'preload.js');
 const PRELOAD_EX = path.join(WWW_JS, 'preload.js.example');
-const USERS_JS   = path.join(WWW_JS, 'users.js');
 const DIST       = path.join(ROOT, 'dist');
+
+const ADMIN_ID = 'daniel';   // hardcoded admin id in www/js/users.js
 
 function fail(msg) { console.error('build-preloaded: ' + msg); process.exit(1); }
 
@@ -39,16 +40,34 @@ function envOrFail(name) {
   return v.trim();
 }
 
-// --- Roster validation: parse the `id` strings out of users.js without
-// requiring a JS module loader. The roster is plain literals so a regex is
-// sufficient and robust.
-function readRosterIds() {
-  const src = fs.readFileSync(USERS_JS, 'utf8');
-  const ids = [];
-  const rx = /\bid:\s*'([^']+)'/g;
-  let m;
-  while ((m = rx.exec(src)) !== null) ids.push(m[1]);
-  return ids;
+// --- Roster validation: the static roster is now just the admin; member
+// entries are derived at runtime from Graylog's distinct `creator` values.
+// Validate MEMBER_ID by querying Graylog with the same logic the app uses
+// (GraylogClient.fetchCreators) so a typo gets caught at build time. The
+// derived id format (handle.replace(/^@+/, '').toLowerCase()) MUST match
+// the runtime mapping in www/js/users.js.
+function memberIdFromHandle(handle) {
+  return String(handle || '').replace(/^@+/, '').toLowerCase();
+}
+async function fetchRosterIds(graylogUrl, token) {
+  const base = graylogUrl.replace(/\/+$/, '');
+  const range = 5 * 365 * 24 * 3600;
+  const lucene = '(source:tiktok-bookmarklet) OR source:tiktok-bookmarklet-livestream-analytics';
+  const params = new URLSearchParams({
+    query: lucene,
+    range: String(range),
+    limit: '1000',
+    sort:  'timestamp:desc',
+    fields: 'creator',
+  });
+  const resp = await graylogJson('GET', `${base}/api/search/universal/relative?${params.toString()}`, undefined, token);
+  const msgs = (resp && resp.messages) || [];
+  const seen = new Set([ADMIN_ID]);
+  for (const entry of msgs) {
+    const c = entry && entry.message && entry.message.creator;
+    if (c) seen.add(memberIdFromHandle(c));
+  }
+  return Array.from(seen).filter(Boolean);
 }
 
 // --- Graylog Views API helpers ----------------------------------------
@@ -183,8 +202,14 @@ function restorePreload() {
   let dashboardId   = (process.env.COMMON_DASHBOARD_ID || '').trim();
   const release     = process.env.RELEASE === '1';
 
-  const ids = readRosterIds();
-  if (!ids.includes(memberId)) {
+  let ids;
+  try {
+    ids = await fetchRosterIds(graylogUrl, token);
+  } catch (e) {
+    console.warn(`build-preloaded: could not fetch roster from Graylog (${e.message}); skipping MEMBER_ID validation`);
+    ids = null;
+  }
+  if (ids && !ids.includes(memberId)) {
     fail(`unknown MEMBER_ID "${memberId}" -- valid ids: ${ids.join(', ')}`);
   }
 
