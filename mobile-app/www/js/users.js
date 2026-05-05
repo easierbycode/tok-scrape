@@ -71,6 +71,14 @@
       role:    'member',
       creator: '@cookingwithkenji',
       avatar:  'CK'
+    },
+    {
+      id:      'boosteddealsdaily',
+      name:    'Boosted Deals Daily',
+      email:   'boosted@boosteddealsdaily.example',
+      role:    'member',
+      creator: '@boosteddealsdaily',
+      avatar:  'BD'
     }
   ];
 

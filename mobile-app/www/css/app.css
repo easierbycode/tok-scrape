@@ -57,7 +57,11 @@ html, body {
 }
 
 body {
-  padding-top: env(safe-area-inset-top);
+  /* Reserve space for the fixed topbar. We ignore env(safe-area-inset-top)
+     here because Cordova's StatusBarOverlaysWebView=false already makes
+     the WebView start below the OS status bar — adding the inset on top
+     of that left a navbar-sized gap above the topbar on some devices. */
+  padding-top: 60px;
   position: relative;
   min-height: 100vh;
   background:
@@ -102,8 +106,15 @@ select {
 .hidden { display: none !important; }
 
 .topbar {
-  position: sticky;
+  /* Fixed (not sticky) — sticky is unreliable inside the Cordova Android
+     WebView. Positioned BELOW the safe-area inset (rather than absorbing
+     it into the bar's own padding) so the bar's visual height is just its
+     content + 12px on each side — the inset would otherwise inflate it
+     dramatically on devices that report a large safe-area-inset-top. */
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 30;
   display: flex;
   align-items: center;
@@ -269,13 +280,54 @@ select#rangeSel:focus-visible,
   grid-template-columns: 1fr;
 }
 
+.mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgb(35 34 32 / 0.92);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-flat);
+}
+
+.mode-btn {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: var(--muted-foreground);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mode-btn:hover { color: var(--foreground); }
+
+.mode-btn.active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Scope to <section> so the mode-toggle's own buttons (which also carry
+   data-mode attributes) aren't hidden when their mode is inactive. */
+body[data-mode="videos"] section[data-mode="live"],
+body[data-mode="live"] section[data-mode="videos"] {
+  display: none !important;
+}
+
+.card-wide { grid-column: 1 / -1; }
+
 @media (min-width: 720px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .card.kpi,
-  .card:last-of-type {
+  .card:last-of-type,
+  .mode-toggle {
     grid-column: 1 / -1;
   }
 }
@@ -286,7 +338,8 @@ select#rangeSel:focus-visible,
   }
 
   .card.kpi,
-  .card:last-of-type {
+  .card:last-of-type,
+  .mode-toggle {
     grid-column: 1 / -1;
   }
 }

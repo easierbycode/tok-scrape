@@ -146,5 +146,51 @@
       });
   };
 
+  // Convenience: pull livestream-analytics scrapes (seller-side LIVE Dashboard
+  // dump from extension-seller/scrape-analytics.js). The host/source is
+  // `tiktok-bookmarklet-livestream-analytics` and the schema is different from
+  // creator scrapes — instead of metrics_json / videos_json there's
+  // sections_json / core_data_json / livestreams_json.
+  GraylogClient.prototype.fetchLiveAnalytics = function (rangeSeconds, creatorFilter) {
+    var fields = [
+      'creator', 'scrapedAt', 'sections_count', 'metrics_count', 'rows_count',
+      'sections_json', 'core_data_json', 'livestreams_json'
+    ];
+    var base = 'source:tiktok-bookmarklet-livestream-analytics';
+    var query = base;
+    if (creatorFilter) {
+      var safe = String(creatorFilter).replace(/"/g, '\\"');
+      query = '(' + base + ') AND creator:"' + safe + '"';
+    }
+    return this.search(query, rangeSeconds, fields, 500)
+      .then(function (resp) {
+        var msgs = (resp && resp.messages) || [];
+        return msgs.map(function (entry) {
+          var m = entry.message || {};
+          var scrape = {
+            timestamp:   m.timestamp || m.scrapedAt || null,
+            creator:     m.creator || '',
+            scrapedAt:   m.scrapedAt || m.timestamp || '',
+            coreData:    null,
+            livestreams: null,
+            sections:    []
+          };
+          if (m.core_data_json) {
+            try { scrape.coreData = JSON.parse(m.core_data_json); }
+            catch (e) { scrape._coreDataParseError = e.message; }
+          }
+          if (m.livestreams_json) {
+            try { scrape.livestreams = JSON.parse(m.livestreams_json); }
+            catch (e) { scrape._livestreamsParseError = e.message; }
+          }
+          if (m.sections_json) {
+            try { scrape.sections = JSON.parse(m.sections_json) || []; }
+            catch (e) { scrape.sections = []; scrape._sectionsParseError = e.message; }
+          }
+          return scrape;
+        });
+      });
+  };
+
   global.GraylogClient = GraylogClient;
 })(window);

@@ -19,6 +19,7 @@
 
   var SETTINGS_KEY = 'tok-scrape.settings.v1';
   var COMMON_DASH_KEY = 'tok-scrape.commonDashboard.v1';
+  var MODE_KEY = 'tok-scrape.mode.v1';   // 'videos' | 'live'
   var els = {};
   var autoTimer = null;
   var loading = false;
@@ -60,6 +61,34 @@
   // into localStorage under tok-scrape.commonDashboard.v1. When `enabled` is
   // false (the default in committed preload.js), the menu entry is hidden
   // and the iframe view is never shown.
+  // -------- Mode (videos | live) -----------------------------------
+
+  function getMode() {
+    try {
+      var v = localStorage.getItem(MODE_KEY);
+      return v === 'live' ? 'live' : 'videos';
+    } catch (e) { return 'videos'; }
+  }
+  function setMode(m) {
+    var mode = m === 'live' ? 'live' : 'videos';
+    try { localStorage.setItem(MODE_KEY, mode); } catch (e) {}
+    document.body.setAttribute('data-mode', mode);
+    document.querySelectorAll('#modeToggle .mode-btn').forEach(function (btn) {
+      var on = btn.getAttribute('data-mode') === mode;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
+  // Hide the toggle entirely when the signed-in user only has one shape of
+  // data (videos OR live, but not both). refresh() decides this based on
+  // the parallel probe of both Graylog sources.
+  function setToggleVisibility(visible) {
+    var t = document.getElementById('modeToggle');
+    if (!t) return;
+    t.classList.toggle('hidden', !visible);
+  }
+
   function loadCommonDashConfig() {
     try {
       var raw = localStorage.getItem(COMMON_DASH_KEY);
@@ -127,6 +156,16 @@
     scrollToY(el.getBoundingClientRect().top + window.scrollY - currentStickyOffset());
   }
 
+  // The "Campaigns" nav anchors to the first chart of the active mode
+  // (Affiliate GMV over time in Videos mode, Attributed GMV per LIVE in
+  // Live mode). syncRouteFromScroll uses the same lookup so the nav-chip
+  // highlight tracks scroll position regardless of mode.
+  function activeCampaignsSection() {
+    return getMode() === 'live'
+      ? document.getElementById('liveCampaignsSection')
+      : document.getElementById('campaignsSection');
+  }
+
   function syncRouteFromScroll() {
     if (routeLock) {
       setRoute(routeLock);
@@ -136,9 +175,8 @@
 
     var route = 'home';
     var checkpoint = window.scrollY + currentStickyOffset() + 24;
-
-    if (els.goalsSection && checkpoint >= els.goalsSection.offsetTop) route = 'goals';
-    else if (els.campaignsSection && checkpoint >= els.campaignsSection.offsetTop) route = 'campaigns';
+    var camp = activeCampaignsSection();
+    if (camp && checkpoint >= camp.offsetTop) route = 'campaigns';
 
     setRoute(route);
   }
@@ -171,12 +209,7 @@
       }
       if (route === 'campaigns') {
         closeDropdown();
-        scrollToSection(els.campaignsSection, 'campaigns');
-        return;
-      }
-      if (route === 'goals') {
-        closeDropdown();
-        scrollToSection(els.goalsSection, 'goals');
+        scrollToSection(activeCampaignsSection(), 'campaigns');
         return;
       }
       if (route === 'profile') {
@@ -459,23 +492,12 @@
     els.banner.classList.remove('hidden');
   }
 
-  // Anything that could shift what the user sees: re-render the nav + banner
-  // + dashboard labels. Callers then usually call refresh() to re-fetch data.
+  // Anything that could shift what the user sees: re-render the nav + banner.
+  // Callers then usually call refresh() to re-fetch data.
   function reflectAuthChange() {
     renderUserButton();
     renderBanner();
-    updateAdminLabels();
     syncRouteFromScroll();
-  }
-
-  // The "Creators" KPI and pie chart make sense as an aggregate (admin) but
-  // not for a single member's view, where there's exactly one creator. Swap
-  // the labels/title so they read naturally.
-  function updateAdminLabels() {
-    var eff = Users.getEffectiveUser();
-    var isAggregate = !eff;
-    $('kpiCreatorsLabel').textContent   = isAggregate ? 'Creators' : 'Creator';
-    $('creatorsChartTitle').textContent = isAggregate ? 'Scrapes per creator' : 'Scrapes over time';
   }
 
   // -------- Refresh loop ------------------------------------------
@@ -500,9 +522,28 @@
     var creatorFilter = Users.getCreatorFilter();   // null for admin aggregate
     var client = new GraylogClient({ baseUrl: s.url, token: s.token });
 
-    client.fetchScrapes(s.query, rangeSec, creatorFilter)
-      .then(function (scrapes) {
-        if (!scrapes.length) {
+    // Fetch both shapes in parallel so we can:
+    //   - hide the toggle when only one of (Videos, Live) has data
+    //   - auto-switch the active mode if the user's chosen mode is empty
+    //     but the other has data (e.g. boosteddealsdaily lands on Videos
+    //     by default but only has Live scrapes)
+    Promise.all([
+      client.fetchScrapes(s.query, rangeSec, creatorFilter),
+      client.fetchLiveAnalytics(rangeSec, creatorFilter)
+    ])
+      .then(function (results) {
+        var videoScrapes = results[0];
+        var liveScrapes  = results[1];
+        var hasVideos = videoScrapes.length > 0;
+        var hasLive   = liveScrapes.length > 0;
+
+        setToggleVisibility(hasVideos && hasLive);
+
+        var mode = getMode();
+        if (mode === 'videos' && !hasVideos && hasLive)  { setMode('live');   mode = 'live'; }
+        else if (mode === 'live' && !hasLive && hasVideos) { setMode('videos'); mode = 'videos'; }
+
+        if (!hasVideos && !hasLive) {
           var msg = creatorFilter
             ? 'No scrapes found for ' + creatorFilter + ' in the selected range.'
             : 'No scrapes found in the selected range.';
@@ -510,7 +551,8 @@
           return;
         }
         showEmpty(false);
-        Dashboard.render(scrapes, { effectiveUser: Users.getEffectiveUser() });
+        if (mode === 'live') Dashboard.renderLive(liveScrapes);
+        else                 Dashboard.renderVideos(videoScrapes);
       })
       .catch(function (err) {
         console.error(err);
@@ -580,6 +622,19 @@
       els.commonDashClose.addEventListener('click', closeCommonDashboard);
     }
 
+    // Mode toggle (Videos / Live)
+    var toggle = document.getElementById('modeToggle');
+    if (toggle) {
+      toggle.addEventListener('click', function (ev) {
+        var btn = ev.target.closest && ev.target.closest('.mode-btn');
+        if (!btn) return;
+        var mode = btn.getAttribute('data-mode');
+        if (mode === getMode()) return;
+        setMode(mode);
+        refresh();
+      });
+    }
+
     document.addEventListener('deviceready', function () {
       if (window.StatusBar) StatusBar.styleLightContent();
     }, false);
@@ -602,14 +657,13 @@
     els.banner        = $('viewAsBanner');
     els.topbar        = document.querySelector('.topbar');
     els.bottomnav     = document.querySelector('.bottomnav');
-    els.campaignsSection = $('campaignsSection');
-    els.goalsSection  = $('goalsSection');
     els.commonDashView   = $('commonDashboardView');
     els.commonDashFrame  = $('commonDashFrame');
     els.commonDashClose  = $('commonDashClose');
     els.commonDashStatus = $('commonDashStatus');
 
     if (window.Highcharts && window.Dashboard) Dashboard.applyTheme();
+    setMode(getMode()); // sync body data-mode + toggle button state from storage
     bind();
     reflectAuthChange();
     setupAutoRefresh();

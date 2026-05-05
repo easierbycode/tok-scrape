@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: gap: https://ssl.gstatic.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://code.highcharts.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.highcharts.com; img-src 'self' data: blob: https:; connect-src *; frame-src *;">
   <title>TokScrape Dashboard</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
-<body data-route="home">
+<body data-route="home" data-mode="videos">
   <header class="topbar">
     <div class="topbar-main">
       <span class="dot"></span>
@@ -58,27 +58,42 @@
   </div>
 
   <main id="dashboard" class="grid">
-    <section class="card kpi" id="overviewSection">
+    <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Dashboard mode">
+      <button type="button" class="mode-btn active" data-mode="videos" role="tab" aria-selected="true">Videos</button>
+      <button type="button" class="mode-btn" data-mode="live" role="tab" aria-selected="false">Live</button>
+    </div>
+
+    <!-- Videos mode (creator-scrape data: source:tiktok-bookmarklet) -->
+    <section class="card kpi" data-mode="videos">
       <div class="kpi-row">
-        <div class="kpi-cell"><div class="kpi-label">Scrapes</div><div class="kpi-val" id="kpiScrapes">&mdash;</div></div>
-        <div class="kpi-cell"><div class="kpi-label" id="kpiCreatorsLabel">Creators</div><div class="kpi-val" id="kpiCreators">&mdash;</div></div>
         <div class="kpi-cell"><div class="kpi-label">Videos seen</div><div class="kpi-val" id="kpiVideos">&mdash;</div></div>
         <div class="kpi-cell"><div class="kpi-label">Latest GMV</div><div class="kpi-val" id="kpiGMV">&mdash;</div></div>
       </div>
     </section>
 
-    <section class="card chart" id="campaignsSection"><h2>Affiliate GMV over time</h2><div id="chartGmv"></div></section>
-    <section class="card chart"><h2>Items sold over time</h2><div id="chartItems"></div></section>
-    <section class="card chart"><h2>Top videos by GMV</h2><div id="chartTopGmv"></div></section>
-    <section class="card chart"><h2>Top videos by views</h2><div id="chartTopViews"></div></section>
-    <section class="card chart" id="creatorsCard"><h2 id="creatorsChartTitle">Scrapes per creator</h2><div id="chartCreators"></div></section>
+    <section class="card chart" id="campaignsSection" data-mode="videos"><h2>Affiliate GMV over time</h2><div id="chartGmv"></div></section>
+    <section class="card chart" data-mode="videos"><h2>Items sold over time</h2><div id="chartItems"></div></section>
+    <section class="card chart" data-mode="videos"><h2>Top videos by GMV</h2><div id="chartTopGmv"></div></section>
+    <section class="card chart" data-mode="videos"><h2>Top videos by views</h2><div id="chartTopViews"></div></section>
 
-    <section class="card" id="goalsSection">
-      <h2>Recent scrapes</h2>
+    <!-- Live mode (livestream-analytics data: source:tiktok-bookmarklet-livestream-analytics) -->
+    <section class="card kpi" data-mode="live">
+      <div class="kpi-row">
+        <div class="kpi-cell"><div class="kpi-label">Attributed GMV</div><div class="kpi-val" id="liveKpiGmv">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Items sold</div><div class="kpi-val" id="liveKpiItems">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">LIVE CTR</div><div class="kpi-val" id="liveKpiCtr">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Views</div><div class="kpi-val" id="liveKpiViews">&mdash;</div></div>
+      </div>
+    </section>
+
+    <section class="card chart" id="liveCampaignsSection" data-mode="live"><h2>Attributed GMV per LIVE</h2><div id="liveChartGmv"></div></section>
+    <section class="card chart" data-mode="live"><h2>Views per LIVE</h2><div id="liveChartViews"></div></section>
+    <section class="card card-wide" data-mode="live">
+      <h2 id="liveStreamsTitle">All LIVE streams</h2>
       <div class="tablewrap">
-        <table id="scrapesTable">
+        <table id="liveStreamsTable">
           <thead>
-            <tr><th>When</th><th>Creator</th><th>Range</th><th>Videos</th><th>Aff. GMV</th><th>Items</th></tr>
+            <tr><th>When</th><th>Attributed GMV</th><th>GMV</th><th>Items</th><th>Views</th><th>CTR</th><th>CTOR</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -120,17 +135,6 @@
           </svg>
         </span>
         <span class="nav-label">Campaigns</span>
-      </button>
-      <button type="button" class="item" data-route="goals" aria-label="Go to Goals">
-        <span class="nav-chip" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="8"></circle>
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 4v4"></path>
-            <path d="M20 12h-4"></path>
-          </svg>
-        </span>
-        <span class="nav-label">Goals</span>
       </button>
       <button type="button" class="item" data-route="profile" aria-label="Open Profile">
         <span class="nav-chip" aria-hidden="true">

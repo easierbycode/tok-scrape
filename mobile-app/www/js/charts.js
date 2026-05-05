@@ -100,19 +100,14 @@
   // ---- Renderers --------------------------------------------------------
 
   function renderKpis(scrapes) {
-    document.getElementById('kpiScrapes').textContent = scrapes.length.toLocaleString();
-
-    var creatorSet = {};
-    var videoSet   = {};
+    var videoSet = {};
     scrapes.forEach(function (s) {
-      if (s.creator) creatorSet[s.creator] = true;
       (s.videos || []).forEach(function (v) {
         var id = v && v['Video ID'];
         if (id) videoSet[id] = true;
       });
     });
-    document.getElementById('kpiCreators').textContent = Object.keys(creatorSet).length.toLocaleString();
-    document.getElementById('kpiVideos').textContent   = Object.keys(videoSet).length.toLocaleString();
+    document.getElementById('kpiVideos').textContent = Object.keys(videoSet).length.toLocaleString();
 
     var latest = scrapes[0]; // already sorted desc by API
     var gmv = latest && findMetric(latest, 'Affiliate GMV');
@@ -209,78 +204,114 @@
     });
   }
 
-  function renderCreators(scrapes, opts) {
-    // Admin (aggregate) view: donut of scrape counts per creator.
-    // Member or Login-As view: single creator — donut would be meaningless,
-    //   so plot scrapes over time as a column chart instead.
-    var scopedToOne = opts && opts.effectiveUser;
+  // ---- Live mode renderers --------------------------------------------
 
-    if (!scopedToOne) {
-      var counts = {};
-      scrapes.forEach(function (s) {
-        var k = s.creator || '(unknown)';
-        counts[k] = (counts[k] || 0) + 1;
-      });
-      var data = Object.keys(counts).map(function (k) { return { name: k, y: counts[k] }; });
-      Highcharts.chart('chartCreators', {
-        chart: { type: 'pie', height: 280 },
-        series: [{
-          name: 'Scrapes',
-          innerSize: '55%',
-          data: data,
-          dataLabels: {
-            style: {
-              color: cssVar('--foreground', '#f2f1ed'),
-              textOutline: 'none'
-            }
-          }
-        }]
-      });
-      return;
+  function findGroupMetric(coreData, metricName) {
+    if (!coreData || !coreData.groups) return null;
+    for (var i = 0; i < coreData.groups.length; i++) {
+      var g = coreData.groups[i];
+      if (!g || !g.metrics) continue;
+      for (var j = 0; j < g.metrics.length; j++) {
+        if (g.metrics[j] && g.metrics[j].name === metricName) return g.metrics[j];
+      }
     }
+    return null;
+  }
 
-    // Single-creator timeline: bucket by day (UTC) to keep the bars readable.
-    var buckets = {};
-    scrapes.forEach(function (s) {
-      var d = new Date(tsMs(s));
-      var key = d.toISOString().slice(0, 10);          // "YYYY-MM-DD"
-      buckets[key] = (buckets[key] || 0) + 1;
-    });
-    var keys = Object.keys(buckets).sort();
-    var series = keys.map(function (k) {
-      return [Date.UTC(
-        parseInt(k.slice(0,4),10),
-        parseInt(k.slice(5,7),10) - 1,
-        parseInt(k.slice(8,10),10)
-      ), buckets[k]];
-    });
-    Highcharts.chart('chartCreators', {
-      chart: { type: 'column', height: 260 },
-      xAxis: { type: 'datetime' },
-      yAxis: { title: { text: 'Scrapes' }, allowDecimals: false },
+  function liveCellValue(coreData, name) {
+    var m = findGroupMetric(coreData, name);
+    return m ? m.value : '—';
+  }
+
+  function renderLiveKpis(latest) {
+    var core = latest && latest.coreData;
+    document.getElementById('liveKpiGmv').textContent   = liveCellValue(core, 'Attributed GMV');
+    document.getElementById('liveKpiItems').textContent = liveCellValue(core, 'Items sold');
+    document.getElementById('liveKpiCtr').textContent   = liveCellValue(core, 'LIVE CTR');
+    document.getElementById('liveKpiViews').textContent = liveCellValue(core, 'Views');
+  }
+
+  // livestreams.table.rows shape:
+  //   [name, "Attributed GMV", "GMV", "Items sold", "Views", "CTR", "CTOR", "More"]
+  // Column 0 is e.g. "Tik Tok Shop Mother's Day 13:48 2026-05-03 2h11min"
+  // (i.e. <name> <HH:MM> <YYYY-MM-DD> <duration>). We pull the date+time as
+  // the chart x-axis label; the seller cares when a LIVE was, not its title.
+  var TIME_DATE_RX = /(\d{1,2}:\d{2})\s+(\d{4}-\d{2}-\d{2})/;
+
+  function liveRowLabel(row) {
+    var raw = row && row[0] || '';
+    var m = TIME_DATE_RX.exec(raw);
+    return m ? (m[2] + ' ' + m[1]) : shorten(raw, 22);
+  }
+
+  function liveRows(latest) {
+    var t = latest && latest.livestreams && latest.livestreams.table;
+    return (t && t.rows) || [];
+  }
+
+  function renderLiveChartGmv(rows) {
+    // Oldest -> newest along x so the bars read left to right chronologically.
+    var data = rows.slice().reverse().map(function (r) {
+      return { name: liveRowLabel(r), y: num(r[1]) };
+    }).filter(function (p) { return !isNaN(p.y); });
+    Highcharts.chart('liveChartGmv', {
+      chart: { type: 'column', height: 280 },
+      xAxis: { categories: data.map(function (p) { return p.name; }), labels: { style: { fontSize: '11px' } } },
+      yAxis: { title: { text: 'USD' }, labels: { formatter: function () { return '$' + this.value.toLocaleString(); } } },
+      tooltip: { pointFormatter: function () { return '<b>$' + this.y.toLocaleString() + '</b>'; } },
       legend: { enabled: false },
-      series: [{ name: 'Scrapes', data: series }]
+      series: [{ name: 'Attributed GMV', data: data.map(function (p) { return p.y; }), colorByPoint: true }]
     });
   }
 
-  function renderTable(scrapes) {
-    var tbody = document.querySelector('#scrapesTable tbody');
+  function renderLiveChartViews(rows) {
+    var data = rows.slice().reverse().map(function (r) {
+      return { name: liveRowLabel(r), y: num(r[4]) };
+    }).filter(function (p) { return !isNaN(p.y); });
+    Highcharts.chart('liveChartViews', {
+      chart: { type: 'column', height: 260 },
+      xAxis: { categories: data.map(function (p) { return p.name; }), labels: { style: { fontSize: '11px' } } },
+      yAxis: { title: { text: 'Views' } },
+      legend: { enabled: false },
+      series: [{ name: 'Views', data: data.map(function (p) { return p.y; }), colorByPoint: true }]
+    });
+  }
+
+  function renderLiveTable(rows) {
+    var tbody = document.querySelector('#liveStreamsTable tbody');
     tbody.innerHTML = '';
-    scrapes.slice(0, 25).forEach(function (s) {
-      var tr  = document.createElement('tr');
-      var gmv = findMetric(s, 'Affiliate GMV');
-      var itm = findMetric(s, 'Items sold');
-      var range = (s.dateStart || '?') + ' &rarr; ' + (s.dateEnd || '?');
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td>' + new Date(tsMs(s)).toLocaleString() + '</td>' +
-        '<td>' + escapeHtml(s.creator || '') + '</td>' +
-        '<td>' + range + '</td>' +
-        '<td>' + (s.videosCount || 0) + '</td>' +
-        '<td>' + (gmv ? escapeHtml(gmv.value) : '—') + '</td>' +
-        '<td>' + (itm ? escapeHtml(itm.value) : '—') + '</td>';
+        '<td>' + escapeHtml(r[0] || '') + '</td>' +
+        '<td>' + escapeHtml(r[1] || '—') + '</td>' +
+        '<td>' + escapeHtml(r[2] || '—') + '</td>' +
+        '<td>' + escapeHtml(r[3] || '—') + '</td>' +
+        '<td>' + escapeHtml(r[4] || '—') + '</td>' +
+        '<td>' + escapeHtml(r[5] || '—') + '</td>' +
+        '<td>' + escapeHtml(r[6] || '—') + '</td>';
       tbody.appendChild(tr);
     });
   }
+
+  function renderLive(liveScrapes) {
+    var latest = liveScrapes[0]; // sorted desc by API
+    var rows   = liveRows(latest);
+
+    renderLiveKpis(latest);
+    renderLiveChartGmv(rows);
+    renderLiveChartViews(rows);
+    renderLiveTable(rows);
+
+    var titleEl = document.getElementById('liveStreamsTitle');
+    var ls = latest && latest.livestreams;
+    var dr = ls && ls.dateRange;
+    if (titleEl) {
+      titleEl.textContent = (ls && ls.name ? ls.name : 'All LIVE streams') +
+        (dr && dr.start && dr.end ? ' · ' + dr.start + ' – ' + dr.end : '');
+    }
+  }
+
 
   function shorten(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '\u2026' : s; }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) {
@@ -291,17 +322,13 @@
 
   global.Dashboard = {
     applyTheme: applyTheme,
-    // opts.effectiveUser: when set, the dashboard is scoped to a single
-    //   creator (either a logged-in member or an admin's "Login As..."
-    //   target). When null/undefined, it's the admin aggregate view.
-    render: function (scrapes, opts) {
+    renderVideos: function (scrapes) {
       renderKpis(scrapes);
       renderTimeseriesGmv(scrapes);
       renderTimeseriesItems(scrapes);
       renderTopGmv(scrapes);
       renderTopViews(scrapes);
-      renderCreators(scrapes, opts);
-      renderTable(scrapes);
-    }
+    },
+    renderLive: renderLive
   };
 })(window);
