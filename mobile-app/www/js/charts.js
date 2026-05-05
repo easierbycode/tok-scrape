@@ -234,14 +234,35 @@
   // livestreams.table.rows shape:
   //   [name, "Attributed GMV", "GMV", "Items sold", "Views", "CTR", "CTOR", "More"]
   // Column 0 is e.g. "Tik Tok Shop Mother's Day 13:48 2026-05-03 2h11min"
-  // (i.e. <name> <HH:MM> <YYYY-MM-DD> <duration>). We pull the date+time as
-  // the chart x-axis label; the seller cares when a LIVE was, not its title.
-  var TIME_DATE_RX = /(\d{1,2}:\d{2})\s+(\d{4}-\d{2}-\d{2})/;
+  // (i.e. <title> <HH:MM> <YYYY-MM-DD> <duration>). For the table we want
+  // a friendly "Sun 1:48 PM · 2h11min" with the title hidden behind a
+  // toggleable info icon; for the chart x-axis we just use date + time.
+  var LIVE_NAME_RX = /^(.*?)\s+(\d{1,2}:\d{2})\s+(\d{4}-\d{2}-\d{2})\s+(\S+)\s*$/;
+  var WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  function parseLiveName(raw) {
+    var m = LIVE_NAME_RX.exec(String(raw || ''));
+    if (!m) return { title: '', time: '', date: '', duration: '', friendly: String(raw || '') };
+    return { title: m[1], time: m[2], date: m[3], duration: m[4], friendly: friendlyTime(m[3], m[2]) };
+  }
+
+  function friendlyTime(dateStr, timeStr) {
+    var d = new Date(dateStr + 'T' + timeStr + ':00');
+    if (isNaN(d.getTime())) return dateStr + ' ' + timeStr;
+    var hours = d.getHours();
+    var minutes = d.getMinutes();
+    var ampm = hours >= 12 ? 'PM' : 'AM';
+    var h12 = hours % 12 || 12;
+    var ageDays = (Date.now() - d.getTime()) / 86400000;
+    var prefix = ageDays >= 7
+      ? (d.getMonth() + 1) + '/' + d.getDate()
+      : WEEKDAYS[d.getDay()];
+    return prefix + ' ' + h12 + ':' + (minutes < 10 ? '0' : '') + minutes + ' ' + ampm;
+  }
 
   function liveRowLabel(row) {
-    var raw = row && row[0] || '';
-    var m = TIME_DATE_RX.exec(raw);
-    return m ? (m[2] + ' ' + m[1]) : shorten(raw, 22);
+    var info = parseLiveName(row && row[0]);
+    return info.date ? (info.date + ' ' + info.time) : shorten(info.friendly, 22);
   }
 
   function liveRows(latest) {
@@ -280,10 +301,18 @@
   function renderLiveTable(rows) {
     var tbody = document.querySelector('#liveStreamsTable tbody');
     tbody.innerHTML = '';
-    rows.forEach(function (r) {
+    rows.forEach(function (r, i) {
+      var info = parseLiveName(r && r[0]);
+      var when = info.friendly + (info.duration ? ' · ' + info.duration : '');
+
       var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td>' + escapeHtml(r[0] || '') + '</td>' +
+        '<td class="live-when-cell">' +
+          (info.title
+            ? '<button type="button" class="live-info-btn" data-row="' + i + '" aria-label="Show LIVE title" aria-expanded="false">i</button>'
+            : '') +
+          '<span class="live-when">' + escapeHtml(when) + '</span>' +
+        '</td>' +
         '<td>' + escapeHtml(r[1] || '—') + '</td>' +
         '<td>' + escapeHtml(r[2] || '—') + '</td>' +
         '<td>' + escapeHtml(r[3] || '—') + '</td>' +
@@ -291,6 +320,26 @@
         '<td>' + escapeHtml(r[5] || '—') + '</td>' +
         '<td>' + escapeHtml(r[6] || '—') + '</td>';
       tbody.appendChild(tr);
+
+      if (info.title) {
+        var details = document.createElement('tr');
+        details.className = 'live-info-row hidden';
+        details.setAttribute('data-row', String(i));
+        details.innerHTML =
+          '<td colspan="7"><span class="live-title-label">Title</span> ' +
+          escapeHtml(info.title) + '</td>';
+        tbody.appendChild(details);
+      }
+    });
+
+    tbody.querySelectorAll('.live-info-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var idx = btn.getAttribute('data-row');
+        var detail = tbody.querySelector('.live-info-row[data-row="' + idx + '"]');
+        if (!detail) return;
+        detail.classList.toggle('hidden');
+        btn.setAttribute('aria-expanded', detail.classList.contains('hidden') ? 'false' : 'true');
+      });
     });
   }
 

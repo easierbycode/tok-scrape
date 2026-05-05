@@ -465,6 +465,65 @@ tbody tr:hover {
   background: rgb(242 241 237 / 0.04);
 }
 
+/* Live-mode "All LIVE streams" first column: friendly time + info toggle.
+   The matching `.live-info-row.hidden` (one extra <tr> per data row) holds
+   the LIVE's title and stays hidden until the user taps the [i] button. */
+.live-when-cell { display: flex; align-items: center; gap: 8px; }
+.live-when      { white-space: nowrap; }
+
+.live-info-btn {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: var(--font-serif);
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.live-info-btn:hover {
+  color: var(--foreground);
+  border-color: var(--foreground);
+}
+
+.live-info-btn[aria-expanded="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.live-info-row td {
+  padding: 10px 12px;
+  background: rgb(245 78 0 / 0.06);
+  color: var(--foreground);
+  font-size: 13px;
+  white-space: normal;
+}
+
+.live-title-label {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(245 78 0 / 0.18);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .empty {
   position: relative;
   z-index: 1;
