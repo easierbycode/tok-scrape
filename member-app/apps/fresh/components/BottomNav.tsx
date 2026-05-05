@@ -1,3 +1,4 @@
+import "./BottomNav.css";
 import {
   LinkIcon,
   PlayCircleIcon,

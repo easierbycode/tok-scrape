@@ -1,3 +1,4 @@
+import "./Logo.css";
 import { asset } from "fresh/runtime";
 
 interface LogoProps {

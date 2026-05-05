@@ -1,3 +1,5 @@
+import "./UserMenu.css";
+
 interface UserMenuProps {
   /** Show the user's name beside the avatar — used in the sidebar footer. */
   showUserName?: boolean;

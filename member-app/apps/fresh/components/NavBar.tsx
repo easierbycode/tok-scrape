@@ -1,3 +1,4 @@
+import "./NavBar.css";
 import { Logo } from "./Logo.tsx";
 import { UserMenu } from "./UserMenu.tsx";
 import {

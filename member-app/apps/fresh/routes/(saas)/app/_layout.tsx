@@ -1,3 +1,4 @@
+import "./_layout.css";
 import { define } from "../../../utils.ts";
 import { BottomNav } from "../../../components/BottomNav.tsx";
 import { MobileHeader } from "../../../components/MobileHeader.tsx";
