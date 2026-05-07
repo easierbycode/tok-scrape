@@ -1,0 +1,79 @@
+# Build chrome.zip from extension-seller/ and commit it to the repo root so
+# GitHub Pages publishes it at https://easierbycode.com/tok-scrape/chrome.zip.
+#
+# Triggers on changes under extension-seller/ (and manual dispatch). The
+# committed zip is deterministic: file mtimes are normalised to a fixed date
+# so identical source produces identical bytes, and the workflow skips the
+# commit when the new zip matches the one already on main.
+#
+# The bot push targets main directly. We don't loop on ourselves because the
+# trigger filter is path-scoped to extension-seller/** — pushing chrome.zip
+# alone doesn't re-fire this workflow.
+
+name: build-extension-zip
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'extension-seller/**'
+      - '.github/workflows/build-extension-zip.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need a real checkout (not shallow) so we can amend/push back.
+          fetch-depth: 0
+          # Use the default GITHUB_TOKEN for the push back.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build deterministic chrome.zip
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+
+          SRC = Path('extension-seller')
+          OUT = Path('chrome.zip')
+          # Fixed timestamp so unchanged source → identical bytes → no churn.
+          FIXED_DATE = (2000, 1, 1, 0, 0, 0)
+
+          files = sorted(p for p in SRC.rglob('*') if p.is_file())
+          with zipfile.ZipFile(OUT, 'w', zipfile.ZIP_DEFLATED) as z:
+              for f in files:
+                  arc = str(f.relative_to(SRC))
+                  info = zipfile.ZipInfo(filename=arc, date_time=FIXED_DATE)
+                  info.compress_type = zipfile.ZIP_DEFLATED
+                  info.external_attr = 0o644 << 16
+                  z.writestr(info, f.read_bytes())
+
+          print(f"Wrote {OUT} ({OUT.stat().st_size} bytes, {len(files)} files)")
+          PY
+
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # Detect both modifications (tracked file changed) and new files
+          # (chrome.zip not yet committed). `git status --porcelain` reports
+          # both with a non-empty line; an empty result means nothing to do.
+          if [ -z "$(git status --porcelain -- chrome.zip)" ]; then
+            echo 'chrome.zip unchanged — skipping commit.'
+            exit 0
+          fi
+
+          git add chrome.zip
+          git commit -m "chore: refresh chrome.zip from extension-seller/
+
+          Auto-generated from extension-seller/ at ${GITHUB_SHA::7}.
+          [skip ci]"
+          git push origin HEAD:main
