@@ -103,11 +103,17 @@
     });
   }
 
-  // Selectors that target Graylog logos on Open 6.x. We err on the side of
-  // matching too much (any SVG whose id contains "logo", plus a couple of
-  // known className patterns); the replace function still validates each hit.
+  // Selectors that target Graylog logos. We err on the side of matching too
+  // much (anything labelled "logo" via id/aria/class plus known nav/login
+  // wrappers); the replace function still validates each hit is an <svg>.
+  //
+  // Graylog 7.x renders the login logo as
+  //   <svg aria-labelledby="logoTitleId"><title id="logoTitleId">…</title>…</svg>
+  // so the id lives on the inner <title>, not the <svg>. Match via the
+  // aria-labelledby attribute on the SVG itself.
   var LOGO_SELECTORS = [
-    'svg#logoTitleId',
+    'svg[aria-labelledby="logoTitleId"]',      // login screen
+    'svg#logoTitleId',                         // legacy/alt layouts
     'svg[id*="logo" i]',
     'a[href="/"] svg',                         // top-left brand link
     '[class*="navbar" i] svg[role="img"]',
