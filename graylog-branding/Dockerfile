@@ -3,12 +3,14 @@
 # What this overlays on top of graylog/graylog:7.0.6
 #   - /usr/share/graylog/graylog2-web-interface/assets/lp-logo.svg
 #   - /usr/share/graylog/graylog2-web-interface/assets/branding-patch.js
+#   - /usr/share/graylog/graylog2-web-interface/assets/branding-theme.css
 #   - The bundled favicons (favicon.png + favicon.ico in the web interface
 #     root), replaced with the LP versions.
 #   - The HTML template (embedded in graylog.jar on 7.x) patched to include:
 #       <link rel="icon" type="image/png" href="/assets/favicon.png">
 #       <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
 #       <link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png">
+#       <link rel="stylesheet" href="/assets/branding-theme.css">
 #       <script src="/assets/branding-patch.js" defer></script>
 #
 # Notes:
@@ -69,6 +71,7 @@ COPY favicon-32.png     ${ASSETS}/favicon-32.png
 COPY favicon-192.png    ${ASSETS}/favicon-192.png
 COPY favicon.ico        ${ASSETS}/favicon.ico
 COPY branding-patch.js  ${ASSETS}/branding-patch.js
+COPY branding-theme.css ${ASSETS}/branding-theme.css
 
 # Replace bundled favicons at the web-root level (Graylog references a few of
 # these directly outside the /assets/ path on certain versions). The `|| true`
@@ -100,7 +103,7 @@ RUN set -eux; \
     cp /tmp/libbz2.so.1.0 "$libdir/libbz2.so.1.0"; \
     rm /tmp/libbz2.so.1.0
 
-# Inject favicon links + branding-patch.js into the HTML template.
+# Inject favicon links, branding-theme.css, and branding-patch.js into the HTML template.
 COPY inject-branding.sh /tmp/inject-branding.sh
 RUN chmod +x /tmp/inject-branding.sh && /tmp/inject-branding.sh "${WEB_ROOT}" && rm /tmp/inject-branding.sh
 

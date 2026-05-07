@@ -244,6 +244,7 @@ The Docker Compose stack builds a custom Graylog image that replaces the stock G
 
 1. **Favicon** — multi-size PNGs + `.ico` are copied over the bundled favicon paths, and `<link rel="icon">` tags are injected into `index.html`.
 2. **Login + nav logos** — `branding-patch.js` is a small MutationObserver shim injected via a `<script defer>` tag. It fetches `/assets/lp-logo.svg` once, then replaces any Graylog SVG logo (login page, top-nav, etc.) with the LP logo as soon as React mounts it.
+3. **Color theme** — `branding-theme.css` is loaded via `<link rel="stylesheet">` and overrides Graylog's palette to match `mobile-app/www/css/app.css` (LP orange `#f54e00`, dark warm background `#1a1916`, etc.) so the dashboards the mobile-app iframes feel like one product.
 
 ### Rebuild after changing assets
 
@@ -260,6 +261,7 @@ docker compose up -d graylog           # restart with the new image
 # These should return 200:
 curl -sI http://localhost:9000/assets/lp-logo.svg | head -1
 curl -sI http://localhost:9000/assets/branding-patch.js | head -1
+curl -sI http://localhost:9000/assets/branding-theme.css | head -1
 
 # Open the UI — favicon, login page logo, and top-nav logo should all show LP:
 #   http://localhost:9000
@@ -269,9 +271,9 @@ curl -sI http://localhost:9000/assets/branding-patch.js | head -1
 
 The Dockerfile (`graylog-branding/Dockerfile`) extends `graylog/graylog:7.0.6`:
 
-- Copies `lp-logo.svg`, `branding-patch.js`, and all favicon variants into the web interface's `assets/` directory.
+- Copies `lp-logo.svg`, `branding-patch.js`, `branding-theme.css`, and all favicon variants into the web interface's `assets/` directory.
 - Replaces the bundled `favicon.png` and `favicon.ico` in the web root.
-- Uses `sed` to patch `index.html`: strips existing `<link rel="icon">` tags and injects LP favicon links + the branding script before `</head>`.
+- Uses `sed` to patch `index.html`: strips existing `<link rel="icon">` tags and injects LP favicon links, the theme stylesheet link, and the branding script before `</head>`.
 
 The `branding-patch.js` shim targets these selectors:
 
