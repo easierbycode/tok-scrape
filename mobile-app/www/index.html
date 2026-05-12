@@ -6,7 +6,6 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: gap: https://ssl.gstatic.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://code.highcharts.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.highcharts.com; img-src 'self' data: blob: https:; connect-src *; frame-src *;">
   <title>TokScrape Dashboard</title>
   <link rel="stylesheet" href="css/app.css">
-  <link rel="stylesheet" href="css/virals.css">
 </head>
 <body data-route="home" data-mode="videos">
   <header class="topbar">
@@ -31,32 +30,55 @@
           <path d="M21 3v6h-6"></path>
         </svg>
       </button>
-      <button id="settingsBtn" class="btn btn-icon" title="Settings" aria-label="Settings">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.21 7.2a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .66.39 1.26 1 1.51.16.06.33.09.51.09H21a2 2 0 0 1 0 4h-.09c-.18 0-.35.03-.51.09-.61.25-1 .85-1 1.51z"></path>
-        </svg>
-      </button>
 
-      <!-- User menu (dropdown; items populated by app.js based on role) -->
-      <div class="user-menu">
-        <button id="userBtn" class="btn user-btn" aria-haspopup="true" aria-expanded="false" title="Account">
-          <span class="avatar" id="userAvatar">?</span>
-          <span class="user-label" id="userLabel">Sign in</span>
-          <span class="caret">&#x25BE;</span>
+      <!-- Account selector: multi-select picker over the creator roster.
+           Trigger shows the current scope; panel renders an "All Accounts"
+           aggregate row plus one toggleable row per creator. Items are
+           populated dynamically by app.js. -->
+      <div id="acctSelect" class="acct-select">
+        <button id="acctTrigger" class="acct-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" title="Accounts">
+          <span class="acct-dot" id="acctTriggerDot"></span>
+          <span class="acct-trigger-label">
+            <span class="acct-trigger-k">Viewing</span>
+            <span class="acct-trigger-v" id="acctTriggerLabel">All Accounts</span>
+          </span>
+          <span class="acct-caret">&#x25BE;</span>
         </button>
-        <div id="userDropdown" class="user-dropdown hidden" role="menu">
+        <div id="acctPanel" class="acct-panel hidden" role="listbox" aria-label="Account selector">
           <!-- Populated dynamically by app.js -->
         </div>
       </div>
+
+      <!-- General actions menu: visible to every user. Items here are rendered
+           statically below; admin-only items live in #adminMenu. -->
+      <div id="appMenu" class="user-menu">
+        <button id="appMenuBtn" class="btn btn-icon" type="button" aria-haspopup="true" aria-expanded="false" title="More" aria-label="More actions">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="5"  cy="12" r="1.8" fill="currentColor" stroke="none"></circle>
+            <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"></circle>
+            <circle cx="19" cy="12" r="1.8" fill="currentColor" stroke="none"></circle>
+          </svg>
+        </button>
+        <div id="appMenuDropdown" class="user-dropdown hidden" role="menu">
+          <button type="button" class="user-dd-item" id="menuAddExported" role="menuitem">Add Exported Data</button>
+          <button type="button" class="user-dd-item" id="menuServerSettings" role="menuitem">Server Settings</button>
+        </div>
+      </div>
+
+      <!-- Admin-only menu: rendered by app.js iff Users.isAdmin(). -->
+      <div id="adminMenu" class="user-menu hidden">
+        <button id="adminMenuBtn" class="btn user-btn" type="button" aria-haspopup="true" aria-expanded="false" title="Admin">
+          <span class="avatar">LP</span>
+        </button>
+        <div id="adminMenuDropdown" class="user-dropdown hidden" role="menu">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </div>
+
+      <!-- Hidden file input driven by #menuAddExported. -->
+      <input type="file" id="exportedFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
     </div>
   </header>
-
-  <!-- Impersonation banner (shown only when an admin uses Login As...) -->
-  <div id="viewAsBanner" class="view-as-banner hidden" role="status">
-    <span>Viewing as <strong id="viewAsName">&mdash;</strong></span>
-    <button class="btn btn-ghost" id="viewAsExit">Return to Admin</button>
-  </div>
 
   <main id="dashboard" class="grid">
     <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Dashboard mode">
@@ -64,9 +86,12 @@
       <button type="button" class="mode-btn" data-mode="live" role="tab" aria-selected="false">Live</button>
     </div>
 
-    <!-- Seller-side "Data Overview" snapshot (source:tiktok-bookmarklet-data-overview).
-         Rendered only on Today; body is rebuilt by Dashboard.renderOverview. -->
-    <section class="card kpi hidden" id="overviewCard"></section>
+    <!-- Compass "Data Overview" snapshot (source:tiktok-bookmarklet-data-overview).
+         Spans every mode — it's a top-level summary card, not part of the
+         videos/live tab content. Whole body (header + KPI rows) is rebuilt
+         by Dashboard.renderOverview; one sub-block per creator when several
+         are in scope. -->
+    <section class="card overview-block hidden" id="overviewCard"></section>
 
     <!-- Videos mode (creator-scrape data: source:tiktok-bookmarklet) -->
     <section class="card kpi" data-mode="videos">
@@ -99,6 +124,31 @@
         <table id="liveStreamsTable">
           <thead>
             <tr><th>When</th><th>Attributed GMV</th><th>GMV</th><th>Items</th><th>Views</th><th>CTR</th><th>CTOR</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Affiliate orders mode (uploaded TikTok Shop affiliate exports:
+         source:tiktok-affiliate-export). The whole block is hidden until
+         refresh() finds at least one matching message. -->
+    <section class="card kpi affiliate-block hidden" id="affiliateKpiCard" data-mode="affiliate">
+      <div class="kpi-row">
+        <div class="kpi-cell"><div class="kpi-label">Orders</div><div class="kpi-val" id="affKpiOrders">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Total GMV</div><div class="kpi-val" id="affKpiGmv">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Items sold</div><div class="kpi-val" id="affKpiItems">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Est. commission</div><div class="kpi-val" id="affKpiCommission">&mdash;</div></div>
+      </div>
+    </section>
+    <section class="card chart affiliate-block hidden" data-mode="affiliate"><h2>Affiliate GMV by day</h2><div id="affChartGmv"></div></section>
+    <section class="card chart affiliate-block hidden" data-mode="affiliate"><h2>GMV by content type</h2><div id="affChartType"></div></section>
+    <section class="card card-wide affiliate-block hidden" data-mode="affiliate">
+      <h2>Recent affiliate orders</h2>
+      <div class="tablewrap">
+        <table id="affOrdersTable">
+          <thead>
+            <tr><th>Order date</th><th>Type</th><th>Product</th><th>GMV</th><th>Items</th><th>Est. commission</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -161,6 +211,9 @@
 
   <div id="errorBanner" class="error-banner hidden"></div>
 
+  <!-- Upload progress / status pill, shown during the xlsx -> Graylog push. -->
+  <div id="uploadStatus" class="upload-status hidden" role="status" aria-live="polite"></div>
+
   <!-- Settings modal -->
   <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="modal-card">
@@ -180,6 +233,11 @@
         <input type="text" id="setQuery" placeholder="source:tiktok-bookmarklet" autocapitalize="none" autocorrect="off" spellcheck="false">
         <small>Lucene query that selects bookmarklet messages. A creator filter is added automatically based on the signed-in user.</small>
       </label>
+      <label>
+        <span>Graylog GELF endpoint</span>
+        <input type="url" id="setGelfUrl" placeholder="https://tok-graylog-gelf.ngrok-free.dev/gelf" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <small>HTTP GELF input URL used by <em>Add Exported Data</em> when pushing affiliate exports. Same endpoint the browser extensions use.</small>
+      </label>
       <label class="checkbox">
         <input type="checkbox" id="setAutoRefresh">
         <span>Auto-refresh every 60 seconds</span>
@@ -187,46 +245,6 @@
       <div class="modal-actions">
         <button class="btn" id="setCancel">Cancel</button>
         <button class="btn btn-primary" id="setSave">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Sign-in modal (pick a user) -->
-  <div id="signInModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="signInTitle">
-    <div class="modal-card">
-      <h2 id="signInTitle">Sign in</h2>
-      <p class="modal-sub">Pick the user whose dashboard you want to view.</p>
-      <div id="signInList" class="user-list"></div>
-      <div class="modal-actions">
-        <button class="btn" id="signInCancel">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Virals view: full-bleed overlay launched from the user menu. -->
-  <section id="viralsView" class="virals-view hidden" aria-hidden="true">
-    <header class="virals-bar">
-      <button type="button" id="viralsClose" class="btn btn-ghost virals-close" aria-label="Close Virals">&larr;</button>
-      <span class="virals-bar-title">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path d="M12 2.5c1 2.8 3 4.4 4.5 6.2 1.6 1.9 2.5 3.9 2.5 6.1A7 7 0 1 1 5 14.8c0-2.2 1.2-3.5 2.2-4.5 1-1 1.7-2 1.7-3.3 1.2.7 1.9 1.9 2.1 3.2 1-1.4 1.4-3.4 1-7.7Z" fill="#ff7a3d"/>
-          <path d="M9 15.5c0-1 .5-1.8 1.2-2.4.4 1 1.2 1.4 2 1.8 1.1.6 1.8 1.5 1.8 2.7a3 3 0 1 1-6 0c0-.8.3-1.4 1-2.1Z" fill="#ffd166"/>
-        </svg>
-        <span>Virals</span>
-      </span>
-      <span class="virals-bar-spacer"></span>
-    </header>
-    <div id="viralsBody" class="virals-body"><!-- rendered by virals.js --></div>
-  </section>
-
-  <!-- "Login As..." modal (admin only) -->
-  <div id="loginAsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="loginAsTitle">
-    <div class="modal-card">
-      <h2 id="loginAsTitle">Login As&hellip;</h2>
-      <p class="modal-sub">View the dashboard as one of these members. Your admin login is preserved; return to the admin view any time from the banner or the user menu.</p>
-      <div id="loginAsList" class="user-list"></div>
-      <div class="modal-actions">
-        <button class="btn" id="loginAsCancel">Cancel</button>
       </div>
     </div>
   </div>
@@ -239,8 +257,8 @@
   <script src="js/preload.js"></script>
   <script src="js/users.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/xlsx.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/app.js"></script>
-  <script src="js/virals.js"></script>
 </body>
 </html>
