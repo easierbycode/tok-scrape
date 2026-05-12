@@ -66,6 +66,33 @@ function findBuildTools(sdkRoot) {
   } catch (_) { return []; }
 }
 
+// Resolve `name` against the directories in PATH (mimicking the shell's
+// lookup so we surface the *same* failure cordova hits at build time:
+// "'apkanalyzer' is not recognized" / "'adb' is not recognized" both come
+// from PATH resolution, not from a missing on-disk file).
+function whichOnPath(name) {
+  const PATH = process.env.PATH || process.env.Path || '';
+  if (!PATH) return null;
+  const dirs = PATH.split(path.delimiter).filter(Boolean);
+  const exts = IS_WINDOWS
+    ? (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)
+    : [''];
+  for (const dir of dirs) {
+    for (const ext of exts) {
+      const candidate = path.join(dir, name + ext);
+      if (exists(candidate)) return candidate;
+    }
+    // Non-Windows binaries sometimes ship without an extension even when
+    // PATHEXT is set; check the bare name too on Windows for things like
+    // shell scripts that Git Bash drops into PATH.
+    if (IS_WINDOWS) {
+      const bare = path.join(dir, name);
+      if (exists(bare)) return bare;
+    }
+  }
+  return null;
+}
+
 function bullet(s) { return '  - ' + s; }
 
 (function main() {
@@ -96,15 +123,35 @@ function bullet(s) { return '  - ' + s; }
       const apkAnalyzer = path.join(ctBin, 'apkanalyzer' + BAT);
       if (!exists(apkAnalyzer)) {
         problems.push(`Found cmdline-tools at ${ctBin} but apkanalyzer${BAT} is missing -- the install looks incomplete.`);
+      } else if (!whichOnPath('apkanalyzer')) {
+        // The exact case Cordova reports as "'apkanalyzer' is not
+        // recognized": file exists under the SDK, but the bin/ dir isn't on
+        // PATH so the shell can't find it.
+        problems.push(
+          `Found "${apkAnalyzer}" but \`apkanalyzer\` is not on PATH.`,
+          bullet('cordova-android shells out to `apkanalyzer` by name; without it on PATH the build fails with "\'apkanalyzer\' is not recognized".'),
+          bullet(IS_WINDOWS
+            ? `Add "${ctBin}" to your user Path (System Properties -> Environment Variables -> Path), then open a NEW terminal.`
+            : `Add "${ctBin}" to PATH in your shell profile (e.g. export PATH="${ctBin}:$PATH").`)
+        );
       }
     }
 
     const adb = path.join(sdkRoot, 'platform-tools', 'adb' + EXE);
+    const ptDir = path.join(sdkRoot, 'platform-tools');
     if (!exists(adb)) {
       problems.push(
         `Missing "platform-tools/adb${EXE}" under ${sdkRoot}.`,
         bullet('`cordova run android` and ad-hoc `adb install app-debug.apk` both need this.'),
         bullet('Install via Android Studio SDK Manager (SDK Tools tab -> "Android SDK Platform-Tools") or `sdkmanager "platform-tools"`.')
+      );
+    } else if (!whichOnPath('adb')) {
+      problems.push(
+        `Found "${adb}" but \`adb\` is not on PATH.`,
+        bullet('`cordova run android` and ad-hoc `adb install app-debug.apk` both invoke `adb` by name.'),
+        bullet(IS_WINDOWS
+          ? `Add "${ptDir}" to your user Path (System Properties -> Environment Variables -> Path), then open a NEW terminal.`
+          : `Add "${ptDir}" to PATH in your shell profile (e.g. export PATH="${ptDir}:$PATH").`)
       );
     }
 
