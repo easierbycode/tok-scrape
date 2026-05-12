@@ -75,17 +75,51 @@ Views distributions that drift day-to-day.
 
 ## Local build
 
-Requirements: Node 20+, JDK 17, Android SDK with `platforms;android-35` and `build-tools;35.0.0`, environment variable `ANDROID_HOME` set.
+Requirements: Node 20+, JDK 17, Android SDK with `cmdline-tools;latest`, `platform-tools`, `platforms;android-35` and `build-tools;35.0.0`, environment variable `ANDROID_HOME` set.
 
 ```bash
 cd mobile-app
 npm install -g cordova@latest
 cordova platform add android@latest
+npm run doctor          # optional: verify the SDK install before building
 cordova build android --debug
 # APK lives at: platforms/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+The npm `build` / `build:release` / `build:preloaded` / `run` scripts each run
+`scripts/check-android-sdk.js` first, so a missing SDK piece is reported with
+an actionable fix instead of cordova's cryptic `apkanalyzer is not recognized`
+error. Run it directly any time with `npm run doctor`.
+
 For a quick run on a connected device or the emulator: `cordova run android`.
+
+### Windows setup gotchas
+
+cordova-android 15 shells out to `apkanalyzer` (from cmdline-tools) at build
+time and to `adb` (from platform-tools) at run time. A fresh Android Studio
+install on Windows ships neither on PATH and frequently doesn't install the
+cmdline-tools at all, which produces these errors:
+
+```
+Android SDK is missing cmdline-tools directory.
+'apkanalyzer' is not recognized as an internal or external command
+'adb' is not recognized as an internal or external command
+```
+
+To fix:
+
+1. **Install the missing SDK components.** Open Android Studio -> *Settings ->
+   Languages & Frameworks -> Android SDK -> SDK Tools*, check **Android SDK
+   Command-line Tools (latest)** and **Android SDK Platform-Tools**, then
+   Apply. (Equivalent CLI: `sdkmanager "cmdline-tools;latest" "platform-tools"
+   "platforms;android-35" "build-tools;35.0.0"`.)
+2. **Set `ANDROID_HOME`.** *System Properties -> Environment Variables ->
+   New...*, name `ANDROID_HOME`, value `C:\Users\<you>\AppData\Local\Android\Sdk`.
+3. **Add the tool dirs to `Path`.** Edit your user `Path` and add both:
+   - `%ANDROID_HOME%\cmdline-tools\latest\bin`
+   - `%ANDROID_HOME%\platform-tools`
+4. **Open a new terminal** (PATH changes don't propagate to existing shells)
+   and re-run `npm run doctor` from `mobile-app/` to verify.
 
 ## Configure at runtime
 
