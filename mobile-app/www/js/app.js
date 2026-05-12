@@ -285,6 +285,10 @@
     var dd = $('userDropdown');
     dd.innerHTML = '';
 
+    // Virals entry: pinned to the top of the menu (renders even when signed out).
+    dd.appendChild(viralsMenuItem());
+    dd.appendChild(divider());
+
     if (!u) {
       dd.appendChild(menuItem('Sign in\u2026', function () { openSignIn(); closeDropdown(); }));
       return;
@@ -348,6 +352,28 @@
     b.setAttribute('role', 'menuitem');
     b.textContent = label;
     b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function viralsMenuItem() {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.id = 'menuVirals';
+    b.className = 'user-dd-item user-dd-item--virals';
+    b.setAttribute('role', 'menuitem');
+    b.innerHTML =
+      '<span class="virals-menu-icon" aria-hidden="true">' +
+        '<svg viewBox="0 0 24 24" width="16" height="16">' +
+          '<path d="M12 2.5c1 2.8 3 4.4 4.5 6.2 1.6 1.9 2.5 3.9 2.5 6.1A7 7 0 1 1 5 14.8c0-2.2 1.2-3.5 2.2-4.5 1-1 1.7-2 1.7-3.3 1.2.7 1.9 1.9 2.1 3.2 1-1.4 1.4-3.4 1-7.7Z" fill="#ff7a3d"/>' +
+          '<path d="M9 15.5c0-1 .5-1.8 1.2-2.4.4 1 1.2 1.4 2 1.8 1.1.6 1.8 1.5 1.8 2.7a3 3 0 1 1-6 0c0-.8.3-1.4 1-2.1Z" fill="#ffd166"/>' +
+        '</svg>' +
+      '</span>' +
+      '<span class="virals-menu-label">Virals</span>' +
+      '<span class="virals-menu-badge">NEW</span>';
+    b.addEventListener('click', function () {
+      closeDropdown();
+      if (window.Virals && typeof window.Virals.open === 'function') window.Virals.open();
+    });
     return b;
   }
   function divider() {
