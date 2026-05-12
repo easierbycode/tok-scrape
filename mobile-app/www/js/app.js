@@ -89,6 +89,14 @@
     t.classList.toggle('hidden', !visible);
   }
 
+  // Collapse the dashboard to just the KPI tiles. Triggered when the range
+  // dropdown is on "Today" — daily charts and full-history tables aren't
+  // meaningful for a single day, so we surface only the headline tiles.
+  function setTodayOnlyMode(on) {
+    document.querySelectorAll('.card.chart, .card.card-wide')
+      .forEach(function (el) { el.classList.toggle('hidden', on); });
+  }
+
   function loadCommonDashConfig() {
     try {
       var raw = localStorage.getItem(COMMON_DASH_KEY);
@@ -583,8 +591,13 @@
         var liveScrapes  = results[1];
         var hasVideos = videoScrapes.length > 0;
         var hasLive   = liveScrapes.length > 0;
+        var todayOnly = rangeSec === 86400;
 
-        setToggleVisibility(hasVideos && hasLive);
+        // On "Today", suppress the mode toggle too — the charts/tables it
+        // would otherwise reveal are hidden anyway, so the toggle has nothing
+        // to switch between.
+        setToggleVisibility(!todayOnly && hasVideos && hasLive);
+        setTodayOnlyMode(todayOnly);
 
         var mode = getMode();
         if (mode === 'videos' && !hasVideos && hasLive)  { setMode('live');   mode = 'live'; }
