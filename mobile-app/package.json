@@ -6,10 +6,16 @@
   "main": "www/index.html",
   "scripts": {
     "prepare": "cordova prepare",
+    "doctor": "node scripts/check-android-sdk.js",
+    "prebuild": "node scripts/check-android-sdk.js",
     "build": "cordova build android",
+    "prebuild:release": "node scripts/check-android-sdk.js",
     "build:release": "cordova build android --release",
+    "prebuild:preloaded": "node scripts/check-android-sdk.js",
     "build:preloaded": "node scripts/build-preloaded.js",
+    "prebuild:preloaded:release": "node scripts/check-android-sdk.js",
     "build:preloaded:release": "RELEASE=1 node scripts/build-preloaded.js",
+    "prerun": "node scripts/check-android-sdk.js",
     "run": "cordova run android"
   },
   "private": true,
