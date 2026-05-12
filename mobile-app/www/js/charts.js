@@ -367,6 +367,84 @@
     return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
   }); }
 
+  // ---- Data-overview renderer (Compass "Data Overview" page) ----------
+  //
+  // The data-overview source carries ~7 metric tiles plus a date_label and
+  // a date_start/date_end span. We surface a curated subset in display order
+  // — first-match wins when multiple tile names alias to the same KPI.
+  var OVERVIEW_TILES = [
+    ['Attributed GMV',  ['Attributed GMV', 'attributed_gmv_metric_name_short_ui']],
+    ['Video GMV',       ['Video GMV']],
+    ['LIVE GMV',        ['LIVE GMV']],
+    ['Items sold',      ['Items sold']],
+    ['Product views',   ['Product views']],
+    ['Product clicks',  ['Product clicks']],
+    ['Est. commission', ['Est. commission']]
+  ];
+
+  function pickOverviewMetric(metrics, aliases) {
+    for (var i = 0; i < aliases.length; i++) {
+      for (var j = 0; j < metrics.length; j++) {
+        if (metrics[j] && metrics[j].name === aliases[i]) return metrics[j];
+      }
+    }
+    return null;
+  }
+
+  // Inclusive day-span between dateStart/dateEnd, or -1 if either is missing
+  // or unparseable. Parsed as UTC midnight so DST / locale TZ shifts can't
+  // bump us by ±1 day.
+  function spanDaysInclusive(s) {
+    if (!s || !s.dateStart || !s.dateEnd) return -1;
+    var a = Date.parse(s.dateStart + 'T00:00:00Z');
+    var b = Date.parse(s.dateEnd   + 'T00:00:00Z');
+    if (isNaN(a) || isNaN(b)) return -1;
+    return Math.round((b - a) / 86400000);
+  }
+
+  function buildOverviewKpiRow(metrics) {
+    var row = document.createElement('div');
+    row.className = 'kpi-row';
+    OVERVIEW_TILES.forEach(function (tile) {
+      var m = pickOverviewMetric(metrics, tile[1]);
+      if (!m) return;
+      var cell = document.createElement('div');
+      cell.className = 'kpi-cell';
+      var labelDiv = document.createElement('div');
+      labelDiv.className = 'kpi-label';
+      labelDiv.textContent = tile[0];
+      var valDiv = document.createElement('div');
+      valDiv.className = 'kpi-val';
+      valDiv.textContent = m.value || '—';
+      cell.appendChild(labelDiv);
+      cell.appendChild(valDiv);
+      row.appendChild(cell);
+    });
+    return row;
+  }
+
+  // Render the most-recent single-day data-overview snapshot into #overviewCard.
+  // When `requireSingleDay` is true, snapshots with a wider span are skipped so
+  // we don't surface a "Last 7 days" run while the dashboard is on Today.
+  function renderOverview(scrapes, opts) {
+    var card = document.getElementById('overviewCard');
+    if (!card) return;
+    var requireSingleDay = !!(opts && opts.requireSingleDay);
+    var pool = scrapes || [];
+    if (requireSingleDay) {
+      pool = pool.filter(function (s) { return spanDaysInclusive(s) === 0; });
+    }
+    if (!pool.length) {
+      card.classList.add('hidden');
+      card.innerHTML = '';
+      return;
+    }
+    card.innerHTML = '';
+    card.appendChild(buildOverviewKpiRow(pool[0].metrics || []));
+    var hasAnyTile = card.querySelector('.kpi-cell') !== null;
+    card.classList.toggle('hidden', !hasAnyTile);
+  }
+
   // ---- Public API -----------------------------------------------------
 
   global.Dashboard = {
@@ -378,6 +456,7 @@
       renderTopGmv(scrapes);
       renderTopViews(scrapes);
     },
-    renderLive: renderLive
+    renderLive: renderLive,
+    renderOverview: renderOverview
   };
 })(window);

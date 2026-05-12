@@ -64,6 +64,10 @@
       <button type="button" class="mode-btn" data-mode="live" role="tab" aria-selected="false">Live</button>
     </div>
 
+    <!-- Seller-side "Data Overview" snapshot (source:tiktok-bookmarklet-data-overview).
+         Rendered only on Today; body is rebuilt by Dashboard.renderOverview. -->
+    <section class="card kpi hidden" id="overviewCard"></section>
+
     <!-- Videos mode (creator-scrape data: source:tiktok-bookmarklet) -->
     <section class="card kpi" data-mode="videos">
       <div class="kpi-row">
