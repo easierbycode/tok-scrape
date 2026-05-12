@@ -767,7 +767,6 @@
     }
     showEmpty(false);
     loading = true;
-    els.refresh.disabled = true;
     showError('');
 
     var rangeSec = parseInt(els.range.value, 10) || 0;
@@ -861,7 +860,6 @@
       })
       .then(function () {
         loading = false;
-        els.refresh.disabled = false;
       });
   }
 
@@ -874,7 +872,6 @@
   // -------- Bind / init -------------------------------------------
 
   function bind() {
-    els.refresh.addEventListener('click', refresh);
     els.range.addEventListener('change', refresh);
     $('emptySettingsBtn').addEventListener('click', openSettings);
     $('setCancel').addEventListener('click', closeSettings);
@@ -899,6 +896,10 @@
     $('menuServerSettings').addEventListener('click', function () {
       closeAppMenu();
       openSettings();
+    });
+    $('menuVirals').addEventListener('click', function () {
+      closeAppMenu();
+      if (window.Virals && typeof window.Virals.open === 'function') window.Virals.open();
     });
     els.exportedFile.addEventListener('change', onExportedFileChosen);
 
@@ -946,7 +947,6 @@
     els.err              = $('errorBanner');
     els.settingsModal    = $('settingsModal');
     els.range            = $('rangeSel');
-    els.refresh          = $('refreshBtn');
     els.acctSelect       = $('acctSelect');
     els.acctTrigger      = $('acctTrigger');
     els.acctTriggerDot   = $('acctTriggerDot');

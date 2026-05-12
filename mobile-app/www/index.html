@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: gap: https://ssl.gstatic.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://code.highcharts.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.highcharts.com; img-src 'self' data: blob: https:; connect-src *; frame-src *;">
   <title>TokScrape Dashboard</title>
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/virals.css">
 </head>
 <body data-route="home" data-mode="videos">
   <header class="topbar">
@@ -24,13 +25,6 @@
         <option value="2592000">Last 30d</option>
         <option value="0">All time</option>
       </select>
-      <button id="refreshBtn" class="btn btn-icon" title="Refresh" aria-label="Refresh">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
-          <path d="M21 3v6h-6"></path>
-        </svg>
-      </button>
-
       <!-- Account selector: multi-select picker over the creator roster.
            Trigger shows the current scope; panel renders an "All Accounts"
            aggregate row plus one toggleable row per creator. Items are
@@ -62,6 +56,16 @@
         <div id="appMenuDropdown" class="user-dropdown hidden" role="menu">
           <button type="button" class="user-dd-item" id="menuAddExported" role="menuitem">Add Exported Data</button>
           <button type="button" class="user-dd-item" id="menuServerSettings" role="menuitem">Server Settings</button>
+          <button type="button" class="user-dd-item user-dd-item--virals" id="menuVirals" role="menuitem">
+            <span class="virals-menu-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path d="M12 2.5c1 2.8 3 4.4 4.5 6.2 1.6 1.9 2.5 3.9 2.5 6.1A7 7 0 1 1 5 14.8c0-2.2 1.2-3.5 2.2-4.5 1-1 1.7-2 1.7-3.3 1.2.7 1.9 1.9 2.1 3.2 1-1.4 1.4-3.4 1-7.7Z" fill="#ff7a3d"/>
+                <path d="M9 15.5c0-1 .5-1.8 1.2-2.4.4 1 1.2 1.4 2 1.8 1.1.6 1.8 1.5 1.8 2.7a3 3 0 1 1-6 0c0-.8.3-1.4 1-2.1Z" fill="#ffd166"/>
+              </svg>
+            </span>
+            <span class="virals-menu-label">Virals</span>
+            <span class="virals-menu-badge">NEW</span>
+          </button>
         </div>
       </div>
 
@@ -214,6 +218,22 @@
   <!-- Upload progress / status pill, shown during the xlsx -> Graylog push. -->
   <div id="uploadStatus" class="upload-status hidden" role="status" aria-live="polite"></div>
 
+  <!-- Virals view: full-bleed overlay launched from the appMenu. -->
+  <section id="viralsView" class="virals-view hidden" aria-hidden="true">
+    <header class="virals-bar">
+      <button type="button" id="viralsClose" class="btn btn-ghost virals-close" aria-label="Close Virals">&larr;</button>
+      <span class="virals-bar-title">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M12 2.5c1 2.8 3 4.4 4.5 6.2 1.6 1.9 2.5 3.9 2.5 6.1A7 7 0 1 1 5 14.8c0-2.2 1.2-3.5 2.2-4.5 1-1 1.7-2 1.7-3.3 1.2.7 1.9 1.9 2.1 3.2 1-1.4 1.4-3.4 1-7.7Z" fill="#ff7a3d"/>
+          <path d="M9 15.5c0-1 .5-1.8 1.2-2.4.4 1 1.2 1.4 2 1.8 1.1.6 1.8 1.5 1.8 2.7a3 3 0 1 1-6 0c0-.8.3-1.4 1-2.1Z" fill="#ffd166"/>
+        </svg>
+        <span>Virals</span>
+      </span>
+      <span class="virals-bar-spacer"></span>
+    </header>
+    <div id="viralsBody" class="virals-body"><!-- rendered by virals.js --></div>
+  </section>
+
   <!-- Settings modal -->
   <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="modal-card">
@@ -260,5 +280,6 @@
   <script src="js/xlsx.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/virals.js"></script>
 </body>
 </html>
