@@ -1,26 +1,31 @@
 // Users for the TokScrape dashboard.
 //
 // There's no real auth here — this is a local analytics tool that uses a single
-// Graylog API token (stored in Settings) to talk to Graylog. The roster is:
-//   - one hardcoded admin (Daniel)
-//   - members derived dynamically from Graylog: each unique `creator` value
-//     observed in the configured sources becomes a member entry.
+// Graylog API token (stored in Settings) to talk to Graylog.
 //
-// Roster drives:
-//   - what the dashboard is filtered by (members only see their own creator)
-//   - which menu items show (admins get "Admin" + "Login As...")
+// Roster:
+//   - one hidden admin (Daniel) — not surfaced in the picker; admin-only menu
+//     items render iff Users.isAdmin() is true (set by a legacy localStorage
+//     entry or the build-time preload). The admin's privileges are limited to
+//     unlocking the "Login As / Switch account" menu in app.js.
+//   - members derived from Graylog: each unique `creator` value observed in
+//     the configured sources becomes a member entry. The build-time preload
+//     can also pin handles (newly-onboarded creators waiting for their first
+//     scrape) so they always show up.
 //
-// "Login" = pick a user from a list modal. The selection is persisted in
-// localStorage under tok-scrape.auth.v1.
+// Selection model: the dashboard is "scoped" to one of:
+//   - '__all'      -- aggregate across every roster entry
+//   - ['id', ...]  -- one or more roster ids; non-empty
 //
-// The admin's "Login As..." feature sets a separate `viewAs` flag
-// (tok-scrape.viewAs.v1) that scopes the dashboard to one member without
-// changing the admin's actual identity — a banner indicates the impersonation
-// and lets the admin return to the admin view.
+// Multi-id scopes aggregate scrapes across the listed creators. The Graylog
+// query side reads getCreatorFilters() — null for '__all', or an array of
+// "@handle" strings to OR together.
+//
+// State persists in localStorage under tok-scrape.auth.v1 as { userId, scope }.
+// `userId` is legacy (admin only); `scope` is the new multi-select shape.
 //
 // Because the member list is fetched async, app.js awaits Users.ready() (which
-// resolves after the first refresh attempt) before deciding whether the
-// persisted auth points at a known user.
+// resolves after the first refresh attempt) before rendering the selector.
 
 (function (global) {
   'use strict';
@@ -29,16 +34,21 @@
   var ADMIN = {
     id:      'daniel',
     name:    'Daniel',
-    email:   'daniel@easierbycode.com',
     role:    'admin',
-    creator: null,                    // admin has no creator of their own
+    creator: null,
     avatar:  'LP'
   };
 
-  var creators = [];                  // [{id, name, role:'member', creator, avatar}]
+  // Build-time preload (mobile-app/scripts/build-preloaded.js) can publish a
+  // list of handles via a global so they show up in the picker before the
+  // first Graylog refresh and even when Graylog has no data for them yet.
+  function preloadedExtras() {
+    var seeded = global.__TOK_PRELOADED_ROSTER__;
+    return Array.isArray(seeded) ? seeded.slice() : [];
+  }
 
-  // Resolves after the first refresh() attempt (success or failure) so the app
-  // can decide post-load what to do with any persisted auth state.
+  var creators;                       // [{id, name, creator, avatar}]
+
   var readyResolve;
   var readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
   var readyFired = false;
@@ -57,36 +67,57 @@
     return {
       id:      id,
       name:    id,
-      email:   '',
       role:    'member',
       creator: handle.charAt(0) === '@' ? handle : '@' + handle,
       avatar:  handleToAvatar(handle)
     };
   }
 
+  function buildCreators(handles) {
+    var all = (handles || []).concat(preloadedExtras());
+    var seenIds = Object.create(null);
+    var out = [];
+    all.forEach(function (h) {
+      var entry = makeCreator(h);
+      if (entry && !seenIds[entry.id]) { seenIds[entry.id] = true; out.push(entry); }
+    });
+    out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    return out;
+  }
+
+  creators = buildCreators([]);
+
   // --- Storage ---------------------------------------------------------
-  var AUTH_KEY    = 'tok-scrape.auth.v1';
-  var VIEW_AS_KEY = 'tok-scrape.viewAs.v1';
+  var AUTH_KEY = 'tok-scrape.auth.v1';
 
   function readAuth() {
     try {
       var raw = localStorage.getItem(AUTH_KEY);
-      if (!raw) return null;
-      var parsed = JSON.parse(raw);
-      return parsed && parsed.userId ? parsed : null;
-    } catch (e) { return null; }
+      if (!raw) return {};
+      var p = JSON.parse(raw) || {};
+      return p && typeof p === 'object' ? p : {};
+    } catch (e) { return {}; }
   }
-  function writeAuth(userId) {
-    if (!userId) { localStorage.removeItem(AUTH_KEY); return; }
-    localStorage.setItem(AUTH_KEY, JSON.stringify({ userId: userId }));
+  function writeAuth(patch) {
+    try {
+      var cur = readAuth();
+      var next = Object.assign({}, cur, patch);
+      Object.keys(next).forEach(function (k) { if (next[k] == null) delete next[k]; });
+      localStorage.setItem(AUTH_KEY, JSON.stringify(next));
+    } catch (e) { /* private mode / quota */ }
   }
 
-  function readViewAs() {
-    try { return localStorage.getItem(VIEW_AS_KEY) || null; } catch (e) { return null; }
+  // Read scope: '__all' | non-empty array of ids. Defaults to '__all'.
+  function readScope() {
+    var p = readAuth();
+    if (p.scope === '__all') return '__all';
+    if (Array.isArray(p.scope) && p.scope.length) return p.scope.slice();
+    return '__all';
   }
-  function writeViewAs(userId) {
-    if (!userId) { localStorage.removeItem(VIEW_AS_KEY); return; }
-    localStorage.setItem(VIEW_AS_KEY, String(userId));
+  function writeScope(scope) {
+    if (scope === '__all') { writeAuth({ scope: '__all' }); return; }
+    var ids = Array.isArray(scope) ? scope.filter(Boolean) : [];
+    writeAuth({ scope: ids.length ? ids : '__all' });
   }
 
   // --- Queries ---------------------------------------------------------
@@ -98,64 +129,46 @@
     return null;
   }
 
-  function getCurrentUser() {
-    var a = readAuth();
-    return a ? byId(a.userId) : null;
-  }
-
-  function getViewAsUser() {
-    var u = getCurrentUser();
-    if (!u || u.role !== 'admin') return null;       // view-as only applies to admins
-    var vid = readViewAs();
-    return vid ? byId(vid) : null;
-  }
-
-  // The user whose data the dashboard is currently scoped to.
-  //   - Member logged in: themselves
-  //   - Admin, not impersonating: null (= aggregate view across everyone)
-  //   - Admin, impersonating @x: the impersonated member
-  function getEffectiveUser() {
-    var u = getCurrentUser();
-    if (!u) return null;
-    if (u.role === 'admin') return getViewAsUser();  // may be null -> admin aggregate
-    return u;
-  }
-
-  // Convenience: the creator handle the dashboard should filter by, or null
-  // for "no filter" (admin aggregate).
-  function getCreatorFilter() {
-    var eff = getEffectiveUser();
-    return eff ? eff.creator : null;
-  }
-
   function members() { return creators.slice(); }
-  function all()     { return [ADMIN].concat(creators); }
 
-  // --- Actions ---------------------------------------------------------
+  function isAdmin() { return readAuth().userId === ADMIN.id; }
 
-  function login(userId) {
-    if (!byId(userId)) throw new Error('Unknown user: ' + userId);
-    writeAuth(userId);
-    writeViewAs(null);  // login resets any impersonation
+  // Resolved scope: filters out ids that aren't in the current roster. May
+  // return '__all' or an array of {id,name,creator,avatar} entries.
+  function getScope() {
+    var raw = readScope();
+    if (raw === '__all') return '__all';
+    var resolved = raw.map(byId).filter(Boolean);
+    return resolved.length ? resolved : '__all';
   }
-  function logout() { writeAuth(null); writeViewAs(null); }
 
-  function loginAs(userId) {
-    var me = getCurrentUser();
-    if (!me || me.role !== 'admin') throw new Error('Only admins can Login As another user');
-    if (!userId) { writeViewAs(null); return; }
-    var target = byId(userId);
-    if (!target) throw new Error('Unknown user: ' + userId);
-    if (target.role === 'admin') throw new Error('Cannot Login As another admin');
-    writeViewAs(userId);
+  // The Graylog `creator` filter for the current scope, or null when no
+  // creator-side filtering should be applied (i.e. '__all').
+  function getCreatorFilters() {
+    var s = getScope();
+    if (s === '__all') return null;
+    return s.map(function (u) { return u.creator; });
   }
-  function clearLoginAs() { writeViewAs(null); }
+
+  // --- Mutations -------------------------------------------------------
+
+  function setScope(scope) {
+    if (scope === '__all') { writeScope('__all'); return; }
+    if (Array.isArray(scope)) { writeScope(scope.filter(Boolean)); return; }
+    writeScope([scope]);
+  }
+  function clearScope() { writeScope('__all'); }
+
+  function toggle(id) {
+    var raw = readScope();
+    var ids = raw === '__all' ? [] : raw.slice();
+    var i = ids.indexOf(id);
+    if (i === -1) ids.push(id);
+    else          ids.splice(i, 1);
+    writeScope(ids.length ? ids : '__all');
+  }
 
   // --- Refresh from Graylog -------------------------------------------
-  // Replaces the cached `creators` array with the unique creator handles
-  // observed in Graylog. Resolves with the new array; rejects if the
-  // request itself fails (the cache is left untouched in that case).
-  // Always fires Users.ready() exactly once, on first call.
   function refresh(client, lucene, rangeSeconds) {
     if (!client || typeof client.fetchCreators !== 'function') {
       fireReady();
@@ -163,14 +176,7 @@
     }
     return client.fetchCreators(lucene, rangeSeconds)
       .then(function (handles) {
-        var next = [];
-        var seenIds = Object.create(null);
-        (handles || []).forEach(function (h) {
-          var entry = makeCreator(h);
-          if (entry && !seenIds[entry.id]) { seenIds[entry.id] = true; next.push(entry); }
-        });
-        next.sort(function (a, b) { return a.name.localeCompare(b.name); });
-        creators = next;
+        creators = buildCreators(handles);
         return creators.slice();
       })
       .then(
@@ -183,18 +189,15 @@
 
   // --- Exports ---------------------------------------------------------
   global.Users = {
-    all:              all,
-    members:          members,
-    byId:             byId,
-    getCurrentUser:   getCurrentUser,
-    getViewAsUser:    getViewAsUser,
-    getEffectiveUser: getEffectiveUser,
-    getCreatorFilter: getCreatorFilter,
-    login:            login,
-    logout:           logout,
-    loginAs:          loginAs,
-    clearLoginAs:     clearLoginAs,
-    refresh:          refresh,
-    ready:            ready
+    members:           members,
+    byId:              byId,
+    isAdmin:           isAdmin,
+    getScope:          getScope,
+    getCreatorFilters: getCreatorFilters,
+    setScope:          setScope,
+    toggle:            toggle,
+    clearScope:        clearScope,
+    refresh:           refresh,
+    ready:             ready
   };
 })(window);

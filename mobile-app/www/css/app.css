@@ -265,8 +265,7 @@ select#rangeSel {
 select#rangeSel:focus-visible,
 .modal-card input[type="url"]:focus-visible,
 .modal-card input[type="password"]:focus-visible,
-.modal-card input[type="text"]:focus-visible,
-.user-row:focus-visible {
+.modal-card input[type="text"]:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
@@ -657,6 +656,140 @@ tbody tr:hover {
   margin-top: 16px;
 }
 
+/* Account selector (topbar) ----------------------------------------- */
+
+.acct-select { position: relative; }
+
+.acct-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--card, var(--muted));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--foreground);
+  font: inherit;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.acct-trigger:hover,
+.acct-trigger:focus-visible {
+  border-color: rgb(245 78 0 / 0.4);
+  outline: none;
+}
+
+.acct-trigger-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: 28vw;
+}
+.acct-trigger-k {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted-foreground);
+  line-height: 1;
+}
+.acct-trigger-v {
+  font-weight: 700;
+  font-size: 13px;
+  margin-top: 2px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-caret {
+  color: var(--muted-foreground);
+  transition: transform 0.2s ease;
+}
+.acct-select.open .acct-caret { transform: rotate(180deg); }
+
+.acct-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow:
+    0 0 0 2px rgb(26 25 22),
+    inset 0 1px 0 rgb(255 255 255 / 0.15);
+}
+
+.acct-panel {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 280px;
+  max-width: 90vw;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--popover, var(--card));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: var(--shadow-overlay);
+}
+.acct-panel h4 {
+  margin: 6px 8px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+.acct-empty {
+  margin: 6px 10px 10px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.acct-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  color: var(--foreground);
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+}
+.acct-row:hover,
+.acct-row:focus-visible {
+  background: rgb(242 241 237 / 0.06);
+  outline: none;
+}
+.acct-row-active {
+  background: rgb(245 78 0 / 0.14);
+}
+.acct-row-name {
+  flex: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-row-handle {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.acct-check {
+  color: var(--primary);
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Admin escape-hatch dropdown (hidden unless Users.isAdmin()) ------- */
+
 .user-menu { position: relative; }
 
 .user-btn {
@@ -665,11 +798,6 @@ tbody tr:hover {
   min-width: 36px;
   padding: 0;
   border-radius: 999px;
-}
-
-.user-btn .user-label,
-.user-btn .caret {
-  display: none;
 }
 
 .avatar {
@@ -704,7 +832,6 @@ tbody tr:hover {
 .user-dd-header { padding: 10px 12px 8px; }
 .user-dd-name { font-weight: 700; color: var(--foreground); }
 .user-dd-meta { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; }
-.user-dd-meta.impersonating { color: var(--warning); margin-top: 6px; font-weight: 600; }
 .user-dd-divider { height: 1px; margin: 6px 2px; background: var(--border); }
 
 .user-dd-item {
@@ -732,90 +859,11 @@ tbody tr:hover {
   font-weight: 600;
 }
 
-.view-as-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 16px;
-  margin: 0;
-  background: rgb(251 191 36 / 0.12);
-  border-bottom: 1px solid rgb(251 191 36 / 0.3);
-  color: var(--warning);
-  font-size: 13px;
-}
-
-.view-as-banner strong {
-  color: var(--foreground);
-  font-weight: 700;
-}
-
-.btn.btn-ghost {
-  min-width: auto;
-  padding: 6px 10px;
-  background: transparent;
-  border-color: rgb(251 191 36 / 0.35);
-  color: var(--warning);
-  font-size: 12px;
-}
-
-.btn.btn-ghost:hover,
-.btn.btn-ghost:focus-visible {
-  background: rgb(251 191 36 / 0.12);
-}
-
 .modal-sub {
   margin: 0 0 14px;
   color: var(--muted-foreground);
   font-size: 13px;
   line-height: 1.6;
-}
-
-.user-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.user-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px;
-  text-align: left;
-  color: var(--foreground);
-  background: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  cursor: pointer;
-}
-
-.user-row:hover {
-  background: rgb(36 36 58 / 0.7);
-}
-
-.user-row .avatar {
-  width: 34px;
-  height: 34px;
-  font-size: 13px;
-}
-
-.user-row-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.user-row-name { font-weight: 600; }
-
-.user-row-meta {
-  font-size: 12px;
-  color: var(--muted-foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .bottomnav {
@@ -1038,4 +1086,101 @@ body[data-route="profile"] .bottomnav .item[data-route="profile"] .nav-label {
   width: 100%;
   border: 0;
   background: #101012;
+}
+
+/* ------------------------------------------------------------------ *
+ * Upload status pill: shown by app.js while an xlsx export is being
+ * parsed and pushed to Graylog. Floats above the bottom-nav so it's
+ * always visible even when the user has scrolled deep into the page.
+ * ------------------------------------------------------------------ */
+.upload-status {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  z-index: 50;
+  padding: 10px 16px;
+  max-width: calc(100vw - 32px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--popover);
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: var(--shadow-overlay);
+}
+.upload-status.hidden { display: none; }
+.upload-status.is-error   { border-color: var(--destructive); color: var(--destructive); }
+.upload-status.is-success { border-color: var(--success);     color: var(--success); }
+
+/* Inline creator chip: colored dot + @handle. Used in table cells, bar
+ * labels, and the data-overview per-creator headers. The dot's hue is
+ * deterministic per handle (charts.js:colorFor) so the same creator gets
+ * the same color in the picker and in the dashboard. */
+.creator-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.creator-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.creator-chip-name { color: var(--foreground); }
+
+/* Sub-section header inside the multi-creator data-overview card. Stacks
+ * one block per creator, each with their own creator-chip + date range +
+ * KPI tiles. The first block has no top margin/border. */
+.overview-creator + .overview-creator {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.overview-creator-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* Compass "Data Overview" card: title + date range above the KPI row. */
+.overview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.overview-title {
+  font-family: var(--font-serif);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.overview-range {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+/* "est" tag next to commission values that haven't settled yet. */
+.aff-est {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgb(245 78 0 / 0.18);
+  color: var(--primary);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
