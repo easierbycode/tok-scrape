@@ -577,18 +577,26 @@
     var creatorFilter = Users.getCreatorFilter();   // null for admin aggregate
     var client = new GraylogClient({ baseUrl: s.url, token: s.token });
 
-    // Fetch both shapes in parallel so we can:
+    // Fetch all three shapes in parallel so we can:
     //   - hide the toggle when only one of (Videos, Live) has data
     //   - auto-switch the active mode if the user's chosen mode is empty
     //     but the other has data (e.g. boosteddealsdaily lands on Videos
     //     by default but only has Live scrapes)
+    //   - feed the Today-only Data Overview card with seller-side snapshots
+    //     (source:tiktok-bookmarklet-data-overview). The fetch is non-fatal
+    //     so an older Graylog mapping won't break the rest of the dashboard.
     Promise.all([
       client.fetchScrapes(s.query, rangeSec, creatorFilter),
-      client.fetchLiveAnalytics(rangeSec, creatorFilter)
+      client.fetchLiveAnalytics(rangeSec, creatorFilter),
+      client.fetchDataOverview(rangeSec, creatorFilter).catch(function (err) {
+        console.warn('fetchDataOverview failed:', err && err.message || err);
+        return [];
+      })
     ])
       .then(function (results) {
-        var videoScrapes = results[0];
-        var liveScrapes  = results[1];
+        var videoScrapes    = results[0];
+        var liveScrapes     = results[1];
+        var overviewScrapes = results[2] || [];
         var hasVideos = videoScrapes.length > 0;
         var hasLive   = liveScrapes.length > 0;
         var todayOnly = rangeSec === 86400;
@@ -598,6 +606,34 @@
         // to switch between.
         setToggleVisibility(!todayOnly && hasVideos && hasLive);
         setTodayOnlyMode(todayOnly);
+
+        // Today: source the headline KPI tiles from the data-overview
+        // snapshot (Graylog source:tiktok-bookmarklet-data-overview) instead
+        // of the per-mode scrapes. Other ranges keep the existing per-mode
+        // KPIs and hide the overview card.
+        if (todayOnly) {
+          Dashboard.renderOverview(overviewScrapes, { requireSingleDay: true });
+          var card = document.getElementById('overviewCard');
+          var hasOverview = card && !card.classList.contains('hidden');
+          // Hide the per-mode KPI cards so the overview KPIs stand alone.
+          document.querySelectorAll('.card.kpi[data-mode]').forEach(function (el) {
+            el.classList.add('hidden');
+          });
+          if (hasOverview) {
+            showEmpty(false);
+          } else {
+            var todayMsg = creatorFilter
+              ? 'No "Today" Data Overview snapshot for ' + creatorFilter + '. Run the bookmarklet on the seller-side Data Overview page with the Today filter selected.'
+              : 'No "Today" Data Overview snapshot found. Run the bookmarklet on the seller-side Data Overview page with the Today filter selected.';
+            showEmpty(true, todayMsg);
+          }
+          return;
+        }
+        // Non-Today ranges: hide overview card, restore per-mode KPI cards.
+        Dashboard.renderOverview([]);
+        document.querySelectorAll('.card.kpi[data-mode]').forEach(function (el) {
+          el.classList.remove('hidden');
+        });
 
         var mode = getMode();
         if (mode === 'videos' && !hasVideos && hasLive)  { setMode('live');   mode = 'live'; }

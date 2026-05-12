@@ -192,6 +192,46 @@
       });
   };
 
+  // Pull seller-side Compass "Data Overview" snapshots
+  // (source:tiktok-bookmarklet-data-overview). Each scrape is a single page
+  // capture — KPI tiles plus an optional recent-livestreams table. Returned
+  // newest-first so the renderer can pick scrapes[0] for "latest".
+  GraylogClient.prototype.fetchDataOverview = function (rangeSeconds, creatorFilter) {
+    var fields = [
+      'creator', 'page', 'scrapedAt',
+      'date_label', 'date_start', 'date_end',
+      'metrics_count', 'metrics_json'
+    ];
+    var base  = 'source:tiktok-bookmarklet-data-overview';
+    var query = base;
+    if (creatorFilter) {
+      var safe = String(creatorFilter).replace(/"/g, '\\"');
+      query = '(' + base + ') AND creator:"' + safe + '"';
+    }
+    return this.search(query, rangeSeconds, fields, 200)
+      .then(function (resp) {
+        var msgs = (resp && resp.messages) || [];
+        return msgs.map(function (entry) {
+          var m = entry.message || {};
+          var scrape = {
+            timestamp:  m.timestamp || m.scrapedAt || null,
+            creator:    m.creator   || '',
+            page:       m.page      || '',
+            scrapedAt:  m.scrapedAt || m.timestamp || '',
+            dateLabel:  m.date_label || '',
+            dateStart:  m.date_start || '',
+            dateEnd:    m.date_end   || '',
+            metrics:    []
+          };
+          if (m.metrics_json) {
+            try { scrape.metrics = JSON.parse(m.metrics_json) || []; }
+            catch (e) { scrape.metrics = []; scrape._metricsParseError = e.message; }
+          }
+          return scrape;
+        });
+      });
+  };
+
   // Pull the unique set of `creator` handles observed across both the video
   // bookmarklet source (configurable via Settings.query) and the seller-side
   // livestream-analytics source. Used to populate the user/login roster.
