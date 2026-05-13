@@ -264,6 +264,12 @@
   function close() {
     var view = document.getElementById('viralsView');
     if (!view) return;
+    // Move focus out of the subtree before flipping aria-hidden, otherwise
+    // the close button (still focused) would sit under aria-hidden=true and
+    // browsers warn (and assistive tech gets confused).
+    if (view.contains(document.activeElement) && document.activeElement.blur) {
+      document.activeElement.blur();
+    }
     view.classList.add('hidden');
     view.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('virals-open');
