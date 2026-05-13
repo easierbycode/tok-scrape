@@ -88,6 +88,7 @@
   function applyTheme() {
     if (!global.Highcharts) return;
     Highcharts.setOptions({
+      accessibility: { enabled: false },
       colors: [
         cssVar('--primary', '#f54e00'),
         cssVar('--secondary', '#24243a'),
