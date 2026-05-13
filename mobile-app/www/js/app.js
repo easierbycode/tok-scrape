@@ -101,8 +101,12 @@
   // Collapse the dashboard to just the Data Overview card. Used on the "Today"
   // range — daily charts and tables aren't meaningful for a single point, so
   // we surface the overview KPI tiles only.
+  //
+  // Scoped to section[data-mode] (the per-mode card sections). A bare
+  // [data-mode] selector also matches <body data-mode="videos"> — hiding the
+  // body via .hidden { display:none !important } blanks the whole page.
   function setTodayOnlyMode(on) {
-    document.querySelectorAll('[data-mode], .affiliate-block, #modeToggle')
+    document.querySelectorAll('section[data-mode], .affiliate-block, #modeToggle')
       .forEach(function (el) { el.classList.toggle('hidden', on); });
   }
 
