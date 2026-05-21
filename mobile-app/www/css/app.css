@@ -1172,6 +1172,69 @@ body[data-route="profile"] .bottomnav .item[data-route="profile"] .nav-label {
   color: var(--muted-foreground);
 }
 
+/* Creator Analytics header: extends overview-head with a Combine toggle on
+   the right. Replaces the date range's flex-end placement by anchoring the
+   button as the last child. */
+.ca-head .overview-range { margin-left: auto; }
+.ca-combine-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ca-combine-btn:hover { background: var(--muted); }
+.ca-combine-btn:active { transform: translateY(1px); }
+
+/* Partner Center "Creator Analytics" table: 10 metric columns + creator name.
+   First column is sticky so handles stay visible while users swipe horizontally
+   through the wider metric set. */
+.ca-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.ca-table th,
+.ca-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.ca-table thead th {
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  background: var(--card);
+}
+.ca-table th:first-child,
+.ca-table td.ca-name {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--card);
+  z-index: 1;
+}
+.ca-table td.ca-name { min-width: 160px; }
+.ca-username {
+  display: block;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.ca-display {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
 /* "est" tag next to commission values that haven't settled yet. */
 .aff-est {
   display: inline-block;

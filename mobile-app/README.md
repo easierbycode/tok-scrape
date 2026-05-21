@@ -144,11 +144,17 @@ If you're running Graylog without that, add it (or set the equivalent values in 
 
 ## CI / distribution
 
-`.github/workflows/build-apk.yml` builds a debug APK on every push to `main` that touches `mobile-app/**` and publishes it to the `gh-pages` branch as `app.apk`. With GitHub Pages enabled on the `gh-pages` branch and your custom domain (`easierbycode.com`) wired up, the APK is reachable at:
+`.github/workflows/build-apk-preloaded.yml` builds per-member, pre-loaded debug APKs and publishes them to the `gh-pages` branch. With GitHub Pages enabled on `gh-pages` and the custom domain (`easierbycode.com`) wired up, each APK is reachable at `https://easierbycode.com/tok-scrape/<tag>.apk` — for example the default multimember build:
 
-> https://easierbycode.com/tok-scrape/app.apk
+> https://easierbycode.com/tok-scrape/boosteddealsdaily+2.apk
 
-The workflow also uploads the APK as a workflow run artifact (named `app-apk`) so reviewers can grab it from the Actions UI without waiting for Pages to update.
+Auto-triggers on every push to `main` that touches `mobile-app/**` and builds the default `boosteddealsdaily,prettyplug.x,wizardofdealz` roster (filename tag `boosteddealsdaily+2`). Manual `workflow_dispatch` runs accept any `member_id` input:
+
+- a single id (`wizardofdealz`) → `wizardofdealz.apk`
+- a comma-separated list (`boosteddealsdaily,prettyplug.x,wizardofdealz`) → `boosteddealsdaily+2.apk`
+- `all` → fans out across the matrix and publishes one APK per roster entry
+
+Each build also uploads its APK as a workflow run artifact (named `app-<tag>`) so reviewers can grab it from the Actions UI without waiting for Pages to update. The gh-pages publish uses `keep_files: true`, so any existing files on that branch (`app.apk`, `index.html`, …) are preserved across runs.
 
 ## Known limitations
 

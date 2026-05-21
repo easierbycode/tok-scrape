@@ -4,7 +4,7 @@
 
 const ROUTES = [
   {
-    test: /https:\/\/partner\.us\.tiktokshop\.com\/compass\/video-analysis/,
+    test: /https:\/\/partner\.us\.tiktokshop\.com\/compass\/(creator-analysis|custom-report)/,
     files: ['config.js', 'scrape-creator.js'],
     label: 'creator'
   },

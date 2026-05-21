@@ -27,6 +27,11 @@ const ROUTES = [
     label: 'streamer'
   },
   {
+    test: /https:\/\/shop\.tiktok\.com\/streamer\/compass\/data-overview\/view/,
+    files: ['config.js', 'scrape-data-overview.js'],
+    label: 'data-overview'
+  },
+  {
     test: /https:\/\/shop\.tiktok\.com\/streamer\/compass\/livestream-analytics\/view/,
     files: ['config.js', 'scrape-analytics.js'],
     label: 'analytics'

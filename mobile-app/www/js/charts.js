@@ -509,6 +509,7 @@
     ['Items sold',      ['Items sold']],
     ['Product views',   ['Product views']],
     ['Product clicks',  ['Product clicks']],
+    ['Commission base', ['Commission base']],
     ['Est. commission', ['Est. commission']]
   ];
 
@@ -759,6 +760,150 @@
     renderAffiliateTable(orders);
   }
 
+  // ---- Creator Analytics renderer (Partner Center /compass/creator-analysis)
+
+  // Format the date-range header for a creator-analysis snapshot.
+  function caRangeText(s) {
+    if (!s) return '';
+    if (s.dateStart && s.dateEnd && s.dateStart !== s.dateEnd) return s.dateStart + ' \u2192 ' + s.dateEnd;
+    return s.dateStart || s.dateEnd || '';
+  }
+
+  // Parse a TikTok-formatted cell ("$5,776.76", "171", "4.29%") into a number
+  // plus the kind of value it represents. We need the kind so combining can do
+  // the right aggregation per column (sum money/ints, average rates).
+  function parseCaValue(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    if (!s) return { kind: 'empty', num: NaN };
+    var isPct   = /%$/.test(s);
+    var isMoney = /^\$/.test(s);
+    var n = Number(s.replace(/[$,%\s]/g, ''));
+    if (isNaN(n)) return { kind: 'text', num: NaN };
+    if (isPct)   return { kind: 'pct',   num: n };
+    if (isMoney) return { kind: 'money', num: n };
+    return { kind: 'int', num: n };
+  }
+  function fmtCaMoney(n) {
+    return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtCaPct(n) {
+    var d = Math.abs(n) >= 100 ? 0 : (Math.abs(n) >= 10 ? 1 : 2);
+    return n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }) + '%';
+  }
+
+  // Sum money/integer columns; average percentage columns. Without per-creator
+  // impression counts on the dashboard, an unweighted mean is the most honest
+  // summary we can offer for CTR / CTOR / RPM.
+  function combineCreatorRow(creators, columns) {
+    return columns.map(function (col) {
+      var kind = null;
+      var sum = 0;
+      var count = 0;
+      var any = false;
+      creators.forEach(function (c) {
+        var p = parseCaValue(c[col]);
+        if (p.kind === 'empty' || p.kind === 'text') return;
+        any = true;
+        if (!kind) kind = p.kind;
+        sum += p.num;
+        count += 1;
+      });
+      if (!any) return '';
+      if (kind === 'money') return fmtCaMoney(sum);
+      if (kind === 'pct')   return fmtCaPct(count ? sum / count : 0);
+      return Math.round(sum).toLocaleString();
+    });
+  }
+
+  function renderCreatorAnalytics(scrapes) {
+    var card = document.getElementById('creatorAnalysisCard');
+    if (!card) return;
+    var latest = (scrapes && scrapes.length) ? scrapes[0] : null;
+    if (!latest || !latest.creators || !latest.creators.length) {
+      card.classList.add('hidden');
+      card.innerHTML = '';
+      return;
+    }
+
+    // Headers: prefer the columns array we stashed at scrape time so reordering
+    // on the source page carries through. Fall back to the union of keys on
+    // the creators if columns is missing (older scrapes).
+    var columns = (latest.columns && latest.columns.length) ? latest.columns : (function () {
+      var seen = Object.create(null);
+      var out = [];
+      latest.creators.forEach(function (c) {
+        Object.keys(c).forEach(function (k) {
+          if (k === 'username' || k === 'displayName' || seen[k]) return;
+          seen[k] = true; out.push(k);
+        });
+      });
+      return out;
+    })();
+
+    // First render defaults to the combined view; subsequent refreshes
+    // preserve whatever the user last toggled.
+    if (!('combined' in card.dataset)) card.dataset.combined = '1';
+
+    function paint() {
+      var combined = card.dataset.combined === '1';
+      var btnLabel = combined ? 'Split' : 'Combine';
+
+      var headHtml =
+        '<div class="overview-head ca-head">' +
+          '<span class="overview-title">Creator Analytics</span>' +
+          '<span class="overview-range">' + escapeHtml(caRangeText(latest)) + '</span>' +
+          '<button type="button" class="ca-combine-btn" data-action="ca-toggle">' + btnLabel + '</button>' +
+        '</div>';
+
+      var bodyHtml;
+      if (combined) {
+        var totals = combineCreatorRow(latest.creators, columns);
+        var totalTds = totals.map(function (v) { return '<td>' + escapeHtml(v) + '</td>'; }).join('');
+        bodyHtml =
+          '<tr>' +
+            '<td class="ca-name">' +
+              '<span class="ca-username">All creators</span>' +
+              '<span class="ca-display">' + latest.creators.length + ' combined</span>' +
+            '</td>' + totalTds +
+          '</tr>';
+      } else {
+        bodyHtml = latest.creators.map(function (c) {
+          var tds = columns.map(function (col) {
+            return '<td>' + escapeHtml(c[col] || '') + '</td>';
+          }).join('');
+          return '<tr>' +
+            '<td class="ca-name">' +
+              '<span class="ca-username">' + escapeHtml(c.username || '') + '</span>' +
+              '<span class="ca-display">' + escapeHtml(c.displayName || '') + '</span>' +
+            '</td>' + tds +
+          '</tr>';
+        }).join('');
+      }
+
+      var theadHtml = '<tr><th>Creator</th>' +
+        columns.map(function (col) { return '<th>' + escapeHtml(col) + '</th>'; }).join('') +
+        '</tr>';
+
+      card.innerHTML =
+        headHtml +
+        '<div class="tablewrap">' +
+          '<table class="ca-table">' +
+            '<thead>' + theadHtml + '</thead>' +
+            '<tbody>' + bodyHtml + '</tbody>' +
+          '</table>' +
+        '</div>';
+      card.classList.remove('hidden');
+
+      var btn = card.querySelector('[data-action="ca-toggle"]');
+      if (btn) btn.addEventListener('click', function () {
+        card.dataset.combined = combined ? '' : '1';
+        paint();
+      });
+    }
+
+    paint();
+  }
+
   function shorten(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '\u2026' : s; }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) {
     return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
@@ -777,6 +922,7 @@
     },
     renderLive: renderLive,
     renderAffiliate: renderAffiliate,
-    renderOverview: renderOverview
+    renderOverview: renderOverview,
+    renderCreatorAnalytics: renderCreatorAnalytics
   };
 })(window);

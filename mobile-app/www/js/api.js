@@ -253,6 +253,42 @@
       });
   };
 
+  // Pull Partner Center creator-analysis snapshots
+  // (source:tiktok-bookmarklet-creator-analysis). Each scrape is a single page
+  // capture — one row per creator currently in scope on the dashboard, with
+  // the 10 metric columns intact. Returned newest-first.
+  GraylogClient.prototype.fetchCreatorAnalytics = function (rangeSeconds) {
+    var fields = [
+      'scrapedAt', 'date_start', 'date_end',
+      'columns_json', 'creators_count', 'creators_json'
+    ];
+    var query = 'source:tiktok-bookmarklet-creator-analysis';
+    return this.search(query, rangeSeconds, fields, 200)
+      .then(function (resp) {
+        var msgs = (resp && resp.messages) || [];
+        return msgs.map(function (entry) {
+          var m = entry.message || {};
+          var scrape = {
+            timestamp: m.timestamp || m.scrapedAt || null,
+            scrapedAt: m.scrapedAt || m.timestamp || '',
+            dateStart: m.date_start || '',
+            dateEnd:   m.date_end   || '',
+            columns:   [],
+            creators:  []
+          };
+          if (m.columns_json) {
+            try { scrape.columns = JSON.parse(m.columns_json) || []; }
+            catch (e) { scrape.columns = []; scrape._columnsParseError = e.message; }
+          }
+          if (m.creators_json) {
+            try { scrape.creators = JSON.parse(m.creators_json) || []; }
+            catch (e) { scrape.creators = []; scrape._creatorsParseError = e.message; }
+          }
+          return scrape;
+        });
+      });
+  };
+
   // Pull affiliate-export rows ingested via "Add Exported Data" (xlsx upload).
   // Source: tiktok-affiliate-export (one GELF message per order row). Returns
   // an array of order objects with the same keys we send up in postGelf below.
