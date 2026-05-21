@@ -994,6 +994,15 @@
       renderAcctTrigger();
       if (!els.acctPanel.classList.contains('hidden')) renderAcctPanel();
     });
+
+    // Signal ota.js that init completed. ota.js was watching for this to
+    // clear its "previous boot hung" flag and to skip the bad-bundle
+    // recovery path. The OTA check itself is deferred a few seconds so
+    // it doesn't compete with the dashboard's first paint.
+    window.__OTA_INIT_DONE__ = true;
+    if (window.OTA && typeof OTA.checkForUpdate === 'function') {
+      setTimeout(function () { OTA.checkForUpdate(); }, 5000);
+    }
   }
 
   if (document.readyState === 'loading') {

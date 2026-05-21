@@ -158,6 +158,98 @@ Each build also uploads its APK as a workflow run artifact (named `app-<tag>`) s
 
 The two required repo secrets are `GRAYLOG_URL_PROD` and `GRAYLOG_TOKEN_PROD` — the workflow passes them to `scripts/build-preloaded.js` as `GRAYLOG_URL` / `GRAYLOG_TOKEN`.
 
+## Over-the-air web updates
+
+The APK ships with `www/js/ota.js`, a small updater modeled on Ionic
+Appflow Live Updates. The native shell stays the same, but everything
+under `www/` (HTML/JS/CSS) can be replaced by a newer bundle fetched at
+runtime — no Play Store / sideload roundtrip for UI or logic changes.
+
+### What ships
+
+- `.github/workflows/publish-web-bundle.yml` — auto-runs on every push to
+  `main` that touches `mobile-app/www/**` or `mobile-app/config.xml`. It
+  zips `www/` (minus `js/preload.js` and `vendor/`) into
+  `bundle-<sha>.zip`, writes a `manifest.json` next to it with the
+  bundle version, SHA-256, size, and `minNativeVersion`, and commits
+  both to the repo root. GitHub Pages then serves them at:
+  - `https://easierbycode.com/tok-scrape/manifest.json`
+  - `https://easierbycode.com/tok-scrape/bundle-<sha>.zip`
+- `mobile-app/www/js/ota.js` — on every launch, decides whether to load
+  the app from the APK's `www/` or from a previously-downloaded OTA
+  bundle in `cordova.file.dataDirectory/bundles/active/`. After the
+  dashboard renders, fetches `manifest.json` in the background; if it
+  advertises a new version, downloads the zip, verifies SHA-256,
+  extracts to `bundles-staging/<version>/`, and atomically promotes it
+  to `bundles/active/`. Used on the next launch (silent strategy).
+- `mobile-app/scripts/stamp-bundle-version.js` — Cordova `before_prepare`
+  / `after_prepare` hook that writes the current git SHA and the
+  `<widget version>` into `www/js/version.js` so `ota.js` knows what's
+  baked in.
+
+### What's preserved across updates
+
+- `js/preload.js` — the per-APK Graylog URL / token / scope seed
+  written by `scripts/build-preloaded.js`. The OTA bundle deliberately
+  excludes it, so a pre-loaded APK keeps its member identity across any
+  number of OTA updates. To change a member's seed, rebuild and
+  redistribute the APK.
+- `vendor/jszip.min.js` — used by `ota.js` to unzip downloads. Always
+  served from the APK via the WebView asset loader, so the OTA bundle
+  doesn't ship a copy.
+
+### What requires a real APK release
+
+Anything that changes the native shell:
+
+- A new Cordova plugin or `config.xml` preference.
+- A new file under `www/` that isn't already in the `APP_JS` / `APP_CSS`
+  arrays at the top of `ota.js`. (Those arrays are the load list; OTA
+  bundles can change the *contents* of existing files but can't
+  introduce new ones the old shell doesn't know to load.)
+- Anything else where the JS would start to depend on a native API the
+  old APK can't provide.
+
+When you change any of the above, bump `<widget version="...">` in
+`config.xml`. The next bundle's `manifest.json` will carry the new value
+as `minNativeVersion`; older APKs will see the gate and skip the
+update.
+
+### Rollback
+
+To unship a bad bundle, revert (or hand-edit) the latest commit on
+`main` so `manifest.json` points back at a previous `bundle-<sha>.zip`.
+The next launch on each device will see the older `version` field and
+either ignore the bundle (if it matches what's baked into the APK) or
+restage the old one.
+
+Devices that have already downloaded the bad bundle and don't yet have
+the rollback also have a built-in failsafe: if the OTA bundle's boot
+hangs or throws before app init finishes, `ota.js` marks it bad in
+`localStorage` and falls back to the APK shell on the next launch.
+
+### Local smoke test
+
+```bash
+cd mobile-app
+npm install         # picks up cordova-plugin-file
+cordova run android # before_prepare stamps version.js with the local SHA
+```
+
+Tail logs with `adb logcat | grep -E 'OTA|CONSOLE'`. You should see:
+
+```
+OTA: boot useOTA=false bundleVersion=<sha> ... previousBootHung=false skipOTA=false
+OTA: init complete
+OTA: checking https://easierbycode.com/tok-scrape/manifest.json?ts=...
+OTA: up to date (<sha>)     # if the published bundle matches HEAD
+```
+
+To force a download in dev, hand-edit the published `manifest.json` to
+bump `version` and `sha256` to match a hand-built zip you serve from a
+tunnel, then restart the app. After the second restart the new bundle
+should be active (`OTA: boot useOTA=true ...`).
+
 ## Known limitations
 
 - **Debug-signed APK only.** Sideload requires "Install unknown apps" on the source app (your browser/file manager). For Play Store distribution you'll need a release keystore — add it as a GitHub Actions secret and switch the workflow to `cordova build android --release` with signing config in `build.json`.

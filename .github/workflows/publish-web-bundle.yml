@@ -1,0 +1,161 @@
+# Publish an OTA web bundle that pre-loaded APKs fetch at runtime via
+# www/js/ota.js. The bundle is the contents of mobile-app/www/ (minus
+# js/preload.js and the vendor/ JSZip drop, which stay APK-only) zipped
+# up, paired with a manifest.json that lists the version, SHA-256 and
+# minimum native version. Both files are committed to the repo root so
+# GitHub Pages serves them from easierbycode.com/tok-scrape -- the same
+# pattern the existing build-apk-preloaded.yml uses for *.apk.
+#
+# Triggered on every push to main that touches mobile-app/www/** or
+# mobile-app/config.xml. The workflow's paths filter doesn't match root
+# manifest.json / bundle-*.zip, so the auto-commit doesn't loop the build
+# (same trick as the APK workflow).
+#
+# Note: a commit that only touches mobile-app/www/js/preload.js still
+# triggers a publish even though preload.js isn't in the OTA zip. The
+# resulting bundle has identical contents to the previous one but a new
+# filename, so each device redownloads it once. Not a correctness issue;
+# can be optimized later by hashing the zip contents and skipping the
+# commit if unchanged.
+name: publish-web-bundle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile-app/www/**'
+      - 'mobile-app/config.xml'
+      - '.github/workflows/publish-web-bundle.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-web-bundle
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute bundle version and native version
+        id: vars
+        run: |
+          set -euo pipefail
+          version=${GITHUB_SHA::7}
+          # Native version comes from <widget version="..."> in config.xml.
+          native=$(grep -oE '<widget\b[^>]*\sversion=("|'"'"')[^"'"'"']+' mobile-app/config.xml \
+                   | sed -E 's/.*version=("|'"'"')([^"'"'"']+).*/\2/' \
+                   | head -n1)
+          if [ -z "$native" ]; then native="0.0.0"; fi
+          echo "version=$version"  >> "$GITHUB_OUTPUT"
+          echo "native=$native"    >> "$GITHUB_OUTPUT"
+          echo "bundle: $version  native: $native"
+
+      # Stamp version.js in the bundle so the OTA module loaded out of this
+      # bundle reports the right __BUNDLE_VERSION__ once it's active. The
+      # APK ships its own version.js (rewritten by the same script during
+      # `cordova prepare`) -- this stamp is only for the OTA copy.
+      - name: Stamp www/js/version.js for the bundle
+        env:
+          BUNDLE_VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          node mobile-app/scripts/stamp-bundle-version.js
+
+      # Zip mobile-app/www/ minus the things that must stay APK-only:
+      #   - js/preload.js  -- per-build seed (Graylog URL/token/scope)
+      #   - vendor/        -- JSZip; the APK shell always provides it
+      #                       via the WebView asset loader, so the bundle
+      #                       doesn't need to ship a copy.
+      - name: Build bundle.zip
+        id: zip
+        run: |
+          set -euo pipefail
+          version=${{ steps.vars.outputs.version }}
+          out="bundle-${version}.zip"
+          (cd mobile-app/www && zip -r -X "../../${out}" . \
+              -x 'js/preload.js' \
+              -x 'js/preload.js.example' \
+              -x 'vendor/*')
+          ls -lh "$out"
+          sha=$(sha256sum "$out" | awk '{print $1}')
+          size=$(stat -c%s "$out")
+          echo "zip=$out"     >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha"  >> "$GITHUB_OUTPUT"
+          echo "size=$size"   >> "$GITHUB_OUTPUT"
+          echo "sha256: $sha   size: $size bytes"
+
+      - name: Write manifest.json
+        env:
+          VERSION:   ${{ steps.vars.outputs.version }}
+          NATIVE:    ${{ steps.vars.outputs.native }}
+          ZIP:       ${{ steps.zip.outputs.zip }}
+          SHA256:    ${{ steps.zip.outputs.sha256 }}
+          SIZE:      ${{ steps.zip.outputs.size }}
+        run: |
+          set -euo pipefail
+          published_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cat > manifest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "bundleUrl": "https://easierbycode.com/tok-scrape/${ZIP}",
+            "sha256": "${SHA256}",
+            "sizeBytes": ${SIZE},
+            "minNativeVersion": "${NATIVE}",
+            "publishedAt": "${published_at}"
+          }
+          EOF
+          cat manifest.json
+
+      # Commit manifest.json + the new bundle-<sha>.zip to main. The
+      # workflow's `paths:` filter excludes both, so this commit doesn't
+      # re-fire the build. Old bundle-*.zip files are left in place so
+      # old APKs that already started downloading them can finish.
+      #
+      # Retry-with-rebase loop: the parallel build-apk-preloaded workflow
+      # also auto-commits to main (root *.apk) on the same trigger paths,
+      # so a non-fast-forward push is possible. The retry pulls --rebase
+      # before re-pushing; the conflicting files are disjoint (root *.apk
+      # vs root manifest.json/bundle-*.zip), so the rebase is clean.
+      - name: Commit bundle + manifest to main
+        run: |
+          set -euo pipefail
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manifest.json '${{ steps.zip.outputs.zip }}'
+          if git diff --staged --quiet; then
+            echo 'Bundle + manifest unchanged -- skipping commit.'
+            exit 0
+          fi
+          git commit -m "chore: publish web bundle ${GITHUB_SHA::7}
+
+          Auto-generated by publish-web-bundle.yml. The workflow's path
+          filter excludes manifest.json + bundle-*.zip so this commit
+          doesn't loop the build.
+          [skip ci]"
+          for attempt in 1 2 3 4; do
+            if git push origin HEAD:main; then
+              echo "Pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "Push attempt $attempt failed -- pulling latest and retrying"
+            git pull --rebase origin main
+          done
+          echo 'Push failed after 4 attempts'
+          exit 1
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-bundle-${{ steps.vars.outputs.version }}
+          path: |
+            ${{ steps.zip.outputs.zip }}
+            manifest.json
+          if-no-files-found: error
+          retention-days: 30
