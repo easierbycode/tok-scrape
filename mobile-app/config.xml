@@ -56,6 +56,27 @@
         <icon density="xxxhdpi" src="res/icon/android/xxxhdpi.png" />
     </platform>
 
+    <platform name="ios">
+        <preference name="deployment-target" value="13.0" />
+        <preference name="WKWebViewOnly" value="true" />
+        <!-- StatusBarStyle is honored by cordova-plugin-statusbar on iOS only
+             when the view controller doesn't override appearance. -->
+        <preference name="UIViewControllerBasedStatusBarAppearance" value="false" />
+
+        <!-- iOS ATS equivalent of Android's android:usesCleartextTraffic=true:
+             the WebView must be allowed to hit user-supplied Graylog hosts on
+             plain HTTP (LAN IPs, ngrok subdomains, etc.). -->
+        <edit-config file="*-Info.plist" mode="merge" target="NSAppTransportSecurity">
+            <dict>
+                <key>NSAllowsArbitraryLoads</key>
+                <true/>
+            </dict>
+        </edit-config>
+
+        <!-- Single 1024x1024 master; cordova-ios generates the AppIcon set. -->
+        <icon src="res/icon-source.png" />
+    </platform>
+
     <plugin name="cordova-plugin-statusbar" spec="^4.0.0" />
     <plugin name="cordova-plugin-whitelist" spec="^1.3.5" />
     <plugin name="cordova-plugin-splashscreen" spec="^6.0.2" />

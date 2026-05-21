@@ -16,12 +16,18 @@
     "prebuild:preloaded:release": "node scripts/check-android-sdk.js",
     "build:preloaded:release": "RELEASE=1 node scripts/build-preloaded.js",
     "prerun": "node scripts/check-android-sdk.js",
-    "run": "cordova run android"
+    "run": "cordova run android",
+    "build:ios": "cordova build ios",
+    "build:ios:release": "cordova build ios --release",
+    "build:preloaded:ios": "PLATFORM=ios node scripts/build-preloaded.js",
+    "build:preloaded:ios:release": "MEMBER_ID=\"${MEMBER_ID:-boosteddealsdaily,prettyplug.x,wizardofdealz}\" PLATFORM=ios RELEASE=1 node scripts/build-preloaded.js",
+    "run:ios": "cordova run ios"
   },
   "private": true,
   "devDependencies": {
     "cordova": "^12.0.0",
     "cordova-android": "^15.0.0",
+    "cordova-ios": "^7.0.0",
     "cordova-plugin-file": "^8.1.3",
     "cordova-plugin-splashscreen": "^6.0.2",
     "cordova-plugin-statusbar": "^4.0.0",
@@ -29,7 +35,8 @@
   },
   "cordova": {
     "platforms": [
-      "android"
+      "android",
+      "ios"
     ],
     "plugins": {
       "cordova-plugin-statusbar": {},

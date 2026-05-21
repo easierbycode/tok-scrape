@@ -1,6 +1,6 @@
-# TokScrape Dashboard (Cordova Android)
+# TokScrape Dashboard (Cordova Android + iOS)
 
-A small Cordova Android app that visualizes TikTok Shop scrape data ingested into a Graylog instance. The dashboard pulls messages via Graylog's Universal Search REST API, parses the `metrics_json` and `videos_json` fields the bookmarklet writes, and renders a set of Highcharts panels.
+A small Cordova app (Android + iOS) that visualizes TikTok Shop scrape data ingested into a Graylog instance. The dashboard pulls messages via Graylog's Universal Search REST API, parses the `metrics_json` and `videos_json` fields the bookmarklet writes, and renders a set of Highcharts panels.
 
 ## Layout
 
@@ -75,6 +75,8 @@ Views distributions that drift day-to-day.
 
 ## Local build
 
+### Android
+
 Requirements: Node 20+, JDK 17, Android SDK with `cmdline-tools;latest`, `platform-tools`, `platforms;android-35` and `build-tools;35.0.0`, environment variable `ANDROID_HOME` set.
 
 ```bash
@@ -93,7 +95,7 @@ error. Run it directly any time with `npm run doctor`.
 
 For a quick run on a connected device or the emulator: `cordova run android`.
 
-### Windows setup gotchas
+#### Windows setup gotchas
 
 cordova-android 15 shells out to `apkanalyzer` (from cmdline-tools) at build
 time and to `adb` (from platform-tools) at run time. A fresh Android Studio
@@ -120,6 +122,33 @@ To fix:
    - `%ANDROID_HOME%\platform-tools`
 4. **Open a new terminal** (PATH changes don't propagate to existing shells)
    and re-run `npm run doctor` from `mobile-app/` to verify.
+
+### iOS
+
+Requirements: macOS, Node 20+, Xcode 15+ with Command Line Tools (`xcode-select --install`), and CocoaPods (`sudo gem install cocoapods` or `brew install cocoapods`). `cordova-ios` 7 builds a WKWebView-only app and targets iOS 13+.
+
+```bash
+cd mobile-app
+npm install -g cordova@latest
+cordova platform add ios@latest
+npm run build:ios       # debug build for the iOS Simulator
+# .app bundle lives at: platforms/ios/build/emulator/TokScrape Dashboard.app
+```
+
+Opening `platforms/ios/build/TokScrape Dashboard.xcworkspace` in Xcode is the easiest way to add a signing team and run on a physical device. For a quick simulator launch: `npm run run:ios`.
+
+Per-member preloaded iOS builds work the same way as Android — drop in `PLATFORM=ios`:
+
+```bash
+MEMBER_ID=wizardofdealz \
+GRAYLOG_URL=http://10.0.2.2:9000 \
+GRAYLOG_TOKEN=...token... \
+npm run build:preloaded:ios
+# -> mobile-app/dist/app-wizardofdealz.ipa            (if a signed .ipa was produced)
+# -> mobile-app/dist/app-wizardofdealz.app.zip        (otherwise, the .app bundle zipped)
+```
+
+Without a configured signing team Cordova produces an unsigned `.app` bundle (run on the iOS Simulator only). To produce a distributable `.ipa`, add a `build.json` at `mobile-app/build.json` with your development team / provisioning profile (see [Cordova iOS signing docs](https://cordova.apache.org/docs/en/latest/guide/platforms/ios/index.html#signing-an-app)).
 
 ## Configure at runtime
 

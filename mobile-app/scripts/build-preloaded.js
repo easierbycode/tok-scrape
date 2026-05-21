@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Build a per-member, pre-loaded APK.
+/* Build a per-member, pre-loaded app for Android or iOS.
  *
  * Reads:
  *   MEMBER_ID            (required)  -- one or more comma-separated handles or
@@ -19,10 +19,13 @@
  *                                       via the Graylog Views API
  *   COMMON_DASHBOARD_NAME (optional, default "Seller Comparison")
  *   RELEASE              (optional)  -- if "1", builds --release
+ *   PLATFORM             (optional)  -- "android" (default) or "ios"
  *
  * Writes:
  *   www/js/preload.js                    -- generated seed (overwrites stub)
- *   dist/app-<first-id>[+N].apk          -- copy of the cordova-built APK
+ *   Android: dist/app-<first-id>[+N].apk          -- copy of the cordova-built APK
+ *   iOS:     dist/app-<first-id>[+N].ipa          -- if cordova produced an .ipa
+ *            dist/app-<first-id>[+N].app.zip      -- otherwise a zipped .app bundle
  *
  * Always restores www/js/preload.js from preload.js.example after the build,
  * so the working tree stays clean.
@@ -228,6 +231,34 @@ function restorePreload() {
   }
 }
 
+// --- platform output discovery ----------------------------------------
+// cordova-ios drops artifacts in a few different places depending on the
+// signing config and whether it built for device or simulator. Walk the
+// build tree and return the first matching path we recognise.
+function findIosArtifact(release) {
+  const buildRoot = path.join(ROOT, 'platforms', 'ios', 'build');
+  if (!fs.existsSync(buildRoot)) return null;
+
+  const results = { ipa: null, app: null };
+  (function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+    catch (_) { return; }
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name.endsWith('.app')) { results.app = results.app || p; continue; }
+        walk(p);
+      } else if (e.isFile() && e.name.endsWith('.ipa')) {
+        results.ipa = results.ipa || p;
+      }
+    }
+  })(buildRoot);
+
+  // Prefer .ipa (signed, distributable). Fall back to .app (raw bundle).
+  return results.ipa || results.app || null;
+}
+
 // --- main --------------------------------------------------------------
 (async function main() {
   const memberIds   = parseMemberIds(envOrFail('MEMBER_ID'));
@@ -237,6 +268,10 @@ function restorePreload() {
   const dashboardName = (process.env.COMMON_DASHBOARD_NAME || 'Seller Comparison').trim();
   let dashboardId   = (process.env.COMMON_DASHBOARD_ID || '').trim();
   const release     = process.env.RELEASE === '1';
+  const platform    = (process.env.PLATFORM || 'android').trim().toLowerCase();
+  if (platform !== 'android' && platform !== 'ios') {
+    fail(`PLATFORM must be "android" or "ios" (got "${platform}")`);
+  }
 
   console.log('build-preloaded: members =', memberIds.join(', '));
 
@@ -272,7 +307,7 @@ function restorePreload() {
 
   let exitCode = 1;
   try {
-    const args = ['build', 'android'];
+    const args = ['build', platform];
     if (release) args.push('--release');
     console.log('build-preloaded: cordova', args.join(' '));
     const r = spawnSync('cordova', args, { cwd: ROOT, stdio: 'inherit' });
@@ -288,24 +323,54 @@ function restorePreload() {
 
   if (exitCode !== 0) process.exit(exitCode);
 
-  const buildOut = path.join(ROOT, 'platforms', 'android', 'app', 'build', 'outputs', 'apk');
-  const subdir   = release ? 'release' : 'debug';
-  const dir      = path.join(buildOut, subdir);
-  let apkSrc = '';
-  if (fs.existsSync(dir)) {
-    const found = fs.readdirSync(dir).find(f => f.endsWith('.apk'));
-    if (found) apkSrc = path.join(dir, found);
-  }
-  if (!apkSrc) {
-    console.error('build-preloaded: cordova build succeeded but no APK was found under', dir);
-    process.exit(1);
-  }
   fs.mkdirSync(DIST, { recursive: true });
   // Filename: first id, plus "+N" suffix when multiple creators are seeded.
   const tag = memberIds.length === 1 ? memberIds[0] : `${memberIds[0]}+${memberIds.length - 1}`;
-  const apkDst = path.join(DIST, `app-${tag}${release ? '-release' : ''}.apk`);
-  fs.copyFileSync(apkSrc, apkDst);
-  console.log('build-preloaded: APK ->', apkDst);
+
+  if (platform === 'android') {
+    const buildOut = path.join(ROOT, 'platforms', 'android', 'app', 'build', 'outputs', 'apk');
+    const subdir   = release ? 'release' : 'debug';
+    const dir      = path.join(buildOut, subdir);
+    let apkSrc = '';
+    if (fs.existsSync(dir)) {
+      const found = fs.readdirSync(dir).find(f => f.endsWith('.apk'));
+      if (found) apkSrc = path.join(dir, found);
+    }
+    if (!apkSrc) {
+      console.error('build-preloaded: cordova build succeeded but no APK was found under', dir);
+      process.exit(1);
+    }
+    const apkDst = path.join(DIST, `app-${tag}${release ? '-release' : ''}.apk`);
+    fs.copyFileSync(apkSrc, apkDst);
+    console.log('build-preloaded: APK ->', apkDst);
+  } else {
+    const src = findIosArtifact(release);
+    if (!src) {
+      console.error('build-preloaded: cordova build succeeded but no .ipa or .app was found under platforms/ios/build');
+      process.exit(1);
+    }
+    const suffix = release ? '-release' : '';
+    if (src.endsWith('.ipa')) {
+      const dst = path.join(DIST, `app-${tag}${suffix}.ipa`);
+      fs.copyFileSync(src, dst);
+      console.log('build-preloaded: IPA ->', dst);
+    } else {
+      // .app bundle -> zip with `ditto` (preserves macOS bundle metadata and
+      // is available on every macOS host that can run an iOS Cordova build).
+      const dst = path.join(DIST, `app-${tag}${suffix}.app.zip`);
+      try { fs.unlinkSync(dst); } catch (_) {}
+      const r = spawnSync(
+        'ditto',
+        ['-c', '-k', '--sequesterRsrc', '--keepParent', src, dst],
+        { stdio: 'inherit' },
+      );
+      if (r.status !== 0) {
+        console.error('build-preloaded: failed to zip .app bundle with ditto (exit', r.status + ')');
+        process.exit(1);
+      }
+      console.log('build-preloaded: .app.zip ->', dst);
+    }
+  }
 })().catch(err => {
   console.error('build-preloaded: fatal:', err);
   restorePreload();
