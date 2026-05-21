@@ -105,13 +105,13 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova@12
 
+      # `npm ci` triggers the package.json `prepare` script (`cordova prepare`),
+      # which discovers the android platform from package.json's cordova.platforms
+      # and adds it. So no explicit `cordova platform add android` step is needed
+      # -- it would error with "Platform android already added" (exit 1).
       - name: Install mobile-app deps
         working-directory: mobile-app
         run: npm ci
-
-      - name: Add Android platform
-        working-directory: mobile-app
-        run: cordova platform add android
 
       # The build script names the APK after the canonical tag:
       #   single id           -> "<id>"
