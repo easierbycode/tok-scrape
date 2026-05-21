@@ -144,17 +144,19 @@ If you're running Graylog without that, add it (or set the equivalent values in 
 
 ## CI / distribution
 
-`.github/workflows/build-apk-preloaded.yml` builds per-member, pre-loaded debug APKs and publishes them to the `gh-pages` branch. With GitHub Pages enabled on `gh-pages` and the custom domain (`easierbycode.com`) wired up, each APK is reachable at `https://easierbycode.com/tok-scrape/<tag>.apk` — for example the default multimember build:
+`.github/workflows/build-apk-preloaded.yml` builds per-member, pre-loaded debug APKs and commits them to the repo root on `main`. GitHub Pages serves the `main` branch root on the custom domain (`easierbycode.com`), same pattern as `chrome.zip`, so each APK is reachable at `https://easierbycode.com/tok-scrape/<tag>.apk` — for example the default multimember build:
 
 > https://easierbycode.com/tok-scrape/boosteddealsdaily+2.apk
 
-Auto-triggers on every push to `main` that touches `mobile-app/**` and builds the default `boosteddealsdaily,prettyplug.x,wizardofdealz` roster (filename tag `boosteddealsdaily+2`). Manual `workflow_dispatch` runs accept any `member_id` input:
+Auto-triggers on every push to `main` that touches `mobile-app/**` (or the workflow file itself) and builds the default `boosteddealsdaily,prettyplug.x,wizardofdealz` roster (filename tag `boosteddealsdaily+2`). The workflow's `paths:` filter excludes root `*.apk`, so the auto-commit that publishes the APK doesn't loop the build. Manual `workflow_dispatch` runs accept any `member_id` input:
 
 - a single id (`wizardofdealz`) → `wizardofdealz.apk`
 - a comma-separated list (`boosteddealsdaily,prettyplug.x,wizardofdealz`) → `boosteddealsdaily+2.apk`
 - `all` → fans out across the matrix and publishes one APK per roster entry
 
-Each build also uploads its APK as a workflow run artifact (named `app-<tag>`) so reviewers can grab it from the Actions UI without waiting for Pages to update. The gh-pages publish uses `keep_files: true`, so any existing files on that branch (`app.apk`, `index.html`, …) are preserved across runs.
+Each build also uploads its APK as a workflow run artifact (named `app-<tag>`) so reviewers can grab it from the Actions UI without waiting for Pages to update.
+
+The two required repo secrets are `GRAYLOG_URL_PROD` and `GRAYLOG_TOKEN_PROD` — the workflow passes them to `scripts/build-preloaded.js` as `GRAYLOG_URL` / `GRAYLOG_TOKEN`.
 
 ## Known limitations
 
