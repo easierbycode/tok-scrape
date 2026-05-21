@@ -9,8 +9,10 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/32.png">
   <link rel="icon" type="image/png" sizes="48x48" href="icons/48.png">
   <link rel="apple-touch-icon" sizes="128x128" href="icons/128.png">
-  <link rel="stylesheet" href="css/app.css">
-  <link rel="stylesheet" href="css/virals.css">
+  <!-- CSS is injected dynamically by js/ota.js so an active OTA bundle can
+       replace it without a fresh APK. The bootstrap chain in <body> runs
+       early enough that the splash screen covers the brief gap before the
+       first <style> is appended. -->
 </head>
 <body data-route="home" data-mode="videos">
   <header class="topbar">
@@ -280,17 +282,29 @@
     </div>
   </div>
 
+  <!-- Boot chain. Order matters:
+         1. cordova.js              -- WebView <-> native bridge.
+         2. Highcharts (CDN)        -- always loaded over the network.
+         3. preload.js              -- per-APK seed (Graylog URL/token, scope).
+                                       NEVER part of the OTA bundle; preserved
+                                       across updates so per-member builds keep
+                                       their identity.
+         4. version.js              -- stamped at build by
+                                       scripts/stamp-bundle-version.js with the
+                                       bundle (git SHA) + native versions
+                                       ota.js needs to compare against the
+                                       remote manifest.
+         5. ota.js                  -- decides APK vs OTA source, then loads
+                                       the rest of the app (users.js, api.js,
+                                       xlsx.js, charts.js, app.js, virals.js)
+                                       and the CSS dynamically.
+  -->
   <script src="cordova.js"></script>
   <script src="https://code.highcharts.com/highcharts.js"></script>
   <script src="https://code.highcharts.com/highcharts-more.js"></script>
   <script src="https://code.highcharts.com/modules/exporting.js"></script>
-  <!-- Build-time seed (no-op by default; rewritten by scripts/build-preloaded.js). -->
   <script src="js/preload.js"></script>
-  <script src="js/users.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/xlsx.js"></script>
-  <script src="js/charts.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/virals.js"></script>
+  <script src="js/version.js"></script>
+  <script src="js/ota.js"></script>
 </body>
 </html>

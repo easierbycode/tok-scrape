@@ -7,9 +7,11 @@
 // this `.example` after the `cordova build` step so the working tree stays
 // clean.
 //
-// Loaded *before* users.js / app.js (see index.html), it pre-populates the
-// localStorage keys those scripts read (and a window-global handle list) so a
-// freshly-installed APK opens straight to the dashboard with no prompts.
+// Loaded *before* version.js / ota.js (see index.html), preload.js runs on
+// every boot directly from the APK -- it is intentionally NOT part of the
+// OTA bundle (see js/ota.js + the publish-web-bundle.yml workflow), so a
+// pre-loaded APK keeps its per-member Graylog seed across over-the-air
+// updates. The only way to change the seed is to rebuild the APK.
 //
 // Behaviour:
 //   - Only writes a key if it isn't already set (so a user who has overridden

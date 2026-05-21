@@ -59,4 +59,16 @@
     <plugin name="cordova-plugin-statusbar" spec="^4.0.0" />
     <plugin name="cordova-plugin-whitelist" spec="^1.3.5" />
     <plugin name="cordova-plugin-splashscreen" spec="^6.0.2" />
+    <!-- Needed by www/js/ota.js to persist downloaded OTA bundles in
+         cordova.file.dataDirectory across launches. -->
+    <plugin name="cordova-plugin-file" spec="^8.1.3" />
+
+    <!-- Stamp www/js/version.js with the bundle (git short SHA) + native
+         (config.xml widget version) versions before each build, so the OTA
+         module knows whether a downloaded bundle is newer than what's
+         baked in. The after_prepare pass restores the committed stub so
+         the working tree stays clean after a local build, mirroring the
+         dance build-preloaded.js does for preload.js. -->
+    <hook type="before_prepare" src="scripts/stamp-bundle-version.js" />
+    <hook type="after_prepare"  src="scripts/stamp-bundle-version.js" />
 </widget>
