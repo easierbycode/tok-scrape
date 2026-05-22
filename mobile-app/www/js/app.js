@@ -181,6 +181,69 @@
       : document.getElementById('campaignsSection');
   }
 
+  // -------- Active Campaigns (mock data) --------------------------
+  //
+  // Mirror of the Next.js active-campaigns.tsx component from the web
+  // member-app. Until the campaign API is wired up we render a fixed
+  // set of rows so the card is never empty. Replace MOCK_CAMPAIGNS with
+  // a live fetch (e.g. via api.js) when the backend is available.
+
+  var MOCK_CAMPAIGNS = [
+    { id: '1', brand: 'StyleCo Fashion',  postsCompleted: 3, postsRequired: 5, daysLeft: 3  },
+    { id: '2', brand: 'TechGear Pro',     postsCompleted: 2, postsRequired: 8, daysLeft: 12 },
+    { id: '3', brand: 'BeautyGlow',       postsCompleted: 4, postsRequired: 6, daysLeft: 21 }
+  ];
+
+  function campaignRowHtml(c) {
+    var pct = c.postsRequired > 0
+      ? Math.max(0, Math.min(100, Math.round((c.postsCompleted / c.postsRequired) * 100)))
+      : 0;
+    var deadline = c.daysLeft === 0
+      ? 'Due today'
+      : c.daysLeft + ' day' + (c.daysLeft === 1 ? '' : 's') + ' left';
+    return ''
+      + '<li class="campaign-row" role="button" tabindex="0" data-campaign-id="' + escapeHtml(c.id) + '">'
+      +   '<span class="campaign-icon" aria-hidden="true">'
+      +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+      +       '<path d="M3 11v2a2 2 0 0 0 2 2h2l5 4V5L7 9H5a2 2 0 0 0-2 2z"/>'
+      +       '<path d="M16 8a4 4 0 0 1 0 8"/>'
+      +     '</svg>'
+      +   '</span>'
+      +   '<div class="campaign-main">'
+      +     '<div class="campaign-headline">'
+      +       '<span class="campaign-brand">' + escapeHtml(c.brand) + '</span>'
+      +       '<span class="campaign-deadline">'
+      +         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      +           '<circle cx="12" cy="12" r="9"/>'
+      +           '<path d="M12 7v5l3 2"/>'
+      +         '</svg>'
+      +         escapeHtml(deadline)
+      +       '</span>'
+      +     '</div>'
+      +     '<div class="campaign-progress">'
+      +       '<span class="campaign-bar"><span class="campaign-bar-fill" style="width:' + pct + '%"></span></span>'
+      +       '<span class="campaign-count">' + c.postsCompleted + '/' + c.postsRequired + '</span>'
+      +     '</div>'
+      +   '</div>'
+      +   '<span class="campaign-chevron" aria-hidden="true">'
+      +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+      +       '<polyline points="9 6 15 12 9 18"/>'
+      +     '</svg>'
+      +   '</span>'
+      + '</li>';
+  }
+
+  function renderActiveCampaigns(list) {
+    var ul = document.getElementById('campaignList');
+    if (!ul) return;
+    var items = Array.isArray(list) && list.length ? list : [];
+    if (!items.length) {
+      ul.innerHTML = '<li class="campaign-empty">No active campaigns yet.</li>';
+      return;
+    }
+    ul.innerHTML = items.map(campaignRowHtml).join('');
+  }
+
   function syncRouteFromScroll() {
     if (routeLock) {
       setRoute(routeLock);
@@ -933,6 +996,16 @@
       els.commonDashClose.addEventListener('click', closeCommonDashboard);
     }
 
+    // Active Campaigns "View all": until there's a dedicated campaigns
+    // screen, scroll to the per-mode GMV chart section that the bottom-nav
+    // Campaigns button also targets.
+    var viewAllBtn = $('campaignsViewAll');
+    if (viewAllBtn) {
+      viewAllBtn.addEventListener('click', function () {
+        scrollToSection(activeCampaignsSection(), 'campaigns');
+      });
+    }
+
     // Mode toggle (Videos / Live)
     var toggle = document.getElementById('modeToggle');
     if (toggle) {
@@ -984,6 +1057,7 @@
     bind();
     renderAcctTrigger();
     renderAdminMenu();
+    renderActiveCampaigns(MOCK_CAMPAIGNS);
     setupAutoRefresh();
 
     // No sign-in modal: open straight to the dashboard with the persisted /

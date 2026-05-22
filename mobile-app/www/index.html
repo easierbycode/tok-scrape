@@ -91,6 +91,19 @@
   </header>
 
   <main id="dashboard" class="grid">
+    <!-- Active Campaigns: top-of-dashboard card surfacing the user's
+         currently-running brand campaigns. Mirrors the Next.js
+         active-campaigns.tsx component from the web member app. Until
+         the campaign API is wired up, app.js renders a deterministic
+         set of mock rows so the UI is never blank. -->
+    <section class="card card-wide campaigns-block" id="activeCampaignsCard" data-route-target="campaigns">
+      <div class="campaigns-head">
+        <h2>Active Campaigns</h2>
+        <button type="button" class="campaigns-viewall" id="campaignsViewAll" aria-label="View all campaigns">View all</button>
+      </div>
+      <ul class="campaign-list" id="campaignList"><!-- rendered by app.js --></ul>
+    </section>
+
     <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Dashboard mode">
       <button type="button" class="mode-btn active" data-mode="videos" role="tab" aria-selected="true">Videos</button>
       <button type="button" class="mode-btn" data-mode="live" role="tab" aria-selected="false">Live</button>
