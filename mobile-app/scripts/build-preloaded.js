@@ -307,17 +307,51 @@ function findIosArtifact(release) {
 
   let exitCode = 1;
   try {
-    const args = ['build', platform];
-    if (release) args.push('--release');
-    // cordova-ios defaults to the iOS Simulator SDK when no target is given,
-    // which produces a platform-7 binary that won't load on a real device
-    // (dyld fails to resolve Foundation.framework). Force the device SDK so
-    // the resulting .app can be sideloaded.
-    if (platform === 'ios') args.push('--device');
-    console.log('build-preloaded: cordova', args.join(' '));
-    const r = spawnSync('cordova', args, { cwd: ROOT, stdio: 'inherit' });
-    if (r.status !== 0) {
-      throw new Error('cordova build failed with exit code ' + r.status);
+    if (platform === 'ios') {
+      // `cordova build ios --device` uses `xcodebuild archive`, which Xcode
+      // 16.4 / iOS 18.5 SDK refuses without a real signing identity (ad-hoc
+      // "-" is rejected outright with "Ad Hoc code signing is not allowed").
+      // Drop down to `xcodebuild build -sdk iphoneos CODE_SIGNING_ALLOWED=NO`
+      // — that path still produces a real device .app without any cert. The
+      // resulting bundle is completely unsigned; Sideloadly/AltStore re-sign
+      // it with the user's Apple ID at install time.
+      const prepArgs = ['prepare', 'ios'];
+      console.log('build-preloaded: cordova', prepArgs.join(' '));
+      const prep = spawnSync('cordova', prepArgs, { cwd: ROOT, stdio: 'inherit' });
+      if (prep.status !== 0) {
+        throw new Error('cordova prepare failed with exit code ' + prep.status);
+      }
+      const iosDir = path.join(ROOT, 'platforms', 'ios');
+      const wsName = fs.readdirSync(iosDir).find(f => f.endsWith('.xcworkspace'));
+      if (!wsName) throw new Error('no .xcworkspace found under ' + iosDir);
+      const workspace = path.join(iosDir, wsName);
+      const scheme = wsName.replace(/\.xcworkspace$/, '');
+      const derivedData = path.join(iosDir, 'build');
+      const xcArgs = [
+        '-workspace', workspace,
+        '-scheme', scheme,
+        '-configuration', release ? 'Release' : 'Debug',
+        '-sdk', 'iphoneos',
+        '-arch', 'arm64',
+        '-derivedDataPath', derivedData,
+        'CODE_SIGNING_ALLOWED=NO',
+        'CODE_SIGNING_REQUIRED=NO',
+        'CODE_SIGN_IDENTITY=',
+        'build',
+      ];
+      console.log('build-preloaded: xcodebuild', xcArgs.join(' '));
+      const xc = spawnSync('xcodebuild', xcArgs, { cwd: ROOT, stdio: 'inherit' });
+      if (xc.status !== 0) {
+        throw new Error('xcodebuild failed with exit code ' + xc.status);
+      }
+    } else {
+      const args = ['build', platform];
+      if (release) args.push('--release');
+      console.log('build-preloaded: cordova', args.join(' '));
+      const r = spawnSync('cordova', args, { cwd: ROOT, stdio: 'inherit' });
+      if (r.status !== 0) {
+        throw new Error('cordova build failed with exit code ' + r.status);
+      }
     }
     exitCode = 0;
   } catch (e) {

@@ -88,44 +88,6 @@ jobs:
         working-directory: mobile-app
         run: npm ci
 
-      # Ad-hoc sign the device build with a fake identity ("-"). xcodebuild
-      # requires *some* signing for device builds, but "-" produces a binary
-      # signed with a placeholder cert that sideloading tools (Sideloadly,
-      # AltStore, ios-deploy --bundle_id-resign) replace with the user's real
-      # Apple ID cert at install time. Completely disabling signing
-      # (CODE_SIGNING_ALLOWED=NO) forces xcodebuild to fall back to the
-      # simulator SDK, producing a platform-7 binary that won't load on a
-      # real iPhone — that's what bit us in run 26261628427.
-      - name: Write build.json (ad-hoc signing)
-        working-directory: mobile-app
-        run: |
-          cat > build.json <<'JSON'
-          {
-            "ios": {
-              "debug": {
-                "codeSignIdentity": "-",
-                "developmentTeam": "",
-                "packageType": "development",
-                "buildFlag": [
-                  "CODE_SIGN_IDENTITY=-",
-                  "CODE_SIGNING_REQUIRED=NO",
-                  "CODE_SIGNING_ALLOWED=YES"
-                ]
-              },
-              "release": {
-                "codeSignIdentity": "-",
-                "developmentTeam": "",
-                "packageType": "development",
-                "buildFlag": [
-                  "CODE_SIGN_IDENTITY=-",
-                  "CODE_SIGNING_REQUIRED=NO",
-                  "CODE_SIGNING_ALLOWED=YES"
-                ]
-              }
-            }
-          }
-          JSON
-
       - name: Compute artifact tag
         id: tag
         env:
