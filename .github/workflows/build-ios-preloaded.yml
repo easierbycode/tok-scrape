@@ -1,0 +1,167 @@
+# Build per-member, pre-loaded iOS bundles on a macOS runner so contributors
+# don't need a full Xcode install locally. Mirrors build-apk-preloaded.yml but
+# produces an unsigned `.app.zip` (or `.ipa` if signing is wired up later) and
+# uploads it as a workflow artifact instead of committing to main — unsigned
+# iOS bundles aren't directly installable, so there's no point publishing them
+# via GitHub Pages the way the APKs are.
+#
+# To enable proper signing later, add an APPLE_TEAM_ID secret (and a signing
+# cert/profile workflow step) and remove the CODE_SIGNING_ALLOWED=NO flags in
+# the build.json step below.
+name: build-ios-preloaded
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile-app/**'
+      - '.github/workflows/build-ios-preloaded.yml'
+  workflow_dispatch:
+    inputs:
+      member_id:
+        description: 'Single id, comma-separated multi-member list, or "all" to fan out per roster entry.'
+        required: true
+        default: 'boosteddealsdaily,prettyplug.x,wizardofdealz'
+      common_dashboard_id:
+        description: 'Optional Graylog dashboard id to embed. Leave blank to look up/create "Seller Comparison".'
+        required: false
+        default: ''
+
+env:
+  DEFAULT_MEMBERS: 'boosteddealsdaily,prettyplug.x,wizardofdealz'
+
+jobs:
+  resolve-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      members: ${{ steps.pick.outputs.members }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: pick
+        env:
+          INPUT_MEMBER_ID: ${{ inputs.member_id }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            raw="$INPUT_MEMBER_ID"
+          else
+            raw="$DEFAULT_MEMBERS"
+          fi
+          if [ "$raw" = "all" ]; then
+            ids=$(grep -oE "id:\s*'[^']+'" mobile-app/www/js/users.js \
+                  | sed -E "s/id:\s*'([^']+)'/\1/" \
+                  | grep -v '^daniel$' \
+                  | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          else
+            ids=$(jq -nc --arg v "$raw" '[$v]')
+          fi
+          echo "members=$ids" >> "$GITHUB_OUTPUT"
+          echo "members: $ids"
+
+  build:
+    needs: resolve-matrix
+    # macos-latest comes with Xcode + iOS SDKs pre-installed.
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        member_id: ${{ fromJSON(needs.resolve-matrix.outputs.members) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Select Xcode
+        # Pin to whatever Xcode the runner image ships as the default symlink.
+        # macos-latest typically has multiple versions installed under
+        # /Applications/Xcode_*.app; the symlink points at the recommended one.
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Install Cordova
+        run: npm install -g cordova@12
+
+      - name: Install mobile-app deps
+        working-directory: mobile-app
+        run: npm ci
+
+      # Disable code signing so the build doesn't need an Apple Developer cert.
+      # Cordova reads build.json automatically; the buildFlag entries are passed
+      # straight through to xcodebuild. Result: an unsigned .app bundle that the
+      # build script then zips with `ditto` into dist/app-<tag>.app.zip.
+      - name: Write build.json (unsigned)
+        working-directory: mobile-app
+        run: |
+          cat > build.json <<'JSON'
+          {
+            "ios": {
+              "debug": {
+                "codeSignIdentity": "",
+                "developmentTeam": "",
+                "packageType": "development",
+                "buildFlag": [
+                  "CODE_SIGN_IDENTITY=",
+                  "CODE_SIGNING_REQUIRED=NO",
+                  "CODE_SIGNING_ALLOWED=NO"
+                ]
+              },
+              "release": {
+                "codeSignIdentity": "",
+                "developmentTeam": "",
+                "packageType": "development",
+                "buildFlag": [
+                  "CODE_SIGN_IDENTITY=",
+                  "CODE_SIGNING_REQUIRED=NO",
+                  "CODE_SIGNING_ALLOWED=NO"
+                ]
+              }
+            }
+          }
+          JSON
+
+      - name: Compute artifact tag
+        id: tag
+        env:
+          MEMBER_ID: ${{ matrix.member_id }}
+        run: |
+          set -euo pipefail
+          ids=$(printf '%s\n' "$MEMBER_ID" \
+                | tr ',' '\n' \
+                | sed -E 's/^[[:space:]]*@*//; s/[[:space:]]+$//' \
+                | tr 'A-Z' 'a-z' \
+                | awk 'NF')
+          count=$(printf '%s\n' "$ids" | wc -l | tr -d ' ')
+          first=$(printf '%s\n' "$ids" | head -n1)
+          if [ "$count" -le 1 ]; then
+            tag="$first"
+          else
+            tag="${first}+$((count-1))"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Tag: $tag"
+
+      - name: Build pre-loaded iOS bundle
+        working-directory: mobile-app
+        env:
+          MEMBER_ID: ${{ matrix.member_id }}
+          GRAYLOG_URL: ${{ secrets.GRAYLOG_URL_PROD }}
+          GRAYLOG_TOKEN: ${{ secrets.GRAYLOG_TOKEN_PROD }}
+          COMMON_DASHBOARD_ID: ${{ inputs.common_dashboard_id }}
+        run: npm run build:preloaded:ios:release
+
+      # Upload whichever artifact the build script produced. The script writes
+      # either dist/app-<tag>-release.ipa (signed builds) or
+      # dist/app-<tag>-release.app.zip (unsigned). Glob both so the workflow
+      # doesn't break if signing is enabled later.
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app-${{ steps.tag.outputs.tag }}
+          path: |
+            mobile-app/dist/app-${{ steps.tag.outputs.tag }}-release.ipa
+            mobile-app/dist/app-${{ steps.tag.outputs.tag }}-release.app.zip
+          if-no-files-found: error
+          retention-days: 30
