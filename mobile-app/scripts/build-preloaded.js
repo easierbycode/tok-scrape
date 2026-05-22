@@ -309,6 +309,11 @@ function findIosArtifact(release) {
   try {
     const args = ['build', platform];
     if (release) args.push('--release');
+    // cordova-ios defaults to the iOS Simulator SDK when no target is given,
+    // which produces a platform-7 binary that won't load on a real device
+    // (dyld fails to resolve Foundation.framework). Force the device SDK so
+    // the resulting .app can be sideloaded.
+    if (platform === 'ios') args.push('--device');
     console.log('build-preloaded: cordova', args.join(' '));
     const r = spawnSync('cordova', args, { cwd: ROOT, stdio: 'inherit' });
     if (r.status !== 0) {
