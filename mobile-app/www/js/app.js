@@ -234,6 +234,37 @@
   }
 
   function renderActiveCampaigns(list) {
+    // OTA bundles ship CSS+JS only — index.html is whatever shipped in
+    // the installed APK, so we can't rely on the <section id="activeCampaignsCard">
+    // markup being there. Create the card dynamically and insert it at
+    // the very top of #dashboard if it doesn't already exist.
+    var card = document.getElementById('activeCampaignsCard');
+    if (!card) {
+      var dash = document.getElementById('dashboard');
+      if (!dash) return;
+      card = document.createElement('section');
+      card.id = 'activeCampaignsCard';
+      card.className = 'card card-wide campaigns-block';
+      card.setAttribute('data-route-target', 'campaigns');
+      card.innerHTML =
+        '<div class="campaigns-head">' +
+          '<h2>Active Campaigns</h2>' +
+          '<button type="button" class="campaigns-viewall" id="campaignsViewAll" aria-label="View all campaigns">View all</button>' +
+        '</div>' +
+        '<ul class="campaign-list" id="campaignList"></ul>';
+      dash.insertBefore(card, dash.firstChild);
+
+      // Wire up the "View all" button on the freshly-created card. The
+      // bind() pass that runs on init() won't find this button when the
+      // card was injected after bind ran, so attach the handler here.
+      var btn = document.getElementById('campaignsViewAll');
+      if (btn) {
+        btn.addEventListener('click', function () {
+          scrollToSection(activeCampaignsSection(), 'campaigns');
+        });
+      }
+    }
+
     var ul = document.getElementById('campaignList');
     if (!ul) return;
     var items = Array.isArray(list) && list.length ? list : [];
