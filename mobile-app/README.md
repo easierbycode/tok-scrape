@@ -15,8 +15,19 @@ mobile-app/
         ├── users.js    Scaffolded user roster + role-based auth helpers
         ├── api.js      GraylogClient (Basic auth: token:token, Universal Search)
         ├── charts.js   Highcharts theme + renderers
-        └── app.js      Auth, settings, refresh, error handling
+        └── app.js      Auth, settings, refresh, Active Campaigns card, error handling
 ```
+
+## Active Campaigns card
+
+The home dashboard renders an **Active Campaigns** card at the top —
+brand name, post-progress bar, deadline chip, "View all" link. Until
+the campaign API is wired up the list is populated from a small mock
+dataset baked into `www/js/app.js` (`MOCK_CAMPAIGNS`).
+
+The card is injected by `renderActiveCampaigns()` so it ships via the
+OTA bundle even on APKs whose bundled `index.html` predates the
+feature (`ota.js` only swaps CSS+JS, not HTML).
 
 ## Users & roles
 
