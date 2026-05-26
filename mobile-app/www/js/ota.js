@@ -42,6 +42,8 @@
   // -----------------------------------------------------------------
   var MANIFEST_URL  = 'https://easierbycode.com/tok-scrape/manifest.json';
   var META_KEY      = 'ota.active.v1';
+  var NATIVE_SEEN_KEY = 'ota.native.seen.v1';     // last baked __BUNDLE_VERSION__ we booted;
+                                                  // a change means a new APK was installed.
   var SKIP_FLAG     = 'ota.skip';
   var BAD_BOOT_KEY  = 'ota.boot.pending';        // sessionStorage; set during boot,
                                                   // cleared once init succeeds; if it's
@@ -114,6 +116,38 @@
     // SHAs (git short shas) as strings; equal means the APK already has it.
     if (m.version === bundleVersion) return false;
     return true;
+  }
+
+  // Native-binary update detection. The APK bakes its own www -- version.js
+  // stamps __BUNDLE_VERSION__ with the build's git sha -- so a freshly
+  // installed APK carries web assets at least as new as anything a PRIOR
+  // APK could have OTA-downloaded. But cordova-plugin-file app data (incl.
+  // the active OTA bundle in dataDirectory/bundles/active) survives an APK
+  // upgrade. Without this guard, an OLDER staged bundle keeps masking the
+  // newer baked www -- e.g. a pre-"Combine" bundle hiding the Combine
+  // button that shipped in the new APK -- because metaIsUsable() only
+  // checks that versions DIFFER, not which is newer (git shas aren't
+  // orderable, so "newer" can't be inferred by comparison).
+  //
+  // Mirrors Ionic Appflow / Capacitor live-update semantics: a native
+  // update resets the live-update baseline to the bundled web. We remember
+  // the baked bundleVersion we last booted; if it changed (a new APK), drop
+  // the active OTA pointer so the APK's www wins this boot. checkForUpdate()
+  // can then re-stage a genuinely newer bundle on top.
+  var lastNative = null;
+  try { lastNative = localStorage.getItem(NATIVE_SEEN_KEY); } catch (_) {}
+  if (lastNative !== bundleVersion) {
+    if (meta) {
+      console.log('OTA: native bundle changed (' + lastNative + ' -> ' +
+                  bundleVersion + ') -- resetting to bundled www, dropping ' +
+                  meta.version);
+      meta = null;
+      try { localStorage.removeItem(META_KEY); } catch (_) {}
+    }
+    // A new APK shouldn't inherit a previous install's boot-hung flag.
+    previousBootHung = false;
+    try { localStorage.removeItem(BAD_BOOT_KEY); } catch (_) {}
+    try { localStorage.setItem(NATIVE_SEEN_KEY, bundleVersion); } catch (_) {}
   }
 
   var useOTA = !skipOTA && !previousBootHung && metaIsUsable(meta);

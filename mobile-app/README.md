@@ -224,6 +224,12 @@ runtime — no Play Store / sideload roundtrip for UI or logic changes.
   advertises a new version, downloads the zip, verifies SHA-256,
   extracts to `bundles-staging/<version>/`, and atomically promotes it
   to `bundles/active/`. Used on the next launch (silent strategy).
+  Installing a **new APK** resets this baseline: `ota.js` remembers the
+  baked `__BUNDLE_VERSION__` it last booted (`ota.native.seen.v1`), and
+  when it changes it drops the active OTA bundle so the freshly-installed
+  APK's `www` wins — otherwise an older staged bundle (e.g. a pre-Combine
+  one) would keep masking newer baked code. `checkForUpdate()` then
+  re-stages a genuinely newer bundle on top if the manifest advertises one.
 - `mobile-app/scripts/stamp-bundle-version.js` — Cordova `before_prepare`
   / `after_prepare` hook that writes the current git SHA and the
   `<widget version>` into `www/js/version.js` so `ota.js` knows what's
