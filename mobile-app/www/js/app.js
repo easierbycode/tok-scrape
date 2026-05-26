@@ -187,27 +187,257 @@
   // member-app. Until the campaign API is wired up we render a fixed
   // set of rows so the card is never empty. Replace MOCK_CAMPAIGNS with
   // a live fetch (e.g. via api.js) when the backend is available.
+  //
+  // contributions: per-creator video counts. The campaign ring renders one
+  // segment per required video, with the first N segments (N = sum of
+  // contributions, capped at postsRequired) colored by their contributing
+  // creator's deterministic colorFor() hue. Remaining segments use the
+  // track color. Until the campaign API is wired up, contributions are
+  // stubbed below — replace with a live fetch when the backend ships.
 
   var MOCK_CAMPAIGNS = [
-    { id: '1', brand: 'StyleCo Fashion',  postsCompleted: 3, postsRequired: 5, daysLeft: 3  },
-    { id: '2', brand: 'TechGear Pro',     postsCompleted: 2, postsRequired: 8, daysLeft: 12 },
-    { id: '3', brand: 'BeautyGlow',       postsCompleted: 4, postsRequired: 6, daysLeft: 21 }
+    { id: '1', brand: 'StyleCo Fashion', postsRequired: 5, daysLeft: 3,
+      contributions: [
+        { creator: '@boosteddealsdaily', count: 2 },
+        { creator: '@prettyplug.x',      count: 1 }
+      ] },
+    { id: '2', brand: 'TechGear Pro',    postsRequired: 8, daysLeft: 12,
+      contributions: [
+        { creator: '@wizardofdealz',     count: 2 }
+      ] },
+    { id: '3', brand: 'BeautyGlow',      postsRequired: 6, daysLeft: 21,
+      contributions: [
+        { creator: '@boosteddealsdaily', count: 2 },
+        { creator: '@prettyplug.x',      count: 1 },
+        { creator: '@wizardofdealz',     count: 1 }
+      ] }
   ];
 
+  // Map "@handle" → the per-creator hue used elsewhere in the UI
+  // (acct-dot, chart series, ring segments).
+  function colorForHandle(handle) {
+    var id = String(handle || '').replace(/^@+/, '').toLowerCase();
+    return id ? colorFor(id) : 'rgba(242,241,237,0.18)';
+  }
+
+  // Sum of contribution counts, capped at postsRequired so the ring
+  // never overshoots and percentages stay ≤ 100%.
+  function postsCompletedOf(c) {
+    var s = 0;
+    (c.contributions || []).forEach(function (x) { s += Math.max(0, x.count | 0); });
+    return Math.min(s, c.postsRequired || 0);
+  }
+
+  // Multi-color segmented ring for a campaign card. One arc per required
+  // video — filled segments take their contributor's color, in order;
+  // remaining segments use the faint track color. Centered % readout.
+  function campaignRingSvg(c) {
+    var total  = Math.max(1, c.postsRequired | 0);
+    var size   = 40;
+    var stroke = 4;
+    var r      = (size - stroke) / 2;
+    var cx     = size / 2, cy = size / 2;
+    var circ   = 2 * Math.PI * r;
+    var seg    = circ / total;
+    var gap    = Math.max(2, seg * 0.18);
+    var arc    = Math.max(0.5, seg - gap);
+
+    var fills = [];
+    (c.contributions || []).forEach(function (ctr) {
+      var color = colorForHandle(ctr.creator);
+      for (var i = 0; i < (ctr.count | 0) && fills.length < total; i++) {
+        fills.push(color);
+      }
+    });
+
+    var segsSvg = '';
+    for (var i = 0; i < total; i++) {
+      var color = fills[i] || 'rgba(242,241,237,0.10)';
+      segsSvg +=
+        '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"' +
+        ' fill="none" stroke="' + color + '" stroke-width="' + stroke + '"' +
+        ' stroke-dasharray="' + arc.toFixed(2) + ' ' + (circ - arc).toFixed(2) + '"' +
+        ' stroke-dashoffset="' + (-(i * seg)).toFixed(2) + '"' +
+        ' stroke-linecap="round" />';
+    }
+
+    var done = postsCompletedOf(c);
+    var pct  = c.postsRequired > 0 ? Math.round((done / c.postsRequired) * 100) : 0;
+    var pctColor = pct >= 100 ? 'var(--success)' : 'var(--foreground)';
+
+    return ''
+      + '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '" aria-hidden="true">'
+      +   '<g transform="rotate(-90 ' + cx + ' ' + cy + ')">' + segsSvg + '</g>'
+      +   '<text x="' + cx + '" y="' + (cy + 0.5) + '" text-anchor="middle" dominant-baseline="central"'
+      +     ' font-family="\'Avenir Next\',\'SF Pro Text\',sans-serif" font-size="10.5" font-weight="700"'
+      +     ' fill="' + pctColor + '">' + pct + '%</text>'
+      + '</svg>';
+  }
+
+  // ── Combined view ────────────────────────────────────────────────
+  //
+  // "Combine" is a campaign-head toggle (defaults on) that collapses the
+  // list into a single synthetic row showing the AVERAGE completion %
+  // across every active campaign, plus an aggregated per-creator slice
+  // bar so the manager still sees who's pulling weight. The smooth-arc
+  // ring (no per-video segments) signals at a glance that this row is
+  // an aggregate, not a single campaign.
+  //
+  // State persists in localStorage so the manager's preference survives
+  // OTA reloads. Defaults to combined per the brief.
+  var COMBINED_KEY = 'tok-scrape.campaigns.combined.v1';
+
+  function isCombined() {
+    try {
+      var v = localStorage.getItem(COMBINED_KEY);
+      // Default = on. Only "0" turns it off.
+      return v !== '0';
+    } catch (e) { return true; }
+  }
+  function setCombined(on) {
+    try { localStorage.setItem(COMBINED_KEY, on ? '1' : '0'); } catch (e) {}
+  }
+
+  // Average of each campaign's individual completion percentage. Rounded
+  // to an integer for display. Returns 0 for an empty list.
+  function avgCampaignPct(list) {
+    if (!list || !list.length) return 0;
+    var sum = 0;
+    list.forEach(function (c) {
+      var req = c.postsRequired || 0;
+      if (!req) return;
+      sum += (postsCompletedOf(c) / req) * 100;
+    });
+    return Math.round(sum / list.length);
+  }
+
+  // Smooth-arc ring (no segment beads) used by the combined row. Stroke
+  // is the primary brand color; flips to --success once the average is
+  // 100%. Centered text shows the average %.
+  function combinedRingSvg(avgPct) {
+    var size   = 44;
+    var stroke = 4;
+    var r      = (size - stroke) / 2;
+    var cx     = size / 2, cy = size / 2;
+    var circ   = 2 * Math.PI * r;
+    var pct    = Math.max(0, Math.min(100, avgPct | 0));
+    var drawn  = circ * (pct / 100);
+    var done   = pct >= 100;
+    var color  = done ? 'var(--success)' : 'var(--primary)';
+
+    return ''
+      + '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '" aria-hidden="true">'
+      +   '<g transform="rotate(-90 ' + cx + ' ' + cy + ')">'
+      +     '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"'
+      +       ' fill="none" stroke="rgba(242,241,237,0.10)" stroke-width="' + stroke + '"/>'
+      +     (drawn > 0.01
+        ? '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"'
+          + ' fill="none" stroke="' + color + '" stroke-width="' + stroke + '"'
+          + ' stroke-dasharray="' + drawn.toFixed(2) + ' ' + (circ - drawn).toFixed(2) + '"'
+          + ' stroke-linecap="round" />'
+        : '')
+      +   '</g>'
+      +   '<text x="' + cx + '" y="' + (cy + 0.5) + '" text-anchor="middle" dominant-baseline="central"'
+      +     ' font-family="\'Avenir Next\',\'SF Pro Text\',sans-serif" font-size="11" font-weight="700"'
+      +     ' fill="' + (done ? 'var(--success)' : 'var(--foreground)') + '">' + pct + '%</text>'
+      + '</svg>';
+  }
+
+  // Build the single row HTML representing every active campaign at once.
+  // The stacked bar aggregates each creator's contribution across ALL
+  // campaigns; widths are normalised so the bar always sums to 100% when
+  // the aggregate is complete (and proportionally less when it isn't).
+  function combinedRowHtml(list) {
+    var totalReq  = 0;
+    var totalDone = 0;
+    var perCreator = Object.create(null); // handle -> count
+
+    list.forEach(function (c) {
+      totalReq  += c.postsRequired || 0;
+      totalDone += postsCompletedOf(c);
+      (c.contributions || []).forEach(function (ctr) {
+        var k = String(ctr.creator || '').toLowerCase();
+        if (!k) return;
+        perCreator[k] = (perCreator[k] || 0) + Math.max(0, ctr.count | 0);
+      });
+    });
+
+    var avg = avgCampaignPct(list);
+
+    // Slice widths use totalReq as the denominator so the unfilled tail
+    // of the bar honestly represents work still owed. (If we normalised
+    // by totalDone, an empty board would still show a full bar.)
+    var slices = '';
+    Object.keys(perCreator).forEach(function (handle) {
+      var n = perCreator[handle];
+      var w = totalReq > 0 ? (n / totalReq) * 100 : 0;
+      if (w <= 0) return;
+      slices +=
+        '<span class="campaign-bar-slice" title="' + escapeHtml(handle)
+        + ' · ' + n + ' video' + (n === 1 ? '' : 's')
+        + '" style="width:' + w.toFixed(2) + '%;background:'
+        + colorForHandle(handle) + '"></span>';
+    });
+
+    var deadline = list.length + ' campaign' + (list.length === 1 ? '' : 's');
+
+    return ''
+      + '<li class="campaign-row campaign-row--combined" role="button" tabindex="0" data-campaign-id="__combined">'
+      +   '<span class="campaign-icon campaign-icon--ring campaign-icon--combined" aria-hidden="true">'
+      +     combinedRingSvg(avg)
+      +   '</span>'
+      +   '<div class="campaign-main">'
+      +     '<div class="campaign-headline">'
+      +       '<span class="campaign-brand">'
+      +         'Combined'
+      +         '<span class="campaign-brand-tag" aria-hidden="true">avg</span>'
+      +       '</span>'
+      +       '<span class="campaign-deadline">'
+      +         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      +           '<rect x="3" y="5" width="18" height="16" rx="2"/>'
+      +           '<path d="M3 9h18"/>'
+      +           '<path d="M8 3v4M16 3v4"/>'
+      +         '</svg>'
+      +         escapeHtml(deadline)
+      +       '</span>'
+      +     '</div>'
+      +     '<div class="campaign-progress">'
+      +       '<span class="campaign-bar">' + slices + '</span>'
+      +       '<span class="campaign-count">' + totalDone + '/' + totalReq + '</span>'
+      +     '</div>'
+      +   '</div>'
+      +   '<span class="campaign-chevron" aria-hidden="true">'
+      +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+      +       '<polyline points="9 6 15 12 9 18"/>'
+      +     '</svg>'
+      +   '</span>'
+      + '</li>';
+  }
+
   function campaignRowHtml(c) {
-    var pct = c.postsRequired > 0
-      ? Math.max(0, Math.min(100, Math.round((c.postsCompleted / c.postsRequired) * 100)))
-      : 0;
+    var completed = postsCompletedOf(c);
     var deadline = c.daysLeft === 0
       ? 'Due today'
       : c.daysLeft + ' day' + (c.daysLeft === 1 ? '' : 's') + ' left';
+
+    // Stacked contribution bar: one slice per contributor, widths
+    // proportional to count. Same hues as the ring so the two readings
+    // agree at a glance. The trailing track (unfilled remainder of the
+    // bar) is the default .campaign-bar background.
+    var slices = '';
+    (c.contributions || []).forEach(function (ctr) {
+      var w = c.postsRequired > 0 ? (ctr.count / c.postsRequired) * 100 : 0;
+      if (w <= 0) return;
+      slices +=
+        '<span class="campaign-bar-slice" title="' + escapeHtml(ctr.creator)
+        + ' · ' + ctr.count + '" style="width:' + w.toFixed(2) + '%;background:'
+        + colorForHandle(ctr.creator) + '"></span>';
+    });
+
     return ''
       + '<li class="campaign-row" role="button" tabindex="0" data-campaign-id="' + escapeHtml(c.id) + '">'
-      +   '<span class="campaign-icon" aria-hidden="true">'
-      +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-      +       '<path d="M3 11v2a2 2 0 0 0 2 2h2l5 4V5L7 9H5a2 2 0 0 0-2 2z"/>'
-      +       '<path d="M16 8a4 4 0 0 1 0 8"/>'
-      +     '</svg>'
+      +   '<span class="campaign-icon campaign-icon--ring" aria-hidden="true">'
+      +     campaignRingSvg(c)
       +   '</span>'
       +   '<div class="campaign-main">'
       +     '<div class="campaign-headline">'
@@ -221,8 +451,8 @@
       +       '</span>'
       +     '</div>'
       +     '<div class="campaign-progress">'
-      +       '<span class="campaign-bar"><span class="campaign-bar-fill" style="width:' + pct + '%"></span></span>'
-      +       '<span class="campaign-count">' + c.postsCompleted + '/' + c.postsRequired + '</span>'
+      +       '<span class="campaign-bar">' + slices + '</span>'
+      +       '<span class="campaign-count">' + completed + '/' + c.postsRequired + '</span>'
       +     '</div>'
       +   '</div>'
       +   '<span class="campaign-chevron" aria-hidden="true">'
@@ -249,7 +479,17 @@
       card.innerHTML =
         '<div class="campaigns-head">' +
           '<h2>Active Campaigns</h2>' +
-          '<button type="button" class="campaigns-viewall" id="campaignsViewAll" aria-label="View all campaigns">View all</button>' +
+          '<div class="campaigns-head-actions">' +
+            '<button type="button" class="campaigns-combine" id="campaignsCombine" role="switch" aria-checked="false" aria-label="Combine campaigns into a single average">' +
+              '<svg class="campaigns-combine-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+                '<circle cx="8" cy="9" r="4"/>' +
+                '<circle cx="16" cy="9" r="4"/>' +
+                '<path d="M5 20a6 6 0 0 1 14 0"/>' +
+              '</svg>' +
+              '<span>Combine</span>' +
+            '</button>' +
+            '<button type="button" class="campaigns-viewall" id="campaignsViewAll" aria-label="View all campaigns">View all</button>' +
+          '</div>' +
         '</div>' +
         '<ul class="campaign-list" id="campaignList"></ul>';
       dash.insertBefore(card, dash.firstChild);
@@ -263,16 +503,45 @@
           scrollToSection(activeCampaignsSection(), 'campaigns');
         });
       }
+
+      // Combine toggle: persisted in localStorage, defaults on. We hold the
+      // most recent campaign list in a closure on the card element so the
+      // toggle can re-render without re-fetching.
+      var combineBtn = document.getElementById('campaignsCombine');
+      if (combineBtn) {
+        combineBtn.addEventListener('click', function () {
+          var next = !isCombined();
+          setCombined(next);
+          renderActiveCampaigns(card.__campaignsList || []);
+        });
+      }
     }
 
     var ul = document.getElementById('campaignList');
     if (!ul) return;
     var items = Array.isArray(list) && list.length ? list : [];
+
+    // Stash the list on the card element so the Combine toggle can
+    // re-render without needing a fresh fetch.
+    card.__campaignsList = items;
+
+    // Reflect the toggle state on the button so the active style and
+    // accessibility hint stay in sync with localStorage.
+    var combined = isCombined();
+    var combineBtn = document.getElementById('campaignsCombine');
+    if (combineBtn) {
+      combineBtn.setAttribute('aria-checked', combined ? 'true' : 'false');
+      combineBtn.classList.toggle('is-on', combined);
+    }
+
     if (!items.length) {
       ul.innerHTML = '<li class="campaign-empty">No active campaigns yet.</li>';
       return;
     }
-    ul.innerHTML = items.map(campaignRowHtml).join('');
+
+    ul.innerHTML = combined
+      ? combinedRowHtml(items)
+      : items.map(campaignRowHtml).join('');
   }
 
   function syncRouteFromScroll() {
@@ -391,6 +660,18 @@
   }
   var ALL_COLOR = 'hsl(28 95% 56%)';   // primary accent
 
+  // Deterministic per-id mock streak (1–14 days). The dashboard has no
+  // real "consecutive posting days" data source yet — Graylog stores per-
+  // event timestamps but the bookmarklet roll-up isn't there. Until that
+  // ships we hash the id so streaks stay stable across reloads and look
+  // intentional rather than random. Replace with a real query when ready.
+  function streakFor(id) {
+    var s = String(id || '');
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return (h % 14) + 1;
+  }
+
   function renderAcctTrigger() {
     var scope = Users.getScope();
     var members = Users.members();
@@ -415,16 +696,32 @@
   }
 
   function acctRow(opts) {
-    // opts: { id, name, handle, dotColor, active, onClick }
+    // opts: { id, label, dotColor, active, streak, onClick }
+    //   label    — primary text shown after the dot (e.g. "@boosteddealsdaily"
+    //              for a creator, "All Accounts" for the aggregate row)
+    //   streak   — optional number of consecutive posting days; rendered as
+    //              a 🔥Nd chip on the right when present and > 0
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'acct-row' + (opts.active ? ' acct-row-active' : '');
     b.setAttribute('role', 'option');
     b.setAttribute('aria-selected', opts.active ? 'true' : 'false');
+
+    var streakHtml = '';
+    if (opts.streak && opts.streak > 0) {
+      streakHtml =
+        '<span class="acct-row-streak" title="' + opts.streak + '-day streak">' +
+          '<span class="acct-row-streak-emoji" aria-hidden="true">🔥</span>' +
+          '<span class="acct-row-streak-val">' + opts.streak + 'd</span>' +
+        '</span>';
+    } else if (opts.meta) {
+      streakHtml = '<span class="acct-row-meta">' + escapeHtml(opts.meta) + '</span>';
+    }
+
     b.innerHTML =
       '<span class="acct-dot" style="background:' + escapeHtml(opts.dotColor) + '"></span>' +
-      '<span class="acct-row-name">' + escapeHtml(opts.name) + '</span>' +
-      '<span class="acct-row-handle">' + escapeHtml(opts.handle || '') + '</span>' +
+      '<span class="acct-row-label">' + escapeHtml(opts.label) + '</span>' +
+      streakHtml +
       '<span class="acct-check" aria-hidden="true">' + (opts.active ? '✓' : '') + '</span>';
     b.addEventListener('click', function (ev) {
       ev.stopPropagation();
@@ -447,8 +744,8 @@
     panel.appendChild(aggHeader);
     panel.appendChild(acctRow({
       id: '__all',
-      name: 'All Accounts',
-      handle: members.length + ' creators',
+      label: 'All Accounts',
+      meta: members.length + ' creators',
       dotColor: ALL_COLOR,
       active: scope === '__all',
       onClick: function () {
@@ -474,10 +771,13 @@
     members.forEach(function (m) {
       panel.appendChild(acctRow({
         id: m.id,
-        name: m.name,
-        handle: m.creator || '',
+        // Primary label is now the @handle. Falls back to id when a
+        // member entry somehow has no .creator (shouldn't happen in
+        // production but Users.refresh has been seen to seed odd data).
+        label: m.creator || ('@' + m.id),
         dotColor: colorFor(m.id),
         active: !!selectedIds[m.id],
+        streak: streakFor(m.id),
         onClick: function () {
           Users.toggle(m.id);
           renderAcctTrigger();

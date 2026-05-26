@@ -490,6 +490,21 @@ body[data-mode="live"] section[data-mode="videos"] {
 
 .campaign-icon svg { width: 20px; height: 20px; }
 
+/* Ring variant — the segments themselves carry color, so we drop the
+   tinted disc and let the ring sit on the card background. The SVG
+   fills the box; the centered % text inside picks up --foreground. */
+.campaign-icon--ring {
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  color: var(--foreground);
+}
+.campaign-icon--ring svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
 .campaign-main {
   flex: 1 1 auto;
   min-width: 0;
@@ -533,16 +548,34 @@ body[data-mode="live"] section[data-mode="videos"] {
 
 .campaign-bar {
   flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
   height: 6px;
   border-radius: 999px;
   background: var(--border);
   overflow: hidden;
+  gap: 1px;
 }
 
+/* Stacked contribution slices. Each slice's background is set inline
+   to the contributor's deterministic colorFor() hue; the trailing
+   unfilled remainder is the .campaign-bar's own background showing
+   through. The 1px gap reads as a subtle separator between
+   contributors without looking like a different color. */
+.campaign-bar-slice {
+  display: block;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.campaign-bar-slice:first-child { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
+.campaign-bar-slice:last-child  { border-top-right-radius: 999px; border-bottom-right-radius: 999px; }
+
+/* Legacy single-color fill — kept so older OTA bundles don't visibly
+   break if a downgrade leaves the old markup in place. */
 .campaign-bar-fill {
   display: block;
   height: 100%;
-  background: #3b82f6;
+  background: var(--primary);
   border-radius: 999px;
   transition: width 0.3s ease;
 }
@@ -566,6 +599,77 @@ body[data-mode="live"] section[data-mode="videos"] {
   text-align: center;
   color: var(--muted-foreground);
   font-size: 13px;
+}
+
+/* Campaigns head — two right-aligned controls: the Combine toggle
+   (default-on) and "View all". The toggle collapses the list into a
+   single row showing the average % across all campaigns. */
+.campaigns-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.campaigns-combine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.campaigns-combine:hover { color: var(--foreground); border-color: rgb(242 241 237 / 0.18); }
+.campaigns-combine-icon { width: 14px; height: 14px; flex: 0 0 auto; }
+
+/* "On" state — matches the active acct-row treatment so toggled-on
+   controls feel consistent across the dashboard. */
+.campaigns-combine.is-on {
+  background: rgb(245 78 0 / 0.14);
+  color: var(--primary);
+  border-color: rgb(245 78 0 / 0.4);
+}
+
+/* Combined row — slightly accented background and a hairline glow to
+   set it apart from a regular campaign row. Sized identically so the
+   layout doesn't jump when the toggle flips. */
+.campaign-row--combined {
+  background: rgb(245 78 0 / 0.06);
+  border-color: rgb(245 78 0 / 0.22);
+}
+
+.campaign-icon--combined {
+  width: 48px;
+  height: 48px;
+}
+
+/* Small "avg" tag next to the "Combined" brand label, mirroring the
+   pill-on-headline pattern used elsewhere (e.g. the virals NEW badge). */
+.campaign-brand {
+  /* Allow the inline tag to sit beside the label without breaking
+     ellipsis on long brand names in non-combined rows. */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.campaign-brand-tag {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgb(245 78 0 / 0.16);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .tablewrap {
@@ -909,6 +1013,53 @@ tbody tr:hover {
 .acct-row-active {
   background: rgb(245 78 0 / 0.14);
 }
+/* Primary label of an account row — now the @handle for creators
+   and "All Accounts" for the aggregate row. The redundant display
+   name (e.g. "boosteddeals…") was dropped because it was a fragile
+   truncation of the very handle it sat next to. */
+.acct-row-label {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 🔥 day-streak chip — surfaced to the right of every creator row.
+   Until a real "consecutive posting days" rollup exists in Graylog,
+   the value comes from a deterministic id hash (see streakFor()). */
+.acct-row-streak {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(245 78 0 / 0.12);
+  color: #f5793a;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.acct-row-streak-emoji { font-size: 11px; line-height: 1; }
+.acct-row-streak-val   { font-family: var(--font-sans); }
+
+/* Right-aligned secondary text for non-creator rows (the aggregate
+   "All Accounts" row uses this to surface the creator count). */
+.acct-row-meta {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+}
+
+/* Legacy class names — kept so an older OTA bundle render path that
+   still emits .acct-row-name / .acct-row-handle doesn't go unstyled. */
 .acct-row-name {
   flex: 1;
   font-weight: 600;
