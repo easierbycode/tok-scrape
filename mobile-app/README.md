@@ -186,7 +186,9 @@ If you're running Graylog without that, add it (or set the equivalent values in 
 
 `.github/workflows/build-apk-preloaded.yml` builds per-member, pre-loaded debug APKs and commits them to the repo root on `main`. GitHub Pages serves the `main` branch root on the custom domain (`easierbycode.com`), same pattern as `chrome.zip`, so each APK is reachable at `https://easierbycode.com/tok-scrape/<tag>.apk` — for example the default multimember build:
 
-> https://easierbycode.com/tok-scrape/boosteddealsdaily+2.apk
+> https://easierbycode.com/tok-scrape/boosteddealsdaily+2.apk?v=002370e
+
+The `?v=<sha>` suffix is a cache-buster: the filename is stable, so the GitHub Pages CDN and browsers will otherwise keep serving an old copy after a rebuild. Bump `<sha>` to the source commit of the latest build — it's in the most recent `chore: refresh preloaded APK(s) from <sha>` auto-commit on `main` (any new unique token works; it just has to differ from the last one).
 
 Auto-triggers on every push to `main` that touches `mobile-app/**` (or the workflow file itself) and builds the default `boosteddealsdaily,prettyplug.x,wizardofdealz` roster (filename tag `boosteddealsdaily+2`). The workflow's `paths:` filter excludes root `*.apk`, so the auto-commit that publishes the APK doesn't loop the build. Manual `workflow_dispatch` runs accept any `member_id` input:
 
