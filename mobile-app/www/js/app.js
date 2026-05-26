@@ -463,61 +463,27 @@
       + '</li>';
   }
 
-  // Inject (if missing) and wire the Active Campaigns "Combine" toggle. The
-  // button is persisted via isCombined()/setCombined() and defaults on. It
-  // ships in the dynamic card and the APK's static index.html, but older
-  // shells (and OTA bundles landing on them) may expose a head with only
-  // "View all" -- create the toggle there so it never goes missing. Wiring
-  // is guarded so repeated renders don't stack duplicate click listeners.
-  function ensureCombineToggle(card) {
-    var btn = document.getElementById('campaignsCombine');
-    if (!btn) {
-      var head = card.querySelector('.campaigns-head');
-      if (!head) return null;
-      btn = document.createElement('button');
-      btn.type = 'button';
-      btn.id = 'campaignsCombine';
-      btn.className = 'campaigns-combine';
-      btn.setAttribute('role', 'switch');
-      btn.setAttribute('aria-checked', 'false');
-      btn.setAttribute('aria-label', 'Combine campaigns into a single average');
-      btn.innerHTML =
-        '<svg class="campaigns-combine-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-          '<circle cx="8" cy="9" r="4"/>' +
-          '<circle cx="16" cy="9" r="4"/>' +
-          '<path d="M5 20a6 6 0 0 1 14 0"/>' +
-        '</svg>' +
-        '<span>Combine</span>';
-      var viewAll = document.getElementById('campaignsViewAll');
-      var actions = head.querySelector('.campaigns-head-actions');
-      if (actions) {
-        actions.insertBefore(btn, actions.firstChild);
-      } else if (viewAll && viewAll.parentNode === head) {
-        // Static shell: wrap the lone "View all" so the flex row matches CSS.
-        var wrap = document.createElement('div');
-        wrap.className = 'campaigns-head-actions';
-        head.insertBefore(wrap, viewAll);
-        wrap.appendChild(btn);
-        wrap.appendChild(viewAll);
-      } else {
-        head.appendChild(btn);
-      }
-    }
-    if (btn && !btn.__combineWired) {
-      btn.__combineWired = true;
-      btn.addEventListener('click', function () {
-        setCombined(!isCombined());
-        renderActiveCampaigns(card.__campaignsList || []);
-      });
-    }
-    return btn;
-  }
-
   function renderActiveCampaigns(list) {
     // OTA bundles ship CSS+JS only — index.html is whatever shipped in
-    // the installed APK, so we can't rely on the <section id="activeCampaignsCard">
-    // markup being there. Create the card dynamically and insert it at
-    // the very top of #dashboard if it doesn't already exist.
+    // the installed APK. The section may or may not exist, and when it
+    // does its head may predate the redesign (older shells render a
+    // serif "Active Campaigns" h2 with View all, no Combine button).
+    // Create the section if it's missing, then unconditionally normalize
+    // the head so the new heading style and Combine toggle land via OTA
+    // regardless of what the bundled index.html shipped.
+    var headHtml =
+      '<h2 class="campaigns-title">Campaigns</h2>' +
+      '<div class="campaigns-head-actions">' +
+        '<button type="button" class="campaigns-combine" id="campaignsCombine" role="switch" aria-checked="false" aria-label="Combine campaigns into a single average">' +
+          '<svg class="campaigns-combine-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<circle cx="8" cy="9" r="4"/>' +
+            '<circle cx="16" cy="9" r="4"/>' +
+            '<path d="M5 20a6 6 0 0 1 14 0"/>' +
+          '</svg>' +
+          '<span class="campaigns-combine-label">Combine</span>' +
+        '</button>' +
+      '</div>';
+
     var card = document.getElementById('activeCampaignsCard');
     if (!card) {
       var dash = document.getElementById('dashboard');
@@ -527,31 +493,34 @@
       card.className = 'card card-wide campaigns-block';
       card.setAttribute('data-route-target', 'campaigns');
       card.innerHTML =
-        '<div class="campaigns-head">' +
-          '<h2>Active Campaigns</h2>' +
-          '<div class="campaigns-head-actions">' +
-            '<button type="button" class="campaigns-viewall" id="campaignsViewAll" aria-label="View all campaigns">View all</button>' +
-          '</div>' +
-        '</div>' +
+        '<div class="campaigns-head">' + headHtml + '</div>' +
         '<ul class="campaign-list" id="campaignList"></ul>';
       dash.insertBefore(card, dash.firstChild);
-
-      // Wire up the "View all" button on the freshly-created card. The
-      // bind() pass that runs on init() won't find this button when the
-      // card was injected after bind ran, so attach the handler here.
-      var btn = document.getElementById('campaignsViewAll');
-      if (btn) {
-        btn.addEventListener('click', function () {
-          scrollToSection(activeCampaignsSection(), 'campaigns');
-        });
-      }
     }
 
-    // Guarantee the Combine toggle is present and wired regardless of how
-    // the card got here -- created dynamically above, or shipped statically
-    // in the APK's index.html. Older APK shells render only "View all", and
-    // app.js can arrive via OTA atop any such shell, so it owns the toggle.
-    ensureCombineToggle(card);
+    // Normalize the head if the bundled markup is the older shape
+    // (missing the Combine button, still using the serif "Active
+    // Campaigns" h2, or still rendering a View-all). Idempotent — once
+    // upgraded the selector matches and we leave the head alone on
+    // subsequent renders.
+    var head = card.querySelector('.campaigns-head');
+    if (head && (!head.querySelector('.campaigns-combine-label') || head.querySelector('#campaignsViewAll'))) {
+      head.innerHTML = headHtml;
+      card.__headBound = false;
+    }
+
+    // Wire up the Combine button once per card (the flag is reset above
+    // whenever we rebuild the head, so the new node gets a fresh listener).
+    if (!card.__headBound) {
+      var combineBtnInit = document.getElementById('campaignsCombine');
+      if (combineBtnInit) {
+        combineBtnInit.addEventListener('click', function () {
+          setCombined(!isCombined());
+          renderActiveCampaigns(card.__campaignsList || []);
+        });
+      }
+      card.__headBound = true;
+    }
 
     var ul = document.getElementById('campaignList');
     if (!ul) return;
@@ -561,13 +530,16 @@
     // re-render without needing a fresh fetch.
     card.__campaignsList = items;
 
-    // Reflect the toggle state on the button so the active style and
-    // accessibility hint stay in sync with localStorage.
+    // Reflect the toggle state on the button so the SPLIT/COMBINE label
+    // and aria stay in sync with localStorage.
     var combined = isCombined();
     var combineBtn = document.getElementById('campaignsCombine');
     if (combineBtn) {
       combineBtn.setAttribute('aria-checked', combined ? 'true' : 'false');
       combineBtn.classList.toggle('is-on', combined);
+      var lbl = combineBtn.querySelector('.campaigns-combine-label');
+      if (lbl) lbl.textContent = combined ? 'Split' : 'Combine';
+      combineBtn.setAttribute('aria-label', combined ? 'Split combined campaigns' : 'Combine campaigns into a single average');
     }
 
     if (!items.length) {
@@ -1361,16 +1333,6 @@
     // Common dashboard view (Seller Comparison)
     if (els.commonDashClose) {
       els.commonDashClose.addEventListener('click', closeCommonDashboard);
-    }
-
-    // Active Campaigns "View all": until there's a dedicated campaigns
-    // screen, scroll to the per-mode GMV chart section that the bottom-nav
-    // Campaigns button also targets.
-    var viewAllBtn = $('campaignsViewAll');
-    if (viewAllBtn) {
-      viewAllBtn.addEventListener('click', function () {
-        scrollToSection(activeCampaignsSection(), 'campaigns');
-      });
     }
 
     // Mode toggle (Videos / Live)
