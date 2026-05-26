@@ -439,20 +439,15 @@ body[data-mode="live"] section[data-mode="videos"] {
   margin-bottom: 12px;
 }
 
-.campaigns-head h2 { margin: 0; }
-
-.campaigns-viewall {
-  background: transparent;
-  border: 0;
-  color: var(--primary);
-  font-size: 13px;
+.campaigns-head h2.campaigns-title {
+  margin: 0;
+  font-family: inherit;
   font-weight: 600;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted-foreground);
 }
-
-.campaigns-viewall:hover { text-decoration: underline; }
 
 .campaign-list {
   list-style: none;
@@ -460,21 +455,21 @@ body[data-mode="live"] section[data-mode="videos"] {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 
 .campaign-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  background: rgb(26 25 22 / 0.6);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  transition: background-color 0.15s ease, transform 0.15s ease;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.15s ease;
 }
 
-.campaign-row:active { background: rgb(36 36 58 / 0.6); transform: scale(0.997); }
+.campaign-list .campaign-row:last-child { border-bottom: 0; }
+
+.campaign-row:active { background: rgb(36 36 58 / 0.35); }
 
 .campaign-icon {
   flex: 0 0 auto;
@@ -615,36 +610,21 @@ body[data-mode="live"] section[data-mode="videos"] {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px 5px 8px;
-  background: transparent;
-  color: var(--muted-foreground);
+  appearance: none;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
-.campaigns-combine:hover { color: var(--foreground); border-color: rgb(242 241 237 / 0.18); }
-.campaigns-combine-icon { width: 14px; height: 14px; flex: 0 0 auto; }
-
-/* "On" state — matches the active acct-row treatment so toggled-on
-   controls feel consistent across the dashboard. */
-.campaigns-combine.is-on {
-  background: rgb(245 78 0 / 0.14);
-  color: var(--primary);
-  border-color: rgb(245 78 0 / 0.4);
-}
-
-/* Combined row — slightly accented background and a hairline glow to
-   set it apart from a regular campaign row. Sized identically so the
-   layout doesn't jump when the toggle flips. */
-.campaign-row--combined {
-  background: rgb(245 78 0 / 0.06);
-  border-color: rgb(245 78 0 / 0.22);
-}
+.campaigns-combine:hover { background: var(--muted); }
+.campaigns-combine:active { transform: translateY(1px); }
+.campaigns-combine-icon { width: 12px; height: 12px; flex: 0 0 auto; }
 
 .campaign-icon--combined {
   width: 48px;
