@@ -99,7 +99,17 @@
     <section class="card card-wide campaigns-block" id="activeCampaignsCard" data-route-target="campaigns">
       <div class="campaigns-head">
         <h2>Active Campaigns</h2>
-        <button type="button" class="campaigns-viewall" id="campaignsViewAll" aria-label="View all campaigns">View all</button>
+        <div class="campaigns-head-actions">
+          <button type="button" class="campaigns-combine" id="campaignsCombine" role="switch" aria-checked="false" aria-label="Combine campaigns into a single average">
+            <svg class="campaigns-combine-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="8" cy="9" r="4"/>
+              <circle cx="16" cy="9" r="4"/>
+              <path d="M5 20a6 6 0 0 1 14 0"/>
+            </svg>
+            <span>Combine</span>
+          </button>
+          <button type="button" class="campaigns-viewall" id="campaignsViewAll" aria-label="View all campaigns">View all</button>
+        </div>
       </div>
       <ul class="campaign-list" id="campaignList"><!-- rendered by app.js --></ul>
     </section>
