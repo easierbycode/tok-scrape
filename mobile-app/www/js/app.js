@@ -463,6 +463,56 @@
       + '</li>';
   }
 
+  // Inject (if missing) and wire the Active Campaigns "Combine" toggle. The
+  // button is persisted via isCombined()/setCombined() and defaults on. It
+  // ships in the dynamic card and the APK's static index.html, but older
+  // shells (and OTA bundles landing on them) may expose a head with only
+  // "View all" -- create the toggle there so it never goes missing. Wiring
+  // is guarded so repeated renders don't stack duplicate click listeners.
+  function ensureCombineToggle(card) {
+    var btn = document.getElementById('campaignsCombine');
+    if (!btn) {
+      var head = card.querySelector('.campaigns-head');
+      if (!head) return null;
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'campaignsCombine';
+      btn.className = 'campaigns-combine';
+      btn.setAttribute('role', 'switch');
+      btn.setAttribute('aria-checked', 'false');
+      btn.setAttribute('aria-label', 'Combine campaigns into a single average');
+      btn.innerHTML =
+        '<svg class="campaigns-combine-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<circle cx="8" cy="9" r="4"/>' +
+          '<circle cx="16" cy="9" r="4"/>' +
+          '<path d="M5 20a6 6 0 0 1 14 0"/>' +
+        '</svg>' +
+        '<span>Combine</span>';
+      var viewAll = document.getElementById('campaignsViewAll');
+      var actions = head.querySelector('.campaigns-head-actions');
+      if (actions) {
+        actions.insertBefore(btn, actions.firstChild);
+      } else if (viewAll && viewAll.parentNode === head) {
+        // Static shell: wrap the lone "View all" so the flex row matches CSS.
+        var wrap = document.createElement('div');
+        wrap.className = 'campaigns-head-actions';
+        head.insertBefore(wrap, viewAll);
+        wrap.appendChild(btn);
+        wrap.appendChild(viewAll);
+      } else {
+        head.appendChild(btn);
+      }
+    }
+    if (btn && !btn.__combineWired) {
+      btn.__combineWired = true;
+      btn.addEventListener('click', function () {
+        setCombined(!isCombined());
+        renderActiveCampaigns(card.__campaignsList || []);
+      });
+    }
+    return btn;
+  }
+
   function renderActiveCampaigns(list) {
     // OTA bundles ship CSS+JS only — index.html is whatever shipped in
     // the installed APK, so we can't rely on the <section id="activeCampaignsCard">
@@ -480,14 +530,6 @@
         '<div class="campaigns-head">' +
           '<h2>Active Campaigns</h2>' +
           '<div class="campaigns-head-actions">' +
-            '<button type="button" class="campaigns-combine" id="campaignsCombine" role="switch" aria-checked="false" aria-label="Combine campaigns into a single average">' +
-              '<svg class="campaigns-combine-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-                '<circle cx="8" cy="9" r="4"/>' +
-                '<circle cx="16" cy="9" r="4"/>' +
-                '<path d="M5 20a6 6 0 0 1 14 0"/>' +
-              '</svg>' +
-              '<span>Combine</span>' +
-            '</button>' +
             '<button type="button" class="campaigns-viewall" id="campaignsViewAll" aria-label="View all campaigns">View all</button>' +
           '</div>' +
         '</div>' +
@@ -503,19 +545,13 @@
           scrollToSection(activeCampaignsSection(), 'campaigns');
         });
       }
-
-      // Combine toggle: persisted in localStorage, defaults on. We hold the
-      // most recent campaign list in a closure on the card element so the
-      // toggle can re-render without re-fetching.
-      var combineBtn = document.getElementById('campaignsCombine');
-      if (combineBtn) {
-        combineBtn.addEventListener('click', function () {
-          var next = !isCombined();
-          setCombined(next);
-          renderActiveCampaigns(card.__campaignsList || []);
-        });
-      }
     }
+
+    // Guarantee the Combine toggle is present and wired regardless of how
+    // the card got here -- created dynamically above, or shipped statically
+    // in the APK's index.html. Older APK shells render only "View all", and
+    // app.js can arrive via OTA atop any such shell, so it owns the toggle.
+    ensureCombineToggle(card);
 
     var ul = document.getElementById('campaignList');
     if (!ul) return;
