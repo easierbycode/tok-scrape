@@ -289,6 +289,79 @@
       });
   };
 
+  // Pull seller-side Compass "Product Analytics" snapshots
+  // (source:tiktok-bookmarklet-product-analysis). Unlike the other scraped
+  // sources, one scrape spans MULTIPLE GELF messages — the extension posts one
+  // message per table page (page_num 1..N at 50 rows/page), each carrying a
+  // slice of the product rows. We regroup by creator + scrapedAt and concat the
+  // pages back into one product list per scrape, newest-first, so the renderer
+  // can pick the latest scrape per creator.
+  GraylogClient.prototype.fetchProductAnalytics = function (rangeSeconds, creatorFilter) {
+    var fields = [
+      'creator', 'page', 'scrapedAt',
+      'date_label', 'date_start', 'date_end',
+      'page_num', 'pages_total', 'total_products', 'rows_count',
+      'columns_json', 'rows_json'
+    ];
+    var base  = 'source:tiktok-bookmarklet-product-analysis';
+    var query = applyCreatorFilter(base, creatorFilter);
+    return this.search(query, rangeSeconds, fields, 1000)
+      .then(function (resp) {
+        var msgs = (resp && resp.messages) || [];
+        // Group page-messages into scrapes. Messages arrive newest-first, so the
+        // order in which each (creator, scrapedAt) key is first seen preserves a
+        // newest-first scrape ordering for the renderer.
+        var groups = Object.create(null);
+        var order = [];
+        msgs.forEach(function (entry) {
+          var m = entry.message || {};
+          var creator   = m.creator   || '';
+          var scrapedAt = m.scrapedAt || m.timestamp || '';
+          var key = creator + '|' + scrapedAt;
+          var g = groups[key];
+          if (!g) {
+            g = groups[key] = {
+              timestamp:     m.timestamp || m.scrapedAt || null,
+              creator:       creator,
+              page:          m.page || '',
+              scrapedAt:     scrapedAt,
+              dateLabel:     m.date_label || '',
+              dateStart:     m.date_start || '',
+              dateEnd:       m.date_end   || '',
+              totalProducts: num(m.total_products),
+              columns:       [],
+              _pages:        []
+            };
+            order.push(key);
+          }
+          if (m.columns_json && !g.columns.length) {
+            try { g.columns = JSON.parse(m.columns_json) || []; }
+            catch (e) { g._columnsParseError = e.message; }
+          }
+          var rows = [];
+          if (m.rows_json) {
+            try { rows = JSON.parse(m.rows_json) || []; }
+            catch (e) { g._rowsParseError = e.message; }
+          }
+          g._pages.push({ pageNum: num(m.page_num), rows: rows });
+        });
+        return order.map(function (key) {
+          var g = groups[key];
+          // Concat pages in ascending page order so the GMV ranking is contiguous.
+          g._pages.sort(function (a, b) {
+            var an = isNaN(a.pageNum) ? 0 : a.pageNum;
+            var bn = isNaN(b.pageNum) ? 0 : b.pageNum;
+            return an - bn;
+          });
+          var allRows = [];
+          g._pages.forEach(function (p) { allRows = allRows.concat(p.rows); });
+          delete g._pages;
+          g.rows = allRows;
+          return g;
+        });
+      });
+  };
+
   // Pull affiliate-export rows ingested via "Add Exported Data" (xlsx upload).
   // Source: tiktok-affiliate-export (one GELF message per order row). Returns
   // an array of order objects with the same keys we send up in postGelf below.
@@ -381,6 +454,7 @@
       'source:tiktok-bookmarklet-streamer',
       'source:tiktok-bookmarklet-livestream-analytics',
       'source:tiktok-bookmarklet-data-overview',
+      'source:tiktok-bookmarklet-product-analysis',
       'source:tiktok-affiliate-export'
     ];
     var query = '(' + base + ') OR ' + extras.join(' OR ');

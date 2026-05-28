@@ -904,6 +904,125 @@
     paint();
   }
 
+  // ---- Product Analytics renderer (seller Compass /product-analysis/view) ----
+  // source:tiktok-bookmarklet-product-analysis. Per-product rows (GMV, est.
+  // commission, items sold) for each creator's shop, GMV-ranked. One scrape is
+  // reassembled from its page-messages by api.fetchProductAnalytics.
+
+  var PRODUCT_ROW_CAP = 50;   // products rendered per creator (GMV-ranked); the
+                              // long tail is mostly $0 GMV and would bloat the DOM.
+
+  // The card isn't guaranteed to exist in the installed APK's index.html, and
+  // OTA bundles only ship JS/CSS \u2014 so create it on demand (cf. the Active
+  // Campaigns card in app.js), parking it just below Creator Analytics.
+  function ensureProductCard() {
+    var existing = document.getElementById('productAnalysisCard');
+    if (existing) return existing;
+    var dash = document.getElementById('dashboard');
+    if (!dash) return null;
+    var card = document.createElement('section');
+    card.id = 'productAnalysisCard';
+    card.className = 'card card-wide product-analysis-block hidden';
+    var anchor = document.getElementById('creatorAnalysisCard') ||
+                 document.getElementById('overviewCard');
+    if (anchor && anchor.parentNode === dash) dash.insertBefore(card, anchor.nextSibling);
+    else dash.appendChild(card);
+    return card;
+  }
+
+  // "171 products", or "top 50 of 171 products" when the list is capped.
+  function productCountText(scrape) {
+    var rows = scrape.rows || [];
+    var total = (typeof scrape.totalProducts === 'number' && !isNaN(scrape.totalProducts))
+      ? scrape.totalProducts : rows.length;
+    var shownN = Math.min(PRODUCT_ROW_CAP, rows.length);
+    if (total > shownN) return 'top ' + shownN + ' of ' + total + ' products';
+    return total + (total === 1 ? ' product' : ' products');
+  }
+
+  // Build one creator's product table. Reuses the Creator Analytics table
+  // styling: sticky first cell = product name + ID, then the metric columns the
+  // scrape captured (GMV / Estimated commission / Items sold).
+  function buildProductTableHtml(scrape) {
+    var cols = (scrape.columns && scrape.columns.length)
+      ? scrape.columns
+      : ['Product', 'Product ID', 'GMV', 'Estimated commission', 'Items sold'];
+    var metricCols = cols.filter(function (c) { return c !== 'Product' && c !== 'Product ID'; });
+    var shown = (scrape.rows || []).slice(0, PRODUCT_ROW_CAP);
+
+    var theadHtml = '<tr><th>Product</th>' +
+      metricCols.map(function (c) { return '<th>' + escapeHtml(c) + '</th>'; }).join('') +
+      '</tr>';
+    var bodyHtml = shown.map(function (r) {
+      var id = r['Product ID'] || '';
+      var tds = metricCols.map(function (c) { return '<td>' + escapeHtml(r[c] || '') + '</td>'; }).join('');
+      return '<tr>' +
+        '<td class="ca-name">' +
+          '<span class="ca-username">' + escapeHtml(shorten(r['Product'] || '', 60)) + '</span>' +
+          (id ? '<span class="ca-display">ID: ' + escapeHtml(id) + '</span>' : '') +
+        '</td>' + tds +
+      '</tr>';
+    }).join('');
+
+    return '<div class="tablewrap">' +
+      '<table class="ca-table pa-table">' +
+        '<thead>' + theadHtml + '</thead>' +
+        '<tbody>' + bodyHtml + '</tbody>' +
+      '</table>' +
+    '</div>';
+  }
+
+  function appendHtml(parent, html) {
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    while (wrap.firstChild) parent.appendChild(wrap.firstChild);
+  }
+
+  function renderProductAnalytics(scrapes) {
+    var card = ensureProductCard();
+    if (!card) return;
+    var perCreator = latestPerCreator(scrapes || []);
+    if (!perCreator.length) {
+      card.classList.add('hidden');
+      card.innerHTML = '';
+      return;
+    }
+    var multi = perCreator.length > 1;
+    card.innerHTML = '';
+
+    if (multi) {
+      var head = document.createElement('div');
+      head.className = 'overview-head';
+      head.innerHTML = '<span class="overview-title">Product Analytics</span>';
+      card.appendChild(head);
+      perCreator.forEach(function (s) {
+        var block = document.createElement('div');
+        block.className = 'overview-creator';
+        var subhead = document.createElement('div');
+        subhead.className = 'overview-creator-head';
+        subhead.innerHTML =
+          creatorChipHtml(s.creator) +
+          '<span class="overview-range">' + escapeHtml(productCountText(s)) +
+            (s.dateStart ? ' \u00b7 ' + escapeHtml(overviewRangeText(s)) : '') + '</span>';
+        block.appendChild(subhead);
+        appendHtml(block, buildProductTableHtml(s));
+        card.appendChild(block);
+      });
+    } else {
+      var single = perCreator[0];
+      var head2 = document.createElement('div');
+      head2.className = 'overview-head';
+      head2.innerHTML =
+        '<span class="overview-title">Product Analytics</span>' +
+        '<span class="overview-range">' + escapeHtml(productCountText(single)) +
+          (single.dateStart ? ' \u00b7 ' + escapeHtml(overviewRangeText(single)) : '') + '</span>';
+      card.appendChild(head2);
+      appendHtml(card, buildProductTableHtml(single));
+    }
+
+    card.classList.remove('hidden');
+  }
+
   function shorten(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '\u2026' : s; }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) {
     return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
@@ -923,6 +1042,7 @@
     renderLive: renderLive,
     renderAffiliate: renderAffiliate,
     renderOverview: renderOverview,
-    renderCreatorAnalytics: renderCreatorAnalytics
+    renderCreatorAnalytics: renderCreatorAnalytics,
+    renderProductAnalytics: renderProductAnalytics
   };
 })(window);

@@ -133,6 +133,14 @@
          the latest scrape. -->
     <section class="card card-wide creator-analysis-block hidden" id="creatorAnalysisCard"></section>
 
+    <!-- Seller Compass "Product Analytics" snapshot
+         (source:tiktok-bookmarklet-product-analysis). Per-product GMV / est.
+         commission / items sold for each creator's shop, GMV-ranked. Body is
+         rebuilt by Dashboard.renderProductAnalytics. NOTE: OTA bundles ship
+         JS/CSS only, so renderProductAnalytics also get-or-creates this section
+         at runtime — this markup just covers freshly-built APKs. -->
+    <section class="card card-wide product-analysis-block hidden" id="productAnalysisCard"></section>
+
     <!-- Videos mode (creator-scrape data: source:tiktok-bookmarklet) -->
     <section class="card kpi" data-mode="videos">
       <div class="kpi-row">
