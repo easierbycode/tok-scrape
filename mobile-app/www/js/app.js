@@ -1262,12 +1262,18 @@
 
         if (rangeSec === 86400) {
           setTodayOnlyMode(true);
-          // renderOverview hides the card when there are no single-day
-          // snapshots; surface the empty state so the user isn't staring
-          // at a blank dashboard.
-          var card = document.getElementById('overviewCard');
-          var overviewShown = card && !card.classList.contains('hidden');
-          if (overviewShown) {
+          // renderOverview hides its card when there are no single-day
+          // snapshots. The Creator/Product Analytics cards aren't span-filtered
+          // (they show the latest scrape regardless of range) and survive
+          // Today mode, so only fall back to the empty state when NONE of these
+          // cards rendered — otherwise showEmpty(true) would blank a creator's
+          // product/creator data along with the dashboard.
+          var todaySurvivors = ['overviewCard', 'creatorAnalysisCard', 'productAnalysisCard'];
+          var anyCardShown = todaySurvivors.some(function (id) {
+            var el = document.getElementById(id);
+            return el && !el.classList.contains('hidden');
+          });
+          if (anyCardShown) {
             showEmpty(false);
           } else {
             var todayMsg = creatorFilter
