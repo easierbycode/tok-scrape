@@ -1393,6 +1393,21 @@
     bindBottomNav();
   }
 
+  // Lift the per-mode headline KPI cards (Videos / Live / Affiliate) so they
+  // render directly above the Data Overview card. The card order is baked into
+  // the APK's index.html, which OTA bundles can't replace (ota.js only swaps
+  // JS/CSS, never the document), so we reposition the existing nodes at
+  // runtime — same reason the Active Campaigns card is built in JS.
+  function liftKpiCardsAboveOverview() {
+    var dash = document.getElementById('dashboard');
+    var overview = document.getElementById('overviewCard');
+    if (!dash || !overview || overview.parentNode !== dash) return;
+    var kpiCards = dash.querySelectorAll('section.card.kpi[data-mode]');
+    Array.prototype.forEach.call(kpiCards, function (card) {
+      if (card.parentNode === dash) dash.insertBefore(card, overview);
+    });
+  }
+
   function init() {
     els.dashboard        = $('dashboard');
     els.empty            = $('emptyState');
@@ -1425,6 +1440,7 @@
     renderAcctTrigger();
     renderAdminMenu();
     renderActiveCampaigns(MOCK_CAMPAIGNS);
+    liftKpiCardsAboveOverview();
     setupAutoRefresh();
 
     // No sign-in modal: open straight to the dashboard with the persisted /

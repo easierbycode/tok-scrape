@@ -119,14 +119,6 @@
       <button type="button" class="mode-btn" data-mode="live" role="tab" aria-selected="false">Live</button>
     </div>
 
-    <!-- Videos-mode headline KPIs (source:tiktok-bookmarklet). -->
-    <section class="card kpi" data-mode="videos">
-      <div class="kpi-row">
-        <div class="kpi-cell"><div class="kpi-label">Videos seen</div><div class="kpi-val" id="kpiVideos">&mdash;</div></div>
-        <div class="kpi-cell"><div class="kpi-label">Latest GMV</div><div class="kpi-val" id="kpiGMV">&mdash;</div></div>
-      </div>
-    </section>
-
     <!-- Compass "Data Overview" snapshot (source:tiktok-bookmarklet-data-overview).
          Spans every mode — it's a top-level summary card, not part of the
          videos/live tab content. Whole body (header + KPI rows) is rebuilt
@@ -142,6 +134,13 @@
     <section class="card card-wide creator-analysis-block hidden" id="creatorAnalysisCard"></section>
 
     <!-- Videos mode (creator-scrape data: source:tiktok-bookmarklet) -->
+    <section class="card kpi" data-mode="videos">
+      <div class="kpi-row">
+        <div class="kpi-cell"><div class="kpi-label">Videos seen</div><div class="kpi-val" id="kpiVideos">&mdash;</div></div>
+        <div class="kpi-cell"><div class="kpi-label">Latest GMV</div><div class="kpi-val" id="kpiGMV">&mdash;</div></div>
+      </div>
+    </section>
+
     <section class="card chart" id="campaignsSection" data-mode="videos"><h2>Affiliate GMV over time</h2><div id="chartGmv"></div></section>
     <section class="card chart" data-mode="videos"><h2>Items sold over time</h2><div id="chartItems"></div></section>
     <section class="card chart" data-mode="videos"><h2>Top videos by GMV</h2><div id="chartTopGmv"></div></section>
