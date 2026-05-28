@@ -1198,6 +1198,11 @@
         // Agency-wide source; not all accounts will have it ingested yet.
         console.warn('fetchCreatorAnalytics failed:', err && err.message || err);
         return [];
+      }),
+      client.fetchProductAnalytics(rangeSec, creatorFilter).catch(function (err) {
+        // Optional seller source; absent until the product-analysis scraper runs.
+        console.warn('fetchProductAnalytics failed:', err && err.message || err);
+        return [];
       })
     ])
       .then(function (results) {
@@ -1206,11 +1211,13 @@
         var affiliateRows   = results[2] || [];
         var overviewScrapes = results[3] || [];
         var caScrapes       = results[4] || [];
+        var productScrapes  = results[5] || [];
         var hasVideos    = videoScrapes.length > 0;
         var hasLive      = liveScrapes.length > 0;
         var hasAffiliate = affiliateRows.length > 0;
         var hasOverview  = overviewScrapes.length > 0;
         var hasCa        = caScrapes.length > 0;
+        var hasProduct   = productScrapes.length > 0;
 
         // Map rangeSec → required inclusive day-span for the Data Overview
         // card. Today = 1-day snapshots, Last 7d = 7-day snapshots; other
@@ -1223,15 +1230,22 @@
         // toggles .hidden, so we just call it unconditionally.
         Dashboard.renderOverview(overviewScrapes, { spanDays: spanForOverview });
         Dashboard.renderCreatorAnalytics(caScrapes);
+        Dashboard.renderProductAnalytics(productScrapes);
 
         if (rangeSec === 86400) {
           setTodayOnlyMode(true);
-          // renderOverview hides the card when there are no single-day
-          // snapshots; surface the empty state so the user isn't staring
-          // at a blank dashboard.
-          var card = document.getElementById('overviewCard');
-          var overviewShown = card && !card.classList.contains('hidden');
-          if (overviewShown) {
+          // renderOverview hides its card when there are no single-day
+          // snapshots. The Creator/Product Analytics cards aren't span-filtered
+          // (they show the latest scrape regardless of range) and survive
+          // Today mode, so only fall back to the empty state when NONE of these
+          // cards rendered — otherwise showEmpty(true) would blank a creator's
+          // product/creator data along with the dashboard.
+          var todaySurvivors = ['overviewCard', 'creatorAnalysisCard', 'productAnalysisCard'];
+          var anyCardShown = todaySurvivors.some(function (id) {
+            var el = document.getElementById(id);
+            return el && !el.classList.contains('hidden');
+          });
+          if (anyCardShown) {
             showEmpty(false);
           } else {
             var todayMsg = creatorFilter
@@ -1250,7 +1264,7 @@
         if (mode === 'videos' && !hasVideos && hasLive)  { setMode('live');   mode = 'live'; }
         else if (mode === 'live' && !hasLive && hasVideos) { setMode('videos'); mode = 'videos'; }
 
-        if (!hasVideos && !hasLive && !hasAffiliate && !hasOverview && !hasCa) {
+        if (!hasVideos && !hasLive && !hasAffiliate && !hasOverview && !hasCa && !hasProduct) {
           var msg = creatorFilter
             ? 'No scrapes found for ' + creatorFilter.join(', ') + ' in the selected range.'
             : 'No scrapes found in the selected range.';

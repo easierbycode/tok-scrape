@@ -1506,6 +1506,11 @@ body[data-route="profile"] .bottomnav .item[data-route="profile"] .nav-label {
   font-size: 11px;
 }
 
+/* Product Analytics reuses the Creator Analytics table chrome but has only a
+   few metric columns, so drop the 900px floor and let it size to content
+   (still scrolls inside .tablewrap when product names run long). */
+.ca-table.pa-table { min-width: 0; }
+
 /* "est" tag next to commission values that haven't settled yet. */
 .aff-est {
   display: inline-block;
