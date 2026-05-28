@@ -27,6 +27,17 @@ const ROUTES = [
     label: 'streamer'
   },
   {
+    // Product Analytics. The list table virtualizes its DOM to ~10 rows, so the
+    // full per-page data only exists in the analytics/list API response. That
+    // response is only observable from the page's own JS world, so this route
+    // pairs an isolated relay (scrape-product.js, holds TOK_CONFIG + talks to
+    // chrome.runtime) with a MAIN-world capture/pager (mainFiles below).
+    test: /https:\/\/shop\.tiktok\.com\/streamer\/compass\/product-analysis\/view/,
+    files: ['config.js', 'scrape-product.js'],
+    mainFiles: ['scrape-product-main.js'],
+    label: 'product'
+  },
+  {
     test: /https:\/\/shop\.tiktok\.com\/streamer\/compass\/data-overview\/view/,
     files: ['config.js', 'scrape-data-overview.js'],
     label: 'data-overview'
@@ -53,6 +64,16 @@ chrome.action.onClicked.addListener(async (tab) => {
       target: { tabId: tab.id },
       files: route.files
     });
+    // Routes with a MAIN-world half (e.g. product-analysis) inject it second so
+    // the isolated relay registered above is already listening for the
+    // window.postMessage payloads it emits.
+    if (route.mainFiles) {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: 'MAIN',
+        files: route.mainFiles
+      });
+    }
     chrome.action.setBadgeText({ tabId: tab.id, text: route.label[0].toUpperCase() });
     chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#2a8' });
     setTimeout(() => chrome.action.setBadgeText({ tabId: tab.id, text: '' }), 2000);
