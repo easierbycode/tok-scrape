@@ -96,21 +96,32 @@
          active-campaigns.tsx component from the web member app. Until
          the campaign API is wired up, app.js renders a deterministic
          set of mock rows so the UI is never blank. -->
-    <section class="card card-wide campaigns-block" id="activeCampaignsCard" data-route-target="campaigns">
-      <div class="campaigns-head">
-        <h2 class="campaigns-title">Campaigns</h2>
-        <div class="campaigns-head-actions">
-          <button type="button" class="campaigns-combine" id="campaignsCombine" role="switch" aria-checked="false" aria-label="Combine campaigns into a single average">
-            <svg class="campaigns-combine-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="8" cy="9" r="4"/>
-              <circle cx="16" cy="9" r="4"/>
-              <path d="M5 20a6 6 0 0 1 14 0"/>
-            </svg>
-            <span class="campaigns-combine-label">Combine</span>
+    <section class="card card-wide campaigns-block campaign-manager" id="activeCampaignsCard" data-route-target="campaigns" data-paused="0">
+      <div class="cm-head">
+        <div class="cm-metric" data-open="0">
+          <button type="button" class="cm-metric-trigger" aria-haspopup="listbox" aria-expanded="false">
+            <span class="cm-metric-label">Active Campaigns</span>
+            <span class="cm-caret" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </span>
           </button>
+          <div class="cm-metric-menu" role="listbox" hidden>
+            <button type="button" class="cm-metric-opt is-active" role="option" data-metric="campaigns"><span>Active Campaigns</span><span class="cm-opt-check" aria-hidden="true">✓</span></button>
+            <button type="button" class="cm-metric-opt" role="option" data-metric="goals"><span>Daily Goal</span><span class="cm-opt-check" aria-hidden="true">✓</span></button>
+          </div>
         </div>
+        <button type="button" class="cm-expand" aria-expanded="false" aria-label="Expand breakdown">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
       </div>
-      <ul class="campaign-list" id="campaignList"><!-- rendered by app.js --></ul>
+      <div class="cm-summary"><!-- cross-fading metric layers; rendered by app.js --></div>
+      <div class="cm-autobar" aria-hidden="true"><span></span></div>
+      <div class="cm-detail"><div class="cm-detail-pad"><ul class="cm-rows"><!-- per-metric breakdown; rendered by app.js --></ul></div></div>
     </section>
 
     <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Dashboard mode">

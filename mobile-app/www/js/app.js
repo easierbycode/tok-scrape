@@ -274,29 +274,14 @@
       + '</svg>';
   }
 
-  // ── Combined view ────────────────────────────────────────────────
+  // ── Campaign Manager: dual-metric progress (Campaigns ⇄ Daily Goal) ──
   //
-  // "Combine" is a campaign-head toggle (defaults on) that collapses the
-  // list into a single synthetic row showing the AVERAGE completion %
-  // across every active campaign, plus an aggregated per-creator slice
-  // bar so the manager still sees who's pulling weight. The smooth-arc
-  // ring (no per-video segments) signals at a glance that this row is
-  // an aggregate, not a single campaign.
-  //
-  // State persists in localStorage so the manager's preference survives
-  // OTA reloads. Defaults to combined per the brief.
-  var COMBINED_KEY = 'tok-scrape.campaigns.combined.v1';
-
-  function isCombined() {
-    try {
-      var v = localStorage.getItem(COMBINED_KEY);
-      // Default = on. Only "0" turns it off.
-      return v !== '0';
-    } catch (e) { return true; }
-  }
-  function setCombined(on) {
-    try { localStorage.setItem(COMBINED_KEY, on ? '1' : '0'); } catch (e) {}
-  }
+  // The card shows a single combined multi-account progress bar. A dropdown
+  // switches the bar between two metrics — Active Campaigns and Daily Goal —
+  // and the card auto-cycles between them every 5.5s. Expanding the card (⤡)
+  // slides open the per-account/per-campaign breakdown: that expansion IS the
+  // "split" view, and the collapsed summary bar is the "combined" one (so the
+  // old standalone Combine toggle is gone). See mountCampaignManager() below.
 
   // Average of each campaign's individual completion percentage. Rounded
   // to an integer for display. Returns 0 for an empty list.
@@ -311,99 +296,79 @@
     return Math.round(sum / list.length);
   }
 
-  // Smooth-arc ring (no segment beads) used by the combined row. Stroke
-  // is the primary brand color; flips to --success once the average is
-  // 100%. Centered text shows the average %.
-  function combinedRingSvg(avgPct) {
-    var size   = 44;
+  // ── Daily Goal ────────────────────────────────────────────────────
+  //
+  // The second metric. Each tracked account has a daily video goal
+  // (default 5) and a posted-count 0–5. Same multi-account colored bar and
+  // split/combine (collapse/expand) treatment as campaigns. Posted counts
+  // are mock until a real "videos posted today" rollup exists — replace
+  // GOAL_ACCOUNTS with a live fetch when the backend ships (mirrors the
+  // MOCK_CAMPAIGNS note above).
+  var DAILY_GOAL = 5;
+  var GOAL_ACCOUNTS = [
+    { creator: '@boosteddealsdaily', posted: 4, goal: DAILY_GOAL },
+    { creator: '@prettyplug.x',      posted: 5, goal: DAILY_GOAL },
+    { creator: '@wizardofdealz',     posted: 2, goal: DAILY_GOAL }
+  ];
+
+  // Per-account segmented ring: `goal` beads, `posted` of them filled in
+  // the account's color; center shows the posted count (green once met).
+  function goalRingSvg(posted, goal, color) {
+    var total  = Math.max(1, goal | 0);
+    var size   = 40;
     var stroke = 4;
     var r      = (size - stroke) / 2;
     var cx     = size / 2, cy = size / 2;
     var circ   = 2 * Math.PI * r;
-    var pct    = Math.max(0, Math.min(100, avgPct | 0));
-    var drawn  = circ * (pct / 100);
-    var done   = pct >= 100;
-    var color  = done ? 'var(--success)' : 'var(--primary)';
+    var seg    = circ / total;
+    var gap    = Math.max(2, seg * 0.18);
+    var arc    = Math.max(0.5, seg - gap);
+    var met    = posted >= goal;
+
+    var segsSvg = '';
+    for (var i = 0; i < total; i++) {
+      var fill = i < posted ? (color || 'var(--primary)') : 'rgba(242,241,237,0.10)';
+      segsSvg +=
+        '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"' +
+        ' fill="none" stroke="' + fill + '" stroke-width="' + stroke + '"' +
+        ' stroke-dasharray="' + arc.toFixed(2) + ' ' + (circ - arc).toFixed(2) + '"' +
+        ' stroke-dashoffset="' + (-(i * seg)).toFixed(2) + '"' +
+        ' stroke-linecap="round" />';
+    }
 
     return ''
       + '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '" aria-hidden="true">'
-      +   '<g transform="rotate(-90 ' + cx + ' ' + cy + ')">'
-      +     '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"'
-      +       ' fill="none" stroke="rgba(242,241,237,0.10)" stroke-width="' + stroke + '"/>'
-      +     (drawn > 0.01
-        ? '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"'
-          + ' fill="none" stroke="' + color + '" stroke-width="' + stroke + '"'
-          + ' stroke-dasharray="' + drawn.toFixed(2) + ' ' + (circ - drawn).toFixed(2) + '"'
-          + ' stroke-linecap="round" />'
-        : '')
-      +   '</g>'
+      +   '<g transform="rotate(-90 ' + cx + ' ' + cy + ')">' + segsSvg + '</g>'
       +   '<text x="' + cx + '" y="' + (cy + 0.5) + '" text-anchor="middle" dominant-baseline="central"'
-      +     ' font-family="\'Avenir Next\',\'SF Pro Text\',sans-serif" font-size="11" font-weight="700"'
-      +     ' fill="' + (done ? 'var(--success)' : 'var(--foreground)') + '">' + pct + '%</text>'
+      +     ' font-family="\'Avenir Next\',\'SF Pro Text\',sans-serif" font-size="12" font-weight="700"'
+      +     ' fill="' + (met ? 'var(--success)' : 'var(--foreground)') + '">' + posted + '</text>'
       + '</svg>';
   }
 
-  // Build the single row HTML representing every active campaign at once.
-  // The stacked bar aggregates each creator's contribution across ALL
-  // campaigns; widths are normalised so the bar always sums to 100% when
-  // the aggregate is complete (and proportionally less when it isn't).
-  function combinedRowHtml(list) {
-    var totalReq  = 0;
-    var totalDone = 0;
-    var perCreator = Object.create(null); // handle -> count
-
-    list.forEach(function (c) {
-      totalReq  += c.postsRequired || 0;
-      totalDone += postsCompletedOf(c);
-      (c.contributions || []).forEach(function (ctr) {
-        var k = String(ctr.creator || '').toLowerCase();
-        if (!k) return;
-        perCreator[k] = (perCreator[k] || 0) + Math.max(0, ctr.count | 0);
-      });
-    });
-
-    var avg = avgCampaignPct(list);
-
-    // Slice widths use totalReq as the denominator so the unfilled tail
-    // of the bar honestly represents work still owed. (If we normalised
-    // by totalDone, an empty board would still show a full bar.)
-    var slices = '';
-    Object.keys(perCreator).forEach(function (handle) {
-      var n = perCreator[handle];
-      var w = totalReq > 0 ? (n / totalReq) * 100 : 0;
-      if (w <= 0) return;
-      slices +=
-        '<span class="campaign-bar-slice" title="' + escapeHtml(handle)
-        + ' · ' + n + ' video' + (n === 1 ? '' : 's')
-        + '" style="width:' + w.toFixed(2) + '%;background:'
-        + colorForHandle(handle) + '"></span>';
-    });
-
-    var deadline = list.length + ' campaign' + (list.length === 1 ? '' : 's');
+  function goalRowHtml(a) {
+    var color = colorForHandle(a.creator);
+    var met   = a.posted >= a.goal;
+    var w     = a.goal > 0 ? (a.posted / a.goal) * 100 : 0;
 
     return ''
-      + '<li class="campaign-row campaign-row--combined" role="button" tabindex="0" data-campaign-id="__combined">'
-      +   '<span class="campaign-icon campaign-icon--ring campaign-icon--combined" aria-hidden="true">'
-      +     combinedRingSvg(avg)
+      + '<li class="campaign-row" role="button" tabindex="0">'
+      +   '<span class="campaign-icon campaign-icon--ring" aria-hidden="true">'
+      +     goalRingSvg(a.posted, a.goal, color)
       +   '</span>'
       +   '<div class="campaign-main">'
       +     '<div class="campaign-headline">'
-      +       '<span class="campaign-brand">'
-      +         'Combined'
-      +         '<span class="campaign-brand-tag" aria-hidden="true">avg</span>'
-      +       '</span>'
-      +       '<span class="campaign-deadline">'
+      +       '<span class="campaign-brand">' + escapeHtml(a.creator) + '</span>'
+      +       '<span class="campaign-deadline campaign-goalcap">'
       +         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      +           '<rect x="3" y="5" width="18" height="16" rx="2"/>'
-      +           '<path d="M3 9h18"/>'
-      +           '<path d="M8 3v4M16 3v4"/>'
+      +           '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/>'
       +         '</svg>'
-      +         escapeHtml(deadline)
+      +         (met ? 'Goal met' : 'Goal ' + a.goal + '/day')
       +       '</span>'
       +     '</div>'
       +     '<div class="campaign-progress">'
-      +       '<span class="campaign-bar">' + slices + '</span>'
-      +       '<span class="campaign-count">' + totalDone + '/' + totalReq + '</span>'
+      +       '<span class="campaign-bar"><span class="campaign-bar-slice" style="width:'
+      +         w.toFixed(2) + '%;background:' + color + '"></span></span>'
+      +       '<span class="campaign-count">' + a.posted + '/' + a.goal + '</span>'
       +     '</div>'
       +   '</div>'
       +   '<span class="campaign-chevron" aria-hidden="true">'
@@ -412,6 +377,70 @@
       +     '</svg>'
       +   '</span>'
       + '</li>';
+  }
+
+  // ── Combined summary bars (one per metric) ────────────────────────
+  //
+  // The always-visible bar at the top of the card. Aggregates every account
+  // into a single multi-color bar plus a fixed-width percent readout. Both
+  // metrics' readouts are held to the SAME width (.cm-percent in CSS) so
+  // switching never reflows the layout or spawns a horizontal scrollbar.
+  function campaignsSummaryHtml() {
+    var totalReq = 0, perCreator = Object.create(null);
+    MOCK_CAMPAIGNS.forEach(function (c) {
+      totalReq += c.postsRequired || 0;
+      (c.contributions || []).forEach(function (ctr) {
+        var k = String(ctr.creator || '').toLowerCase();
+        if (!k) return;
+        perCreator[k] = (perCreator[k] || 0) + Math.max(0, ctr.count | 0);
+      });
+    });
+    var slices = '';
+    Object.keys(perCreator).forEach(function (handle) {
+      var n = perCreator[handle];
+      var w = totalReq > 0 ? (n / totalReq) * 100 : 0;
+      if (w <= 0) return;
+      slices +=
+        '<span class="campaign-bar-slice" title="' + escapeHtml(handle) + ' · ' + n + '"'
+        + ' style="width:' + w.toFixed(2) + '%;background:' + colorForHandle(handle) + '"></span>';
+    });
+    var avg = avgCampaignPct(MOCK_CAMPAIGNS);
+    return ''
+      + '<span class="campaign-bar cm-bar">' + slices + '</span>'
+      + '<span class="cm-percent">' + avg + '%'
+      +   '<span class="cm-percent-sub">avg</span>'
+      + '</span>';
+  }
+
+  function goalsSummaryHtml() {
+    var totalGoal = 0, totalPosted = 0;
+    GOAL_ACCOUNTS.forEach(function (a) {
+      totalGoal   += a.goal || 0;
+      totalPosted += Math.max(0, Math.min(a.posted, a.goal));
+    });
+    var slices = '';
+    GOAL_ACCOUNTS.forEach(function (a) {
+      var w = totalGoal > 0 ? (Math.min(a.posted, a.goal) / totalGoal) * 100 : 0;
+      if (w <= 0) return;
+      slices +=
+        '<span class="campaign-bar-slice" title="' + escapeHtml(a.creator) + ' · ' + a.posted + '/' + a.goal + '"'
+        + ' style="width:' + w.toFixed(2) + '%;background:' + colorForHandle(a.creator) + '"></span>';
+    });
+    var pct = totalGoal > 0 ? Math.round((totalPosted / totalGoal) * 100) : 0;
+    return ''
+      + '<span class="campaign-bar cm-bar">' + slices + '</span>'
+      + '<span class="cm-percent">' + pct + '%'
+      +   '<span class="cm-percent-sub">' + totalPosted + '/' + totalGoal + '</span>'
+      + '</span>';
+  }
+
+  // Honour the OS "reduce motion" setting: the expand slide and the row
+  // fade are skipped (the final state is committed synchronously regardless,
+  // so the card is always correct — just without the motion).
+  function cmReduceMotion() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (e) { return false; }
   }
 
   function campaignRowHtml(c) {
@@ -463,93 +492,208 @@
       + '</li>';
   }
 
-  function renderActiveCampaigns(list) {
-    // OTA bundles ship CSS+JS only — index.html is whatever shipped in
-    // the installed APK. The section may or may not exist, and when it
-    // does its head may predate the redesign (older shells render a
-    // serif "Active Campaigns" h2 with View all, no Combine button).
-    // Create the section if it's missing, then unconditionally normalize
-    // the head so the new heading style and Combine toggle land via OTA
-    // regardless of what the bundled index.html shipped.
-    var headHtml =
-      '<h2 class="campaigns-title">Campaigns</h2>' +
-      '<div class="campaigns-head-actions">' +
-        '<button type="button" class="campaigns-combine" id="campaignsCombine" role="switch" aria-checked="false" aria-label="Combine campaigns into a single average">' +
-          '<svg class="campaigns-combine-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-            '<circle cx="8" cy="9" r="4"/>' +
-            '<circle cx="16" cy="9" r="4"/>' +
-            '<path d="M5 20a6 6 0 0 1 14 0"/>' +
-          '</svg>' +
-          '<span class="campaigns-combine-label">Combine</span>' +
+  // Skeleton for the Campaign Manager card body. Re-applied on every mount
+  // so an OTA bundle upgrades an installed APK's older markup (the static
+  // "Campaigns" head + Combine button) to the new dropdown / expand /
+  // auto-cycle component regardless of what index.html shipped.
+  var CM_SKELETON =
+    '<div class="cm-head">' +
+      '<div class="cm-metric" data-open="0">' +
+        '<button type="button" class="cm-metric-trigger" aria-haspopup="listbox" aria-expanded="false">' +
+          '<span class="cm-metric-label">Active Campaigns</span>' +
+          '<span class="cm-caret" aria-hidden="true">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+          '</span>' +
         '</button>' +
-      '</div>';
+        '<div class="cm-metric-menu" role="listbox" hidden>' +
+          '<button type="button" class="cm-metric-opt is-active" role="option" data-metric="campaigns">' +
+            '<span>Active Campaigns</span><span class="cm-opt-check" aria-hidden="true">✓</span>' +
+          '</button>' +
+          '<button type="button" class="cm-metric-opt" role="option" data-metric="goals">' +
+            '<span>Daily Goal</span><span class="cm-opt-check" aria-hidden="true">✓</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" class="cm-expand" aria-expanded="false" aria-label="Expand breakdown">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<polyline points="15 3 21 3 21 9"></polyline>' +
+          '<polyline points="9 21 3 21 3 15"></polyline>' +
+          '<line x1="21" y1="3" x2="14" y2="10"></line>' +
+          '<line x1="3" y1="21" x2="10" y2="14"></line>' +
+        '</svg>' +
+      '</button>' +
+    '</div>' +
+    '<div class="cm-summary"></div>' +
+    '<div class="cm-autobar" aria-hidden="true"><span></span></div>' +
+    '<div class="cm-detail"><div class="cm-detail-pad"><ul class="cm-rows"></ul></div></div>';
 
+  // Build + wire the Campaign Manager component into `card`. The expand /
+  // collapse height is animated with the Web Animations API (a CSS height
+  // transition can't animate to/from `auto`); the metric cross-fade and the
+  // auto-cycle telegraph are CSS, so both honour prefers-reduced-motion. The
+  // committed final state (inline height, .is-active class) is always set
+  // synchronously, so the card is correct even when the motion is skipped.
+  function mountCampaignManager(card) {
+    card.innerHTML = CM_SKELETON;
+
+    var metricEl  = card.querySelector('.cm-metric');
+    var trigger   = card.querySelector('.cm-metric-trigger');
+    var label     = card.querySelector('.cm-metric-label');
+    var menu      = card.querySelector('.cm-metric-menu');
+    var expand    = card.querySelector('.cm-expand');
+    var summary   = card.querySelector('.cm-summary');
+    var rows      = card.querySelector('.cm-rows');
+    var detail    = card.querySelector('.cm-detail');
+    var detailPad = card.querySelector('.cm-detail-pad');
+
+    var META = { campaigns: 'Active Campaigns', goals: 'Daily Goal' };
+    var EASE = 'cubic-bezier(.4,0,.2,1)';
+
+    var metric     = 'campaigns';
+    var expanded   = false;
+    var menuOpen   = false;
+    var autoTimer  = null;
+    var heightAnim = null;
+
+    // Two stacked, cross-fading summary layers — one per metric.
+    summary.innerHTML =
+      '<div class="cm-layer is-active" data-metric="campaigns">' + campaignsSummaryHtml() + '</div>' +
+      '<div class="cm-layer" data-metric="goals">' + goalsSummaryHtml() + '</div>';
+
+    function renderRows() {
+      rows.innerHTML = metric === 'campaigns'
+        ? MOCK_CAMPAIGNS.map(campaignRowHtml).join('')
+        : GOAL_ACCOUNTS.map(goalRowHtml).join('');
+    }
+
+    // Slide the detail open/closed. The committed final height is set inline
+    // first (so the resting state is always correct); element.animate() then
+    // plays the visible slide between the old and new heights.
+    function animateHeight(toOpen) {
+      var from = detail.getBoundingClientRect().height;
+      detail.style.height = toOpen ? 'auto' : '0px';
+      var to = toOpen ? detailPad.getBoundingClientRect().height : 0;
+      detail.style.height = toOpen ? (to + 'px') : '0px';
+      if (heightAnim) heightAnim.cancel();
+      if (cmReduceMotion() || !detail.animate) return;
+      heightAnim = detail.animate(
+        [{ height: from + 'px' }, { height: to + 'px' }],
+        { duration: 440, easing: EASE }
+      );
+    }
+
+    // Re-measure while already open — the two metrics can have different row
+    // counts, so the open height changes when switching.
+    function resizeOpen() {
+      if (!expanded) return;
+      var from = detail.getBoundingClientRect().height;
+      detail.style.height = 'auto';
+      var to = detailPad.getBoundingClientRect().height;
+      detail.style.height = to + 'px';
+      if (heightAnim) heightAnim.cancel();
+      if (cmReduceMotion() || !detail.animate) return;
+      heightAnim = detail.animate(
+        [{ height: from + 'px' }, { height: to + 'px' }],
+        { duration: 320, easing: EASE }
+      );
+    }
+
+    // Cross-fade the summary bar between metrics. CSS holds the resting
+    // opacity on .cm-layer.is-active and transitions it (auto-respecting
+    // reduced motion); we only toggle the class.
+    function crossfadeSummary(m) {
+      Array.prototype.forEach.call(summary.children, function (layer) {
+        layer.classList.toggle('is-active', layer.getAttribute('data-metric') === m);
+      });
+    }
+
+    function setMetric(m, opts) {
+      opts = opts || {};
+      if (m === metric && !opts.force) return;
+      metric = m;
+      label.textContent = META[m];
+      crossfadeSummary(m);
+      Array.prototype.forEach.call(menu.children, function (b) {
+        b.classList.toggle('is-active', b.getAttribute('data-metric') === m);
+      });
+      // Re-render synchronously so the rows always match the label/summary
+      // (never gate the DOM swap on an animation callback). The fade-in is
+      // purely cosmetic.
+      renderRows();
+      if (!cmReduceMotion() && rows.animate) {
+        rows.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease' });
+      }
+      resizeOpen();
+      if (!opts.fromAuto) restartAuto();
+    }
+
+    function setExpanded(on) {
+      expanded = on;
+      card.classList.toggle('is-expanded', on);
+      expand.setAttribute('aria-expanded', on ? 'true' : 'false');
+      expand.setAttribute('aria-label', on ? 'Collapse breakdown' : 'Expand breakdown');
+      animateHeight(on);
+    }
+
+    function openMenu(on) {
+      menuOpen = on;
+      metricEl.setAttribute('data-open', on ? '1' : '0');
+      menu.hidden = !on;
+      trigger.setAttribute('aria-expanded', on ? 'true' : 'false');
+      card.setAttribute('data-paused', on ? '1' : '0');   // pause auto-cycle
+    }
+
+    function startAuto() {
+      autoTimer = window.setInterval(function () {
+        if (menuOpen) return;   // don't swap out from under an open dropdown
+        setMetric(metric === 'campaigns' ? 'goals' : 'campaigns', { fromAuto: true });
+      }, 5500);
+    }
+    // Reset the telegraph hairline so its fill restarts in sync with the
+    // interval after a manual switch.
+    function restartAuto() {
+      window.clearInterval(autoTimer);
+      var fill = card.querySelector('.cm-autobar > span');
+      if (fill) { fill.style.animation = 'none'; void fill.offsetWidth; fill.style.animation = ''; }
+      startAuto();
+    }
+
+    trigger.addEventListener('click', function (e) { e.stopPropagation(); openMenu(!menuOpen); });
+    menu.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-metric]');
+      if (!b) return;
+      setMetric(b.getAttribute('data-metric'));
+      openMenu(false);
+    });
+    document.addEventListener('click', function () { if (menuOpen) openMenu(false); });
+    expand.addEventListener('click', function () { setExpanded(!expanded); });
+
+    renderRows();
+    startAuto();
+  }
+
+  function renderActiveCampaigns() {
+    // OTA bundles ship CSS+JS only — index.html is whatever shipped in the
+    // installed APK, so the card may be missing entirely or carry the older
+    // (pre-redesign) markup. Get-or-create it, normalize the element's own
+    // classes/attributes, then mount the component (which rewrites the body)
+    // so the redesign lands via OTA regardless of the bundled markup.
     var card = document.getElementById('activeCampaignsCard');
     if (!card) {
       var dash = document.getElementById('dashboard');
       if (!dash) return;
       card = document.createElement('section');
       card.id = 'activeCampaignsCard';
-      card.className = 'card card-wide campaigns-block';
       card.setAttribute('data-route-target', 'campaigns');
-      card.innerHTML =
-        '<div class="campaigns-head">' + headHtml + '</div>' +
-        '<ul class="campaign-list" id="campaignList"></ul>';
       dash.insertBefore(card, dash.firstChild);
     }
+    card.className = 'card card-wide campaigns-block campaign-manager';
+    card.setAttribute('data-paused', '0');
 
-    // Normalize the head if the bundled markup is the older shape
-    // (missing the Combine button, still using the serif "Active
-    // Campaigns" h2, or still rendering a View-all). Idempotent — once
-    // upgraded the selector matches and we leave the head alone on
-    // subsequent renders.
-    var head = card.querySelector('.campaigns-head');
-    if (head && (!head.querySelector('.campaigns-combine-label') || head.querySelector('#campaignsViewAll'))) {
-      head.innerHTML = headHtml;
-      card.__headBound = false;
+    if (!card.__cmBuilt) {
+      mountCampaignManager(card);
+      card.__cmBuilt = true;
     }
-
-    // Wire up the Combine button once per card (the flag is reset above
-    // whenever we rebuild the head, so the new node gets a fresh listener).
-    if (!card.__headBound) {
-      var combineBtnInit = document.getElementById('campaignsCombine');
-      if (combineBtnInit) {
-        combineBtnInit.addEventListener('click', function () {
-          setCombined(!isCombined());
-          renderActiveCampaigns(card.__campaignsList || []);
-        });
-      }
-      card.__headBound = true;
-    }
-
-    var ul = document.getElementById('campaignList');
-    if (!ul) return;
-    var items = Array.isArray(list) && list.length ? list : [];
-
-    // Stash the list on the card element so the Combine toggle can
-    // re-render without needing a fresh fetch.
-    card.__campaignsList = items;
-
-    // Reflect the toggle state on the button so the SPLIT/COMBINE label
-    // and aria stay in sync with localStorage.
-    var combined = isCombined();
-    var combineBtn = document.getElementById('campaignsCombine');
-    if (combineBtn) {
-      combineBtn.setAttribute('aria-checked', combined ? 'true' : 'false');
-      combineBtn.classList.toggle('is-on', combined);
-      var lbl = combineBtn.querySelector('.campaigns-combine-label');
-      if (lbl) lbl.textContent = combined ? 'Split' : 'Combine';
-      combineBtn.setAttribute('aria-label', combined ? 'Split combined campaigns' : 'Combine campaigns into a single average');
-    }
-
-    if (!items.length) {
-      ul.innerHTML = '<li class="campaign-empty">No active campaigns yet.</li>';
-      return;
-    }
-
-    ul.innerHTML = combined
-      ? combinedRowHtml(items)
-      : items.map(campaignRowHtml).join('');
   }
 
   function syncRouteFromScroll() {
@@ -1415,7 +1559,7 @@
     bind();
     renderAcctTrigger();
     renderAdminMenu();
-    renderActiveCampaigns(MOCK_CAMPAIGNS);
+    renderActiveCampaigns();
     liftKpiCardsAboveOverview();
     setupAutoRefresh();
 

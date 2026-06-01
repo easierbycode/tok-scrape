@@ -652,6 +652,227 @@ body[data-mode="live"] section[data-mode="videos"] {
   text-transform: uppercase;
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   Campaign Manager — collapsible dual-metric card.
+   Head:    [ Active Campaigns ▾ ]                       [ ⤡ expand ]
+   Summary: one combined, cross-fading multi-account bar (Campaigns ⇄ Goal)
+   Detail:  per-account / per-campaign breakdown, revealed on expand
+   The card auto-cycles between the two metrics every 5.5s.
+   ───────────────────────────────────────────────────────────────── */
+.cm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Metric dropdown — replaces the old static "Campaigns" title. */
+.cm-metric { position: relative; }
+.cm-metric-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 2px;
+  margin: -4px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+}
+.cm-metric-trigger:hover { background: rgb(242 241 237 / 0.05); }
+.cm-metric-label {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+.cm-caret {
+  display: inline-flex;
+  color: var(--muted-foreground);
+  transition: transform 0.22s ease;
+}
+.cm-metric[data-open="1"] .cm-caret { transform: rotate(180deg); }
+.cm-caret svg { width: 14px; height: 14px; }
+
+.cm-metric-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--popover, var(--card));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-overlay);
+  transform-origin: top left;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.cm-metric-menu[hidden] {
+  display: block !important;
+  opacity: 0;
+  transform: scale(0.97) translateY(-4px);
+  pointer-events: none;
+}
+.cm-metric-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.cm-metric-opt:hover { background: rgb(242 241 237 / 0.06); }
+.cm-metric-opt.is-active { color: var(--primary); background: rgb(245 78 0 / 0.12); }
+.cm-metric-opt .cm-opt-check {
+  margin-left: auto;
+  color: var(--primary);
+  opacity: 0;
+  font-weight: 700;
+}
+.cm-metric-opt.is-active .cm-opt-check { opacity: 1; }
+
+/* Expand / collapse affordance (⤡ corner-arrows, rotate 180° when open). */
+.cm-expand {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.cm-expand:hover { color: var(--foreground); border-color: rgb(242 241 237 / 0.18); }
+.cm-expand svg { width: 17px; height: 17px; transition: transform 0.42s cubic-bezier(.34,1.4,.5,1); }
+.campaign-manager.is-expanded .cm-expand {
+  color: var(--primary);
+  border-color: rgb(245 78 0 / 0.4);
+  background: rgb(245 78 0 / 0.12);
+}
+.campaign-manager.is-expanded .cm-expand svg { transform: rotate(180deg); }
+
+/* Summary — two stacked, cross-fading bar layers. */
+.cm-summary {
+  position: relative;
+  height: 30px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+.cm-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+  pointer-events: none;
+}
+.cm-layer.is-active {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.cm-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 10px;
+  gap: 2px;
+}
+.cm-percent {
+  flex: 0 0 auto;
+  /* Fixed width sized for the widest reading either metric can show
+     ("100% 15/15"). Holding it constant keeps the bar and the whole card
+     identical across metrics, so switching never reflows the layout or
+     spawns a horizontal scrollbar. */
+  width: 78px;
+  text-align: right;
+  white-space: nowrap;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+.cm-percent .cm-percent-sub {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin-left: 5px;
+}
+
+/* Auto-cycle telegraph — fills over ~5.5s to foreshadow the metric swap.
+   Pauses while the dropdown is open. */
+.cm-autobar {
+  height: 2px;
+  margin-top: 12px;
+  border-radius: 2px;
+  background: rgb(242 241 237 / 0.07);
+  overflow: hidden;
+}
+.cm-autobar > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgb(245 78 0 / 0.5), var(--primary));
+  transform-origin: left center;
+  animation: cm-auto-fill 5.5s linear infinite;
+}
+.campaign-manager[data-paused="1"] .cm-autobar > span { animation-play-state: paused; }
+@keyframes cm-auto-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* Detail — collapsed by default; open/close height is animated in JS via
+   the Web Animations API (a CSS height transition can't animate to/from
+   `auto`). overflow:hidden clips the content while it slides. */
+.cm-detail {
+  height: 0;
+  overflow: hidden;
+}
+.cm-detail-pad {
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.cm-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Goal-row deadline pill reads "Goal N/day". */
+.campaign-row .campaign-goalcap { white-space: nowrap; }
+
+/* The auto-cycle telegraph is purely decorative — hide it when the OS asks
+   to reduce motion (the metric still swaps on the 5.5s timer). */
+@media (prefers-reduced-motion: reduce) {
+  .cm-autobar { display: none; }
+}
+
 .tablewrap {
   overflow-x: auto;
   margin: 0 -4px -4px;
