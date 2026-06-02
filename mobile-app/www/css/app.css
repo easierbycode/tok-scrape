@@ -767,28 +767,75 @@ body[data-mode="live"] section[data-mode="videos"] {
 }
 .campaign-manager.is-expanded .cm-expand svg { transform: rotate(180deg); }
 
-/* Summary — two stacked, cross-fading bar layers. */
+/* Summary — stage for the metric reveal (see crossfadeSummary). The two bar
+   layers sit in a clipped box so the outgoing one is cropped as it slides up
+   out of frame; the circular preloader sits above it, outside the clip, so
+   it can pop past the strip without being cropped. */
 .cm-summary {
   position: relative;
   height: 30px;
   margin-top: 16px;
+  overflow: visible;
+}
+.cm-clip {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
 }
 .cm-layer {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 12px;
   opacity: 0;
   transform: translateY(2px);
+  transform-origin: 50% 50%;
   transition: opacity 0.55s ease, transform 0.55s ease;
   pointer-events: none;
 }
 .cm-layer.is-active {
+  z-index: 2;
   opacity: 1;
   transform: none;
   pointer-events: auto;
+}
+/* While the reveal plays, the Web Animations API drives the layers; drop the
+   CSS transition so it can't outrank (and pin) the animated transform. */
+.cm-summary.is-anim .cm-layer { transition: none; }
+
+/* Circular "preloader" ring — hidden at rest. During a metric reveal the JS
+   draws its arc (the preload), then pops it up and fades it as the bars swap
+   beneath. Centred over the summary strip via margin:auto (no base transform,
+   so the animated transform stays clean); the rotate starts the arc at 12
+   o'clock. */
+.cm-loader {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  opacity: 0;
+  pointer-events: none;
+}
+.cm-loader svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.cm-loader-track {
+  fill: none;
+  stroke: rgb(242 241 237 / 0.12);
+  stroke-width: 3;
+}
+.cm-loader-arc {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-linecap: round;
 }
 .cm-bar {
   flex: 1 1 auto;
@@ -867,10 +914,12 @@ body[data-mode="live"] section[data-mode="videos"] {
 /* Goal-row deadline pill reads "Goal N/day". */
 .campaign-row .campaign-goalcap { white-space: nowrap; }
 
-/* The auto-cycle telegraph is purely decorative — hide it when the OS asks
-   to reduce motion (the metric still swaps on the 5.5s timer). */
+/* The auto-cycle telegraph and the reveal loader are purely decorative —
+   hide them when the OS asks to reduce motion (the metric still swaps on the
+   5.5s timer, cross-faded by the .cm-layer opacity transition). */
 @media (prefers-reduced-motion: reduce) {
-  .cm-autobar { display: none; }
+  .cm-autobar,
+  .cm-loader { display: none; }
 }
 
 .tablewrap {
