@@ -528,9 +528,9 @@
     '<div class="cm-detail"><div class="cm-detail-pad"><ul class="cm-rows"></ul></div></div>';
 
   // Build + wire the Campaign Manager component into `card`. The expand /
-  // collapse height is animated with the Web Animations API (a CSS height
-  // transition can't animate to/from `auto`); the metric cross-fade and the
-  // auto-cycle telegraph are CSS, so both honour prefers-reduced-motion. The
+  // collapse height (a CSS height transition can't animate to/from `auto`)
+  // and the metric reveal are animated with the Web Animations API; the
+  // auto-cycle telegraph is CSS. All honour prefers-reduced-motion. The
   // committed final state (inline height, .is-active class) is always set
   // synchronously, so the card is correct even when the motion is skipped.
   function mountCampaignManager(card) {
@@ -555,10 +555,26 @@
     var autoTimer  = null;
     var heightAnim = null;
 
-    // Two stacked, cross-fading summary layers — one per metric.
+    // Stage for the metric reveal: the two stacked summary layers live in a
+    // clipped box (so the outgoing one is cropped as it slides up out of
+    // frame), with a circular "preloader" ring above them — drawn, then
+    // popped away, by the reveal transition (see crossfadeSummary).
     summary.innerHTML =
-      '<div class="cm-layer is-active" data-metric="campaigns">' + campaignsSummaryHtml() + '</div>' +
-      '<div class="cm-layer" data-metric="goals">' + goalsSummaryHtml() + '</div>';
+      '<div class="cm-clip">' +
+        '<div class="cm-layer is-active" data-metric="campaigns">' + campaignsSummaryHtml() + '</div>' +
+        '<div class="cm-layer" data-metric="goals">' + goalsSummaryHtml() + '</div>' +
+      '</div>' +
+      '<span class="cm-loader" aria-hidden="true">' +
+        '<svg viewBox="0 0 44 44">' +
+          '<circle class="cm-loader-track" cx="22" cy="22" r="19"></circle>' +
+          '<circle class="cm-loader-arc" cx="22" cy="22" r="19"></circle>' +
+        '</svg>' +
+      '</span>';
+
+    var clip      = summary.querySelector('.cm-clip');
+    var layers    = summary.querySelectorAll('.cm-layer');
+    var loader    = summary.querySelector('.cm-loader');
+    var loaderArc = summary.querySelector('.cm-loader-arc');
 
     function renderRows() {
       rows.innerHTML = metric === 'campaigns'
@@ -598,13 +614,86 @@
       );
     }
 
-    // Cross-fade the summary bar between metrics. CSS holds the resting
-    // opacity on .cm-layer.is-active and transitions it (auto-respecting
-    // reduced motion); we only toggle the class.
+    // ── Metric reveal transition ─────────────────────────────────────
+    // Swap the summary between metrics with the "page preloading" effect
+    // (after Codrops' Page Preloading Effect, demo 2): a circular loader
+    // draws to full, then the outgoing bar slides up out of frame while the
+    // incoming one scales in from small — all on the demo's signature
+    // cubic-bezier(.7,0,.3,1). The resting state (.is-active class) is
+    // committed up front, so the card is correct even when the motion is
+    // skipped (reduced motion / no Web Animations) or interrupted mid-flight.
+    var REVEAL_EASE = 'cubic-bezier(.7,0,.3,1)';
+    var DRAW_MS     = 360;   // loader draw, then the reveal plays after it
+    var revealAnims = [];
+
+    function cancelReveal() {
+      revealAnims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+      revealAnims = [];
+      summary.classList.remove('is-anim');   // restore CSS layer transitions
+    }
+
     function crossfadeSummary(m) {
-      Array.prototype.forEach.call(summary.children, function (layer) {
+      var incoming = clip.querySelector('.cm-layer[data-metric="' + m + '"]');
+      var outgoing = clip.querySelector('.cm-layer.is-active');
+
+      // Commit the resting state first (so the card is right regardless of
+      // motion), cancelling any reveal still in flight.
+      cancelReveal();
+      Array.prototype.forEach.call(layers, function (layer) {
         layer.classList.toggle('is-active', layer.getAttribute('data-metric') === m);
       });
+
+      if (cmReduceMotion() || !incoming || !outgoing || incoming === outgoing || !incoming.animate) {
+        return;   // CSS cross-fades the .is-active swap on its own
+      }
+
+      // Hand the layers to the Web Animations API for the reveal: kill their
+      // CSS transitions first, since a running transition (re-triggered by the
+      // .is-active toggle above) outranks a script animation in the cascade
+      // and would otherwise pin the transform.
+      summary.classList.add('is-anim');
+
+      // (a) Loader draws its arc — the "preload". A fill keeps the drawn arc
+      //     in place until the loader pops away (the cleanup cancel resets it).
+      var len = (loaderArc.getTotalLength && loaderArc.getTotalLength()) || 119.38;
+      loaderArc.style.strokeDasharray  = len;
+      loaderArc.style.strokeDashoffset = len;
+      revealAnims.push(loaderArc.animate(
+        [{ strokeDashoffset: len }, { strokeDashoffset: 0 }],
+        { duration: DRAW_MS, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'both' }
+      ));
+
+      // The reveal proper plays once the arc is full (delay: DRAW_MS). Each
+      // actor holds its pre-state through the draw via fill:'both'.
+      var after = { delay: DRAW_MS, fill: 'both', easing: REVEAL_EASE };
+
+      // (b) Loader pops up + shrinks away as the bars swap beneath it. (It's
+      //     centred via margin:auto, so the transform here is clean — no base
+      //     translate to compose with.)
+      revealAnims.push(loader.animate(
+        [{ opacity: 1, transform: 'translateY(0) scale(1)' },
+         { opacity: 0, transform: 'translateY(-90%) scale(.3)' }],
+        Object.assign({ duration: 320 }, after)
+      ));
+
+      // (c) Outgoing slides up out of frame — the header lift.
+      revealAnims.push(outgoing.animate(
+        [{ opacity: 1, transform: 'translateY(0)' },
+         { opacity: 0, transform: 'translateY(-100%)' }],
+        Object.assign({ duration: 460 }, after)
+      ));
+
+      // (d) Incoming scales in from small — the content reveal.
+      var inAnim = incoming.animate(
+        [{ opacity: 0, transform: 'scale(.34)' },
+         { opacity: 1, transform: 'scale(1)' }],
+        Object.assign({ duration: 540 }, after)
+      );
+      revealAnims.push(inAnim);
+
+      // Once settled, drop the WAAPI fills back to the CSS resting state
+      // (which already matches, so there's no visible jump).
+      inAnim.finished.then(cancelReveal).catch(function () {});
     }
 
     function setMetric(m, opts) {
@@ -621,7 +710,11 @@
       // purely cosmetic.
       renderRows();
       if (!cmReduceMotion() && rows.animate) {
-        rows.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease' });
+        // Rise + fade in step with the summary reveal (after its loader draw).
+        rows.animate(
+          [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+          { duration: 420, delay: DRAW_MS, easing: REVEAL_EASE, fill: 'backwards' }
+        );
       }
       resizeOpen();
       if (!opts.fromAuto) restartAuto();
