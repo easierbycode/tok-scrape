@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# network-devices — report Tailscale peers that are currently offline.
+#
+# Default mode:
+#   Print one offline-peer hostname per line (no output = all peers online).
+#
+# --notify mode:
+#   Diff against the previous --notify run and POST newly-offline (and
+#   recovered) hostnames to a Discord webhook. Prints a one-line summary to
+#   stdout only when something changed, so it stays quiet/cron-friendly. The
+#   first --notify run just records a baseline (no alert storm).
+#
+# Environment (only used by --notify):
+#   DISCORD_WEBHOOK_URL     Discord channel webhook URL.  Required.
+#   NETWORK_DEVICES_STATE   State file path.  Default:
+#                           ${XDG_STATE_HOME:-$HOME/.local/state}/network-devices/offline.txt
+#
+# Usage:
+#   scripts/network-devices
+#   DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/ID/TOKEN \
+#       scripts/network-devices --notify
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+network-devices — report Tailscale peers that are currently offline.
+
+  scripts/network-devices            print offline-peer hostnames (one per line)
+  scripts/network-devices --notify   diff vs. last run; POST newly-offline and
+                                     recovered hostnames to a Discord webhook
+
+--notify environment:
+  DISCORD_WEBHOOK_URL    Discord channel webhook URL (required)
+  NETWORK_DEVICES_STATE  state file (default: ~/.local/state/network-devices/offline.txt)
+EOF
+}
+
+need() {
+  command -v "$1" >/dev/null 2>&1 ||
+    { echo "network-devices: required command '$1' not found in PATH" >&2; exit 1; }
+}
+
+notify=0
+case "${1:-}" in
+  --notify)   notify=1 ;;
+  -h|--help)  usage; exit 0 ;;
+  "")         ;;
+  *)          echo "network-devices: unknown argument '$1' (try --help)" >&2; exit 2 ;;
+esac
+
+need tailscale
+need jq
+
+# Capture status once; bail clearly if the daemon isn't actually up, so we never
+# misread "no peers" as "everyone went offline/recovered".
+status_json="$(tailscale status --json)"
+backend="$(printf '%s' "$status_json" | jq -r '.BackendState // "Unknown"')"
+if [ "$backend" != "Running" ]; then
+  echo "network-devices: tailscaled is '$backend' (not Running); skipping" >&2
+  exit 0
+fi
+
+# Offline hostnames right now, sorted + de-duplicated.
+current="$(printf '%s' "$status_json" |
+  jq -r '(.Peer // {})[] | select(.Online==false) | .HostName' | sort -u)"
+
+# --- default mode: just print the list -------------------------------------
+if [ "$notify" -eq 0 ]; then
+  if [ -n "$current" ]; then printf '%s\n' "$current"; fi
+  exit 0
+fi
+
+# --- --notify mode ---------------------------------------------------------
+need curl
+: "${DISCORD_WEBHOOK_URL:?network-devices: DISCORD_WEBHOOK_URL must be set for --notify}"
+
+state="${NETWORK_DEVICES_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/network-devices/offline.txt}"
+mkdir -p "$(dirname "$state")"
+
+post() {  # $1 = message; jq builds the JSON so hostnames are escaped safely
+  curl -fsS -X POST -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg c "$1" '{content:$c}')" "$DISCORD_WEBHOOK_URL" >/dev/null
+}
+join() { paste -sd, - | sed 's/,/, /g'; }  # newline list -> "a, b, c"
+
+# First run: record a baseline, do not alert.
+if [ ! -f "$state" ]; then
+  printf '%s' "$current" > "$state"
+  if [ -n "$current" ]; then n=$(printf '%s\n' "$current" | wc -l | tr -d ' '); else n=0; fi
+  echo "network-devices: baseline recorded ($n offline)" >&2
+  exit 0
+fi
+
+previous="$(sort -u "$state")"
+newly_offline="$(comm -13 <(printf '%s\n' "$previous") <(printf '%s\n' "$current") | sed '/^$/d')"
+recovered="$(comm -23 <(printf '%s\n' "$previous") <(printf '%s\n' "$current") | sed '/^$/d')"
+
+# Notify first; only persist the new baseline afterwards, so a failed webhook
+# call aborts (set -e) before the state advances and is retried next run.
+if [ -n "$newly_offline" ]; then
+  list="$(printf '%s' "$newly_offline" | join)"
+  post "🔴 Tailscale offline: $list"
+  echo "🔴 newly offline: $list"
+fi
+if [ -n "$recovered" ]; then
+  list="$(printf '%s' "$recovered" | join)"
+  post "🟢 Tailscale back online: $list"
+  echo "🟢 recovered: $list"
+fi
+
+tmp="$(mktemp "${state}.XXXXXX")"
+printf '%s' "$current" > "$tmp"
+mv "$tmp" "$state"
