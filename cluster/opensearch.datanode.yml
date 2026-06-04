@@ -1,0 +1,28 @@
+# OpenSearch config for a DATA node (MacBook + Galaxy Book 3).
+# Mounted over /usr/share/opensearch/config/opensearch.yml by
+# docker-compose.datanode.yml. Values written as ${VAR} are substituted by
+# OpenSearch from the container environment at startup (the compose file passes
+# OS_NODE_NAME / OS_PUBLISH_HOST / MAC_TS / GB_TS / SP_TS through).
+#
+# NOTE: because security is disabled HERE (plugins.security.disabled), the
+# compose file must NOT also pass DISABLE_SECURITY_PLUGIN as an env var —
+# OpenSearch rejects the duplicate setting. (See cluster/README.md, "First boot".)
+
+cluster.name: graylog
+node.name: ${OS_NODE_NAME}
+node.roles: [ data, cluster_manager, ingest ]
+
+network.host: 0.0.0.0
+network.publish_host: ${OS_PUBLISH_HOST}    # the address peers dial — Tailnet, not localhost
+http.port: 9200
+transport.port: 9300
+
+# All three transport endpoints. Identical on every host.
+discovery.seed_hosts: [ "${MAC_TS}:9300", "${GB_TS}:9300", "${SP_TS}:9300" ]
+
+# Bootstraps the cluster on a brand-new (never-formed) cluster ONLY. Once the
+# cluster has formed for the first time this line is ignored; you may delete it.
+cluster.initial_cluster_manager_nodes: [ "os-mac", "os-gb", "os-vote" ]
+
+action.auto_create_index: false
+plugins.security.disabled: true            # trusted Tailnet only — never expose 9200/9300 publicly

@@ -1,0 +1,19 @@
+# OpenSearch config for the VOTING-ONLY tiebreaker node (Surface Pro 11).
+# Same as the data-node config except it holds NO data and only votes in
+# cluster-manager elections. This is the third vote that lets the cluster keep
+# quorum (2 of 3) when either laptop is down. Mounted by docker-compose.voteonly.yml.
+
+cluster.name: graylog
+node.name: ${OS_NODE_NAME}                  # = os-vote
+node.roles: [ cluster_manager, voting_only ]  # votes, never holds shards
+
+network.host: 0.0.0.0
+network.publish_host: ${OS_PUBLISH_HOST}    # the Surface Pro's Tailnet address
+http.port: 9200
+transport.port: 9300
+
+discovery.seed_hosts: [ "${MAC_TS}:9300", "${GB_TS}:9300", "${SP_TS}:9300" ]
+cluster.initial_cluster_manager_nodes: [ "os-mac", "os-gb", "os-vote" ]
+
+action.auto_create_index: false
+plugins.security.disabled: true

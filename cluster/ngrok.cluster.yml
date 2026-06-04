@@ -1,0 +1,32 @@
+# ngrok agent config for the cluster, used on BOTH data nodes (Mac + Galaxy Book).
+# Both agents publish the SAME two reserved domains with pooling enabled, so
+# ngrok load-balances across them and drops a dead agent via heartbeat —
+# that is the automatic edge failover. The Surface Pro runs no ngrok agent.
+#
+# Differences from the single-node ../ngrok.yml:
+#   * v3 `endpoints:` syntax (pooling lives here)
+#   * pooling_enabled: true on each endpoint
+#   * the API endpoint points at the nginx frame-strip sidecar (:9001), not
+#     Graylog directly (:9000), so the mobile app's embedded dashboard renders.
+#
+# REQUIRES ngrok Pay-As-You-Go (or higher) for Endpoint Pooling.
+#
+# VERIFY ON FIRST RUN: the exact pooling key/placement can change between agent
+# versions. If the agent rejects `pooling_enabled`, check
+# https://ngrok.com/docs/agent/config/v3/ and/or start with the CLI flag
+# `--pooling-enabled=true` to confirm before committing the config form.
+
+version: 3
+
+endpoints:
+  - name: graylog-api
+    url: https://tok-graylog-api.ngrok-free.dev
+    upstream:
+      url: http://graylog-fwd:9001      # nginx frame-strip -> graylog:9000
+    pooling_enabled: true
+
+  - name: graylog-gelf
+    url: https://tok-graylog-gelf.ngrok-free.dev
+    upstream:
+      url: http://graylog:12202         # GELF HTTP input
+    pooling_enabled: true

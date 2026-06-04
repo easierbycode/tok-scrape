@@ -1,0 +1,62 @@
+# Graylog HA cluster — TIEBREAKER stack (run on the Surface Pro 11 ONLY).
+#
+# Two lightweight services that supply the third vote for each quorum:
+#   * mongodb  — replica-set member, configured as an ARBITER in rs-init.sh
+#                (holds no app data, just votes in elections)
+#   * opensearch — voting-only cluster-manager node (holds no shards, just votes)
+#
+# The Surface Pro runs NO Graylog, NO ngrok — it never serves traffic. It only
+# needs to be reachable over Tailscale and to STAY AWAKE (disable sleep on AC):
+# if it is down AND a laptop is down, the cluster loses quorum.
+#
+# The Surface Pro 11 is Snapdragon/ARM64 and Docker Desktop on Windows-ARM is
+# unreliable — run this with Docker CE inside WSL2 (Ubuntu ARM64), not Docker
+# Desktop. Set vm.max_map_count=262144 in that WSL distro first (see README).
+#
+#   cd cluster
+#   cp .env.example .env     # OS_NODE_NAME=os-vote, OS_PUBLISH_HOST=<surface Tailnet IP>
+#   docker compose -f docker-compose.voteonly.yml up -d
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: graylog-mongodb
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  opensearch:
+    image: opensearchproject/opensearch:2.12.0
+    container_name: graylog-opensearch
+    restart: unless-stopped
+    environment:
+      - OS_NODE_NAME=${OS_NODE_NAME}        # = os-vote
+      - OS_PUBLISH_HOST=${OS_PUBLISH_HOST}
+      - MAC_TS=${MAC_TS}
+      - GB_TS=${GB_TS}
+      - SP_TS=${SP_TS}
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"   # voting-only: tiny heap
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Gr@yl0g-Admin-ChangeMe!
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - ./opensearch.voteonly.yml:/usr/share/opensearch/config/opensearch.yml:ro
+      - opensearch_data:/usr/share/opensearch/data
+
+volumes:
+  mongodb_data:
+  opensearch_data:
