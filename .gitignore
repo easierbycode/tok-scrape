@@ -6,3 +6,7 @@ mobile-app/platforms
 mobile-app/plugins
 mobile-app/dist
 .pw-profile
+
+# Local secrets (ngrok authtoken, cluster secrets) — never commit
+.env
+**/.env
