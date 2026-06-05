@@ -769,8 +769,7 @@ body[data-mode="live"] section[data-mode="videos"] {
 
 /* Summary — stage for the metric reveal (see crossfadeSummary). The two bar
    layers sit in a clipped box so the outgoing one is cropped as it slides up
-   out of frame; the circular preloader sits above it, outside the clip, so
-   it can pop past the strip without being cropped. */
+   out of frame while the incoming one scales in beneath it. */
 .cm-summary {
   position: relative;
   height: 30px;
@@ -805,38 +804,10 @@ body[data-mode="live"] section[data-mode="videos"] {
    CSS transition so it can't outrank (and pin) the animated transform. */
 .cm-summary.is-anim .cm-layer { transition: none; }
 
-/* Circular "preloader" ring — hidden at rest. During a metric reveal the JS
-   draws its arc (the preload), then pops it up and fades it as the bars swap
-   beneath. Centred over the summary strip via margin:auto (no base transform,
-   so the animated transform stays clean); the rotate starts the arc at 12
-   o'clock. */
-.cm-loader {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  z-index: 3;
-  width: 34px;
-  height: 34px;
-  opacity: 0;
-  pointer-events: none;
-}
-.cm-loader svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-.cm-loader-track {
-  fill: none;
-  stroke: rgb(242 241 237 / 0.12);
-  stroke-width: 3;
-}
-.cm-loader-arc {
-  fill: none;
-  stroke: var(--primary);
-  stroke-width: 3;
-  stroke-linecap: round;
-}
+/* The metric reveal has no separate loader element — the outgoing metric's
+   own .cm-bar plays the preloader (drawn to full, then wiped away left→right
+   via a JS clip-path animation; see crossfadeSummary). At rest the bar is
+   unclipped, so the card is correct whenever the motion is skipped. */
 .cm-bar {
   flex: 1 1 auto;
   min-width: 0;
@@ -914,12 +885,11 @@ body[data-mode="live"] section[data-mode="videos"] {
 /* Goal-row deadline pill reads "Goal N/day". */
 .campaign-row .campaign-goalcap { white-space: nowrap; }
 
-/* The auto-cycle telegraph and the reveal loader are purely decorative —
-   hide them when the OS asks to reduce motion (the metric still swaps on the
-   5.5s timer, cross-faded by the .cm-layer opacity transition). */
+/* The auto-cycle telegraph is purely decorative — hide it when the OS asks to
+   reduce motion (the metric still swaps on the 5.5s timer, cross-faded by the
+   .cm-layer opacity transition; the bar draw/wipe is skipped in JS). */
 @media (prefers-reduced-motion: reduce) {
-  .cm-autobar,
-  .cm-loader { display: none; }
+  .cm-autobar { display: none; }
 }
 
 .tablewrap {
