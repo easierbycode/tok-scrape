@@ -769,8 +769,8 @@ body[data-mode="live"] section[data-mode="videos"] {
 
 /* Summary — stage for the metric reveal (see crossfadeSummary). The two bar
    layers sit in a clipped box so the outgoing one is cropped as it slides up
-   out of frame; the circular preloader sits above it, outside the clip, so
-   it can pop past the strip without being cropped. */
+   out of frame; the horizontal preloader bar sits above them (z-index 3) so
+   it reads on top of both layers while it draws and wipes away. */
 .cm-summary {
   position: relative;
   height: 30px;
@@ -805,37 +805,29 @@ body[data-mode="live"] section[data-mode="videos"] {
    CSS transition so it can't outrank (and pin) the animated transform. */
 .cm-summary.is-anim .cm-layer { transition: none; }
 
-/* Circular "preloader" ring — hidden at rest. During a metric reveal the JS
-   draws its arc (the preload), then pops it up and fades it as the bars swap
-   beneath. Centred over the summary strip via margin:auto (no base transform,
-   so the animated transform stays clean); the rotate starts the arc at 12
-   o'clock. */
+/* Horizontal "preloader" bar — hidden at rest. During a metric reveal the JS
+   draws it left→right to full (the preload), then wipes it away left→right as
+   the card content swaps beneath. Spans the summary strip and is centred
+   vertically (inset:0 + margin:auto 0 against a fixed height); the clip-path
+   at rest hides it so it never shows when the motion is skipped. */
 .cm-loader {
   position: absolute;
   inset: 0;
-  margin: auto;
+  margin: auto 0;
   z-index: 3;
-  width: 34px;
-  height: 34px;
+  height: 4px;
   opacity: 0;
   pointer-events: none;
 }
-.cm-loader svg {
+.cm-loader-bar {
   display: block;
   width: 100%;
   height: 100%;
-  transform: rotate(-90deg);
-}
-.cm-loader-track {
-  fill: none;
-  stroke: rgb(242 241 237 / 0.12);
-  stroke-width: 3;
-}
-.cm-loader-arc {
-  fill: none;
-  stroke: var(--primary);
-  stroke-width: 3;
-  stroke-linecap: round;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgb(245 78 0 / 0.65), var(--primary));
+  /* Clipped from the right at rest — the JS draw grows it left→right to full,
+     then a second wipe clears it left→right (left edge first). */
+  clip-path: inset(0 100% 0 0);
 }
 .cm-bar {
   flex: 1 1 auto;

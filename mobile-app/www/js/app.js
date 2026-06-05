@@ -557,24 +557,21 @@
 
     // Stage for the metric reveal: the two stacked summary layers live in a
     // clipped box (so the outgoing one is cropped as it slides up out of
-    // frame), with a circular "preloader" ring above them — drawn, then
-    // popped away, by the reveal transition (see crossfadeSummary).
+    // frame), with a horizontal "preloader" bar above them — drawn to full,
+    // then wiped away, by the reveal transition (see crossfadeSummary).
     summary.innerHTML =
       '<div class="cm-clip">' +
         '<div class="cm-layer is-active" data-metric="campaigns">' + campaignsSummaryHtml() + '</div>' +
         '<div class="cm-layer" data-metric="goals">' + goalsSummaryHtml() + '</div>' +
       '</div>' +
       '<span class="cm-loader" aria-hidden="true">' +
-        '<svg viewBox="0 0 44 44">' +
-          '<circle class="cm-loader-track" cx="22" cy="22" r="19"></circle>' +
-          '<circle class="cm-loader-arc" cx="22" cy="22" r="19"></circle>' +
-        '</svg>' +
+        '<span class="cm-loader-bar"></span>' +
       '</span>';
 
     var clip      = summary.querySelector('.cm-clip');
     var layers    = summary.querySelectorAll('.cm-layer');
     var loader    = summary.querySelector('.cm-loader');
-    var loaderArc = summary.querySelector('.cm-loader-arc');
+    var loaderBar = summary.querySelector('.cm-loader-bar');
 
     function renderRows() {
       rows.innerHTML = metric === 'campaigns'
@@ -616,12 +613,13 @@
 
     // ── Metric reveal transition ─────────────────────────────────────
     // Swap the summary between metrics with the "page preloading" effect
-    // (after Codrops' Page Preloading Effect, demo 2): a circular loader
-    // draws to full, then the outgoing bar slides up out of frame while the
-    // incoming one scales in from small — all on the demo's signature
-    // cubic-bezier(.7,0,.3,1). The resting state (.is-active class) is
-    // committed up front, so the card is correct even when the motion is
-    // skipped (reduced motion / no Web Animations) or interrupted mid-flight.
+    // (after Codrops' Page Preloading Effect, demo 2): a progress bar draws
+    // to full, then fades away left→right, while the outgoing content slides
+    // up out of frame and the incoming one scales in from small — all on the
+    // demo's signature cubic-bezier(.7,0,.3,1). The resting state (.is-active
+    // class) is committed up front, so the card is correct even when the
+    // motion is skipped (reduced motion / no Web Animations) or interrupted
+    // mid-flight.
     var REVEAL_EASE = 'cubic-bezier(.7,0,.3,1)';
     var DRAW_MS     = 360;   // loader draw, then the reveal plays after it
     var revealAnims = [];
@@ -653,27 +651,34 @@
       // and would otherwise pin the transform.
       summary.classList.add('is-anim');
 
-      // (a) Loader draws its arc — the "preload". A fill keeps the drawn arc
-      //     in place until the loader pops away (the cleanup cancel resets it).
-      var len = (loaderArc.getTotalLength && loaderArc.getTotalLength()) || 119.38;
-      loaderArc.style.strokeDasharray  = len;
-      loaderArc.style.strokeDashoffset = len;
-      revealAnims.push(loaderArc.animate(
-        [{ strokeDashoffset: len }, { strokeDashoffset: 0 }],
-        { duration: DRAW_MS, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'both' }
+      // (a) The bar draws left→right to full — the "preload". The clip wipe
+      //     keeps the bar in place until phase (b) clears it (the cleanup
+      //     cancel resets clip + opacity back to the hidden CSS rest state).
+      revealAnims.push(loader.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: 140, easing: REVEAL_EASE, fill: 'both' }
+      ));
+      revealAnims.push(loaderBar.animate(
+        [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }],
+        { duration: DRAW_MS, easing: REVEAL_EASE, fill: 'both' }
       ));
 
-      // The reveal proper plays once the arc is full (delay: DRAW_MS). Each
+      // The reveal proper plays once the bar is full (delay: DRAW_MS). Each
       // actor holds its pre-state through the draw via fill:'both'.
       var after = { delay: DRAW_MS, fill: 'both', easing: REVEAL_EASE };
 
-      // (b) Loader pops up + shrinks away as the bars swap beneath it. (It's
-      //     centred via margin:auto, so the transform here is clean — no base
-      //     translate to compose with.)
+      // (b) The bar fades away left→right as the content swaps beneath it —
+      //     a clip wipe (left edge clears first, travelling right) carrying an
+      //     opacity fade. fill:'forwards' so its backwards fill can't pin the
+      //     draw/fade-in still running during the delay.
+      revealAnims.push(loaderBar.animate(
+        [{ clipPath: 'inset(0 0 0 0)', opacity: 1 },
+         { clipPath: 'inset(0 0 0 100%)', opacity: 0 }],
+        { delay: DRAW_MS, duration: 320, fill: 'forwards', easing: REVEAL_EASE }
+      ));
       revealAnims.push(loader.animate(
-        [{ opacity: 1, transform: 'translateY(0) scale(1)' },
-         { opacity: 0, transform: 'translateY(-90%) scale(.3)' }],
-        Object.assign({ duration: 320 }, after)
+        [{ opacity: 1 }, { opacity: 0 }],
+        { delay: DRAW_MS, duration: 320, fill: 'forwards', easing: REVEAL_EASE }
       ));
 
       // (c) Outgoing slides up out of frame — the header lift.
