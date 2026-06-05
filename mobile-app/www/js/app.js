@@ -567,7 +567,6 @@
       '</button>' +
     '</div>' +
     '<div class="cm-summary"></div>' +
-    '<div class="cm-autobar" aria-hidden="true"><span></span></div>' +
     '<div class="cm-detail"><div class="cm-detail-pad"><ul class="cm-rows"></ul></div></div>';
 
   // Build + wire the Campaign Manager component into `card`. The expand /
@@ -649,17 +648,19 @@
     }
 
     // ── Metric reveal transition ─────────────────────────────────────
-    // Swap the summary between metrics with the "page preloading" effect
-    // (after Codrops' Page Preloading Effect, demo 2). No separate loader
-    // element: the outgoing metric's own progress bar plays the part of the
-    // demo's preloader — it draws left→right to full, then fades away
-    // left→right, while the outgoing content slides up out of frame and the
-    // incoming one scales in from small — all on the demo's signature
-    // cubic-bezier(.7,0,.3,1). The resting state (.is-active class) is
-    // committed up front, so the card is correct even when the motion is
-    // skipped (reduced motion / no Web Animations) or interrupted mid-flight.
+    // Swap the summary between metrics with the "page preloading" reveal
+    // (after Codrops' Page Preloading Effect, demo 2), on the demo's signature
+    // cubic-bezier(.7,0,.3,1):
+    //   (out) the outgoing title + progress bar lift up and away together,
+    //   (in)  then the incoming title + progress bar enter in together.
+    // The title lives in the head (the dropdown label), the bar in the summary
+    // strip, but they animate in lockstep so the metric reads as one block.
+    // The resting state (.is-active class + committed label text) is set up
+    // front, so the card is correct even when the motion is skipped (reduced
+    // motion / no Web Animations) or interrupted mid-flight.
     var REVEAL_EASE = 'cubic-bezier(.7,0,.3,1)';
-    var DRAW_MS     = 360;   // loader draw, then the reveal plays after it
+    var OUT_MS      = 380;   // outgoing lift; the incoming enters once it clears
+    var IN_MS       = 460;   // incoming reveal
     var revealAnims = [];
 
     function cancelReveal() {
@@ -680,7 +681,8 @@
       });
 
       if (cmReduceMotion() || !incoming || !outgoing || incoming === outgoing || !incoming.animate) {
-        return;   // CSS cross-fades the .is-active swap on its own
+        label.textContent = META[m];   // CSS cross-fades the bar swap on its own
+        return;
       }
 
       // Hand the layers to the Web Animations API for the reveal: kill their
@@ -689,49 +691,41 @@
       // and would otherwise pin the transform.
       summary.classList.add('is-anim');
 
-      // The outgoing metric's own progress bar is the "preloader".
-      var outBar = outgoing.querySelector('.cm-bar');
-
-      // (a) The outgoing bar draws left→right to full — the "preload". A
-      //     clip wipe reveals it from the left; fill:'both' holds it full
-      //     until phase (b) clears it (the cleanup cancel drops the inline
-      //     clip back to the unclipped CSS rest state).
-      if (outBar) {
-        revealAnims.push(outBar.animate(
-          [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }],
-          { duration: DRAW_MS, easing: REVEAL_EASE, fill: 'both' }
-        ));
-      }
-
-      // The reveal proper plays once the bar is full (delay: DRAW_MS). Each
-      // actor holds its pre-state through the draw via fill:'both'.
-      var after = { delay: DRAW_MS, fill: 'both', easing: REVEAL_EASE };
-
-      // (b) The outgoing bar fades away left→right as the content lifts —
-      //     a clip wipe (left edge clears first, travelling right). The
-      //     layer's own opacity (step c) carries the fade; fill:'forwards'
-      //     so this wipe's backwards fill can't pin the draw during the delay.
-      if (outBar) {
-        revealAnims.push(outBar.animate(
-          [{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 0 100%)' }],
-          { delay: DRAW_MS, duration: 320, fill: 'forwards', easing: REVEAL_EASE }
-        ));
-      }
-
-      // (c) Outgoing slides up out of frame — the header lift.
+      // (out) Outgoing title + bar lift up and away together. fill:'forwards'
+      //       so they hold out-of-frame until the incoming takes over.
+      var liftOut = { duration: OUT_MS, fill: 'forwards', easing: REVEAL_EASE };
       revealAnims.push(outgoing.animate(
         [{ opacity: 1, transform: 'translateY(0)' },
          { opacity: 0, transform: 'translateY(-100%)' }],
-        Object.assign({ duration: 460 }, after)
+        liftOut
       ));
+      var titleOut = label.animate(
+        [{ opacity: 1, transform: 'translateY(0)' },
+         { opacity: 0, transform: 'translateY(-100%)' }],
+        liftOut
+      );
+      revealAnims.push(titleOut);
 
-      // (d) Incoming scales in from small — the content reveal.
+      // Swap the title text once it's lifted out of sight (the label is at
+      // opacity 0 by then, so there's no flash of the old text).
+      titleOut.finished.then(function () { label.textContent = META[m]; })
+                       .catch(function () {});
+
+      // (in) Incoming title + bar enter in together, once the outgoing has
+      //      cleared (delay: OUT_MS). The bar scales in (the demo's content
+      //      reveal); the title rises in alongside it. fill:'forwards' on the
+      //      title so its backwards fill can't pin the still-running lift-out.
       var inAnim = incoming.animate(
         [{ opacity: 0, transform: 'scale(.34)' },
          { opacity: 1, transform: 'scale(1)' }],
-        Object.assign({ duration: 540 }, after)
+        { delay: OUT_MS, duration: IN_MS, fill: 'both', easing: REVEAL_EASE }
       );
       revealAnims.push(inAnim);
+      revealAnims.push(label.animate(
+        [{ opacity: 0, transform: 'translateY(60%)' },
+         { opacity: 1, transform: 'translateY(0)' }],
+        { delay: OUT_MS, duration: IN_MS, fill: 'forwards', easing: REVEAL_EASE }
+      ));
 
       // Once settled, drop the WAAPI fills back to the CSS resting state
       // (which already matches, so there's no visible jump).
@@ -742,8 +736,7 @@
       opts = opts || {};
       if (m === metric && !opts.force) return;
       metric = m;
-      label.textContent = META[m];
-      crossfadeSummary(m);
+      crossfadeSummary(m);   // owns the label text swap (synced to the lift)
       Array.prototype.forEach.call(menu.children, function (b) {
         b.classList.toggle('is-active', b.getAttribute('data-metric') === m);
       });
@@ -752,10 +745,10 @@
       // purely cosmetic.
       renderRows();
       if (!cmReduceMotion() && rows.animate) {
-        // Rise + fade in step with the summary reveal (after its loader draw).
+        // Rise + fade in step with the incoming reveal (after the lift-out).
         rows.animate(
           [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
-          { duration: 420, delay: DRAW_MS, easing: REVEAL_EASE, fill: 'backwards' }
+          { duration: 420, delay: OUT_MS, easing: REVEAL_EASE, fill: 'backwards' }
         );
       }
       resizeOpen();
@@ -784,12 +777,9 @@
         setMetric(metric === 'campaigns' ? 'goals' : 'campaigns', { fromAuto: true });
       }, 5500);
     }
-    // Reset the telegraph hairline so its fill restarts in sync with the
-    // interval after a manual switch.
+    // Restart the 5.5s auto-cycle clock after a manual switch.
     function restartAuto() {
       window.clearInterval(autoTimer);
-      var fill = card.querySelector('.cm-autobar > span');
-      if (fill) { fill.style.animation = 'none'; void fill.offsetWidth; fill.style.animation = ''; }
       startAuto();
     }
 
