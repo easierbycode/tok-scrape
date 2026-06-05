@@ -683,6 +683,9 @@ body[data-mode="live"] section[data-mode="videos"] {
 }
 .cm-metric-trigger:hover { background: rgb(242 241 237 / 0.05); }
 .cm-metric-label {
+  /* inline-block so the reveal can transform it (the title lifts out / rises
+     in alongside the bar; transforms don't apply to plain inline elements). */
+  display: inline-block;
   font-family: var(--font-serif);
   font-weight: 700;
   font-size: 16px;
@@ -837,30 +840,6 @@ body[data-mode="live"] section[data-mode="videos"] {
   margin-left: 5px;
 }
 
-/* Auto-cycle telegraph — fills over ~5.5s to foreshadow the metric swap.
-   Pauses while the dropdown is open. */
-.cm-autobar {
-  height: 2px;
-  margin-top: 12px;
-  border-radius: 2px;
-  background: rgb(242 241 237 / 0.07);
-  overflow: hidden;
-}
-.cm-autobar > span {
-  display: block;
-  height: 100%;
-  width: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, rgb(245 78 0 / 0.5), var(--primary));
-  transform-origin: left center;
-  animation: cm-auto-fill 5.5s linear infinite;
-}
-.campaign-manager[data-paused="1"] .cm-autobar > span { animation-play-state: paused; }
-@keyframes cm-auto-fill {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
-}
-
 /* Detail — collapsed by default; open/close height is animated in JS via
    the Web Animations API (a CSS height transition can't animate to/from
    `auto`). overflow:hidden clips the content while it slides. */
@@ -884,13 +863,6 @@ body[data-mode="live"] section[data-mode="videos"] {
 
 /* Goal-row deadline pill reads "Goal N/day". */
 .campaign-row .campaign-goalcap { white-space: nowrap; }
-
-/* The auto-cycle telegraph is purely decorative — hide it when the OS asks to
-   reduce motion (the metric still swaps on the 5.5s timer, cross-faded by the
-   .cm-layer opacity transition; the bar draw/wipe is skipped in JS). */
-@media (prefers-reduced-motion: reduce) {
-  .cm-autobar { display: none; }
-}
 
 .tablewrap {
   overflow-x: auto;
