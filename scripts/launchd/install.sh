@@ -92,10 +92,12 @@ install -d -o "$TARGET_USER" "${TARGET_HOME}/.config" "${TARGET_HOME}/Library/Lo
 # Seed the secret file if absent (never overwrite an existing one).
 if [ ! -f "$ENV_DST" ]; then
   cp "$ENV_EXAMPLE" "$ENV_DST"
-  chown "$TARGET_USER" "$ENV_DST"
-  chmod 600 "$ENV_DST"
   echo ">> Created ${ENV_DST} — edit it and set DISCORD_WEBHOOK_URL."
 fi
+# The daemon runs as $TARGET_USER, so it must be able to read this file. Always
+# enforce this (fixes the common case where it was created via sudo as root).
+chown "$TARGET_USER" "$ENV_DST"
+chmod 600 "$ENV_DST"
 
 gen_plist > "$PLIST_DST"
 chown root:wheel "$PLIST_DST"
