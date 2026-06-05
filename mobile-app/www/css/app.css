@@ -1763,3 +1763,28 @@ body[data-route="profile"] .bottomnav .item[data-route="profile"] .nav-label {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+/* ---- No-data state -------------------------------------------------------
+   The dashboard is never display:none (that would also hide the always-on
+   Campaign Manager / Daily Goal card). Instead, when there are no Graylog
+   results, #dashboard gets .no-data and we hide only the data-dependent cards
+   plus the videos/live mode toggle — the campaign card (.campaign-manager)
+   and the slim #rangeNotice stay on screen. */
+#dashboard.no-data > .card:not(.campaign-manager),
+#dashboard.no-data > .mode-toggle {
+  display: none !important;
+}
+
+/* Slim, non-error notice under the Campaign Manager card. Surfaces auto-widen
+   ("no data in the last hour — showing the last 30 days") and empty states. */
+.range-notice {
+  grid-column: 1 / -1;
+  margin: -2px 0 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(242, 241, 237, 0.04);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.4;
+}

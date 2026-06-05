@@ -135,10 +135,53 @@
   }
 
   function showEmpty(yes, msg) {
-    els.dashboard.classList.toggle('hidden', !!yes);
+    // Never display:none the whole #dashboard — that would also hide the
+    // always-on Campaign Manager / Daily Goal card (it renders from local mock
+    // data and must stay visible even with zero Graylog results). Instead, hide
+    // only the data-dependent cards via the .no-data class (see css/app.css).
+    setNoData(!!yes);
     els.empty.classList.toggle('hidden', !yes);
     if (yes && msg) $('emptyStateMsg').textContent = msg;
     syncRouteFromScroll();
+  }
+
+  // Toggle the "no data" state on #dashboard. CSS hides every card EXCEPT the
+  // Campaign Manager (.campaign-manager) plus the mode toggle, so the campaign /
+  // daily-goal card is always on screen.
+  function setNoData(on) {
+    if (els.dashboard) els.dashboard.classList.toggle('no-data', !!on);
+  }
+
+  // Slim, non-error notice rendered just under the Campaign Manager card. Used
+  // to tell the user when the visible window was auto-widened (their selected
+  // range had no data) or when there are no scrapes at all. Created at runtime
+  // because OTA bundles ship JS/CSS only — index.html is whatever the installed
+  // APK carries, so we can't rely on the element existing in markup.
+  function ensureNoticeEl() {
+    var n = document.getElementById('rangeNotice');
+    if (n) return n;
+    var dash = els.dashboard || document.getElementById('dashboard');
+    if (!dash) return null;
+    n = document.createElement('div');
+    n.id = 'rangeNotice';
+    n.className = 'range-notice hidden';
+    n.setAttribute('role', 'status');
+    n.setAttribute('aria-live', 'polite');
+    var card = document.getElementById('activeCampaignsCard');
+    if (card && card.nextSibling) dash.insertBefore(n, card.nextSibling);
+    else if (card)                dash.appendChild(n);
+    else                          dash.insertBefore(n, dash.firstChild);
+    return n;
+  }
+  function showNotice(msg) {
+    var n = ensureNoticeEl();
+    if (!n) return;
+    n.textContent = msg;
+    n.classList.remove('hidden');
+  }
+  function hideNotice() {
+    var n = document.getElementById('rangeNotice');
+    if (n) n.classList.add('hidden');
   }
 
   function setRoute(route) {
@@ -1399,23 +1442,32 @@
 
   // -------- Refresh loop ------------------------------------------
 
-  function refresh() {
-    if (loading) return;
+  // Time-range ladder for auto-widening. The selected window can be empty —
+  // the most-recent scrapes may be older than "Last hour"/"Today", and a window
+  // newer than every message even makes Graylog 500 (handled in api.js). Rather
+  // than show a blank dashboard (or an error), we widen the search step by step
+  // until something turns up, then tell the user we did. 0 = all-time (widest).
+  var RANGE_ORDER = [3600, 86400, 604800, 2592000, 7776000]; // ascending
+  var RANGE_LABEL = {
+    3600:    'the last hour',
+    86400:   'today',
+    604800:  'the last 7 days',
+    2592000: 'the last 30 days',
+    7776000: 'the last 90 days',
+    0:       'all available data'
+  };
+  function rangeLabel(sec) { return RANGE_LABEL[sec] || 'the selected range'; }
 
-    var s = loadSettings();
-    if (!s.url || !s.token) {
-      showEmpty(true, 'Set your Graylog URL and API token in Settings, then refresh.');
-      return;
-    }
-    showEmpty(false);
-    loading = true;
-    showError('');
+  // Ranges to try, from the selected one outward, ending with all-time.
+  function widenLadder(sec) {
+    if (sec === 0) return [0];
+    var i = RANGE_ORDER.indexOf(sec);
+    if (i === -1) return [sec, 0];
+    return RANGE_ORDER.slice(i).concat([0]);
+  }
 
-    var rangeSec = parseInt(els.range.value, 10) || 0;
-    var creatorFilter = Users.getCreatorFilters();   // null for "All Accounts"
-    var client = new GraylogClient({ baseUrl: s.url, token: s.token });
-
-    Promise.all([
+  function fetchAllAt(client, s, rangeSec, creatorFilter) {
+    return Promise.all([
       client.fetchScrapes(s.query, rangeSec, creatorFilter),
       client.fetchLiveAnalytics(rangeSec, creatorFilter),
       client.fetchAffiliateOrders(rangeSec, creatorFilter).catch(function (err) {
@@ -1440,77 +1492,59 @@
         console.warn('fetchProductAnalytics failed:', err && err.message || err);
         return [];
       })
-    ])
-      .then(function (results) {
-        var videoScrapes    = results[0];
-        var liveScrapes     = results[1];
-        var affiliateRows   = results[2] || [];
-        var overviewScrapes = results[3] || [];
-        var caScrapes       = results[4] || [];
-        var productScrapes  = results[5] || [];
-        var hasVideos    = videoScrapes.length > 0;
-        var hasLive      = liveScrapes.length > 0;
-        var hasAffiliate = affiliateRows.length > 0;
-        var hasOverview  = overviewScrapes.length > 0;
-        var hasCa        = caScrapes.length > 0;
-        var hasProduct   = productScrapes.length > 0;
+    ]);
+  }
 
-        // Map rangeSec → required inclusive day-span for the Data Overview
-        // card. Today = 1-day snapshots, Last 7d = 7-day snapshots; other
-        // ranges keep the existing "most recent regardless of span" behavior.
-        var spanForOverview = null;
-        if (rangeSec === 86400)  spanForOverview = 0;
-        if (rangeSec === 604800) spanForOverview = 6;
+  function anyResults(results) {
+    return results.some(function (r) { return r && r.length > 0; });
+  }
 
-        // Overview card hides itself when no metrics; renderOverview also
-        // toggles .hidden, so we just call it unconditionally.
-        Dashboard.renderOverview(overviewScrapes, { spanDays: spanForOverview });
-        Dashboard.renderCreatorAnalytics(caScrapes);
-        Dashboard.renderProductAnalytics(productScrapes);
+  // Walk the ladder from the selected range outward; resolve at the first range
+  // that yields data (or the widest, all-time, if nothing does). Real fetch
+  // errors (401/network) still reject — only empty windows advance the ladder.
+  function searchWidening(client, s, ladder, idx, creatorFilter) {
+    var rangeSec = ladder[idx];
+    return fetchAllAt(client, s, rangeSec, creatorFilter).then(function (results) {
+      if (anyResults(results) || idx >= ladder.length - 1) {
+        return { rangeSec: rangeSec, results: results, widened: idx > 0, hasData: anyResults(results) };
+      }
+      return searchWidening(client, s, ladder, idx + 1, creatorFilter);
+    });
+  }
 
-        if (rangeSec === 86400) {
-          setTodayOnlyMode(true);
-          // renderOverview hides its card when there are no single-day
-          // snapshots. The Creator/Product Analytics cards aren't span-filtered
-          // (they show the latest scrape regardless of range) and survive
-          // Today mode, so only fall back to the empty state when NONE of these
-          // cards rendered — otherwise showEmpty(true) would blank a creator's
-          // product/creator data along with the dashboard.
-          var todaySurvivors = ['overviewCard', 'creatorAnalysisCard', 'productAnalysisCard'];
-          var anyCardShown = todaySurvivors.some(function (id) {
-            var el = document.getElementById(id);
-            return el && !el.classList.contains('hidden');
-          });
-          if (anyCardShown) {
-            showEmpty(false);
-          } else {
-            var todayMsg = creatorFilter
-              ? 'No "Today" snapshots found for ' + creatorFilter.join(', ') + '. Run the bookmarklet on the Data Overview page with the Today filter selected.'
-              : 'No "Today" snapshots found. Run the bookmarklet on the Data Overview page with the Today filter selected.';
-            showEmpty(true, todayMsg);
-          }
-          return;
-        }
-        setTodayOnlyMode(false);
+  // No Graylog results in any window. Keep the Campaign Manager card on screen
+  // (setNoData hides only the data cards) and explain in a slim notice rather
+  // than the full-screen "open settings" empty state.
+  function renderNoData(msg) {
+    setNoData(true);
+    if (els.empty) els.empty.classList.add('hidden');
+    showNotice(msg);
+    syncRouteFromScroll();
+  }
 
-        setToggleVisibility(hasVideos && hasLive);
-        setAffiliateBlockVisibility(hasAffiliate);
+  function refresh() {
+    if (loading) return;
 
-        var mode = getMode();
-        if (mode === 'videos' && !hasVideos && hasLive)  { setMode('live');   mode = 'live'; }
-        else if (mode === 'live' && !hasLive && hasVideos) { setMode('videos'); mode = 'videos'; }
+    var s = loadSettings();
+    renderActiveCampaigns(); // the campaign card is always present, even pre-fetch
 
-        if (!hasVideos && !hasLive && !hasAffiliate && !hasOverview && !hasCa && !hasProduct) {
-          var msg = creatorFilter
-            ? 'No scrapes found for ' + creatorFilter.join(', ') + ' in the selected range.'
-            : 'No scrapes found in the selected range.';
-          showEmpty(true, msg);
-          return;
-        }
-        showEmpty(false);
-        if (mode === 'live') Dashboard.renderLive(liveScrapes);
-        else if (hasVideos)  Dashboard.renderVideos(videoScrapes);
-        if (hasAffiliate)    Dashboard.renderAffiliate(affiliateRows);
+    if (!s.url || !s.token) {
+      showError('');
+      hideNotice();
+      showEmpty(true, 'Set your Graylog URL and API token in Settings, then refresh.');
+      return;
+    }
+    showError('');
+    loading = true;
+
+    var selectedSec   = parseInt(els.range.value, 10) || 0;
+    var creatorFilter = Users.getCreatorFilters();   // null for "All Accounts"
+    var client        = new GraylogClient({ baseUrl: s.url, token: s.token });
+    var ladder        = widenLadder(selectedSec);
+
+    searchWidening(client, s, ladder, 0, creatorFilter)
+      .then(function (outcome) {
+        renderOutcome(outcome, creatorFilter, selectedSec);
       })
       .catch(function (err) {
         console.error(err);
@@ -1525,6 +1559,93 @@
       .then(function () {
         loading = false;
       });
+  }
+
+  // Render the dashboard for the range the widening loop settled on. `rangeSec`
+  // is the EFFECTIVE range (possibly wider than the user's selection);
+  // `selectedSec` is what they actually picked — used only for the notice copy.
+  function renderOutcome(outcome, creatorFilter, selectedSec) {
+    var rangeSec        = outcome.rangeSec;
+    var results         = outcome.results;
+    var videoScrapes    = results[0];
+    var liveScrapes     = results[1];
+    var affiliateRows   = results[2] || [];
+    var overviewScrapes = results[3] || [];
+    var caScrapes       = results[4] || [];
+    var productScrapes  = results[5] || [];
+    var hasVideos    = videoScrapes.length > 0;
+    var hasLive      = liveScrapes.length > 0;
+    var hasAffiliate = affiliateRows.length > 0;
+    var hasOverview  = overviewScrapes.length > 0;
+    var hasCa        = caScrapes.length > 0;
+    var hasProduct   = productScrapes.length > 0;
+
+    // Tell the user when we showed a wider window than they selected.
+    function noticeForWiden() {
+      if (outcome.widened) {
+        showNotice('No data in ' + rangeLabel(selectedSec) + ' — showing ' + rangeLabel(rangeSec) + '.');
+      } else {
+        hideNotice();
+      }
+    }
+
+    // Map rangeSec → required inclusive day-span for the Data Overview card.
+    // Today = 1-day snapshots, Last 7d = 7-day snapshots; other ranges keep the
+    // existing "most recent regardless of span" behavior.
+    var spanForOverview = null;
+    if (rangeSec === 86400)  spanForOverview = 0;
+    if (rangeSec === 604800) spanForOverview = 6;
+
+    // Overview card hides itself when no metrics; renderOverview also toggles
+    // .hidden, so we just call it unconditionally.
+    Dashboard.renderOverview(overviewScrapes, { spanDays: spanForOverview });
+    Dashboard.renderCreatorAnalytics(caScrapes);
+    Dashboard.renderProductAnalytics(productScrapes);
+
+    if (rangeSec === 86400) {
+      setTodayOnlyMode(true);
+      // The Creator/Product Analytics cards aren't span-filtered (they show the
+      // latest scrape regardless of range) and survive Today mode, so only fall
+      // back to the no-data notice when NONE of these cards rendered.
+      var todaySurvivors = ['overviewCard', 'creatorAnalysisCard', 'productAnalysisCard'];
+      var anyCardShown = todaySurvivors.some(function (id) {
+        var el = document.getElementById(id);
+        return el && !el.classList.contains('hidden');
+      });
+      if (anyCardShown) {
+        setNoData(false);
+        els.empty.classList.add('hidden');
+        noticeForWiden();
+      } else {
+        var todayMsg = creatorFilter
+          ? 'No "Today" snapshots found for ' + creatorFilter.join(', ') + '. Run the bookmarklet on the Data Overview page with the Today filter selected.'
+          : 'No "Today" snapshots found. Run the bookmarklet on the Data Overview page with the Today filter selected.';
+        renderNoData(todayMsg);
+      }
+      return;
+    }
+    setTodayOnlyMode(false);
+
+    setToggleVisibility(hasVideos && hasLive);
+    setAffiliateBlockVisibility(hasAffiliate);
+
+    var mode = getMode();
+    if (mode === 'videos' && !hasVideos && hasLive)  { setMode('live');   mode = 'live'; }
+    else if (mode === 'live' && !hasLive && hasVideos) { setMode('videos'); mode = 'videos'; }
+
+    if (!hasVideos && !hasLive && !hasAffiliate && !hasOverview && !hasCa && !hasProduct) {
+      var msg = creatorFilter
+        ? 'No scrapes found for ' + creatorFilter.join(', ') + ' — searched back to all available data.'
+        : 'No scrapes found — searched back to all available data.';
+      renderNoData(msg);
+      return;
+    }
+    setNoData(false);
+    els.empty.classList.add('hidden');
+    if (mode === 'live') Dashboard.renderLive(liveScrapes);
+    else if (hasVideos)  Dashboard.renderVideos(videoScrapes);
+    if (hasAffiliate)    Dashboard.renderAffiliate(affiliateRows);
+    noticeForWiden();
   }
 
   function setupAutoRefresh() {

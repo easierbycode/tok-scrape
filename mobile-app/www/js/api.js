@@ -109,6 +109,16 @@
       .then(function (r) {
         if (!r.ok) {
           return r.text().then(function (t) {
+            // Graylog 7 returns a 500 carrying
+            //   index_not_found_exception [...no such index []]
+            // when the search time-range overlaps NO index range — e.g. a
+            // window (Last hour / Today) newer than every stored message. That
+            // is "no results in this window", not a failure: resolve to an empty
+            // result so callers — and the auto-widen loop in app.js — treat it
+            // as an empty window instead of surfacing a scary error banner.
+            if (r.status === 500 && /index_not_found_exception/.test(t || '')) {
+              return { messages: [], total_results: 0, _emptyWindow: true };
+            }
             var err = new Error('Graylog ' + r.status + ': ' + (t || r.statusText));
             err.status = r.status;
             throw err;
