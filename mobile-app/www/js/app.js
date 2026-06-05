@@ -556,22 +556,16 @@
     var heightAnim = null;
 
     // Stage for the metric reveal: the two stacked summary layers live in a
-    // clipped box (so the outgoing one is cropped as it slides up out of
-    // frame), with a horizontal "preloader" bar above them — drawn to full,
-    // then wiped away, by the reveal transition (see crossfadeSummary).
+    // clipped box, so the outgoing one is cropped as it slides up out of
+    // frame while the incoming one scales in beneath it (see crossfadeSummary).
     summary.innerHTML =
       '<div class="cm-clip">' +
         '<div class="cm-layer is-active" data-metric="campaigns">' + campaignsSummaryHtml() + '</div>' +
         '<div class="cm-layer" data-metric="goals">' + goalsSummaryHtml() + '</div>' +
-      '</div>' +
-      '<span class="cm-loader" aria-hidden="true">' +
-        '<span class="cm-loader-bar"></span>' +
-      '</span>';
+      '</div>';
 
-    var clip      = summary.querySelector('.cm-clip');
-    var layers    = summary.querySelectorAll('.cm-layer');
-    var loader    = summary.querySelector('.cm-loader');
-    var loaderBar = summary.querySelector('.cm-loader-bar');
+    var clip   = summary.querySelector('.cm-clip');
+    var layers = summary.querySelectorAll('.cm-layer');
 
     function renderRows() {
       rows.innerHTML = metric === 'campaigns'
@@ -613,13 +607,14 @@
 
     // ── Metric reveal transition ─────────────────────────────────────
     // Swap the summary between metrics with the "page preloading" effect
-    // (after Codrops' Page Preloading Effect, demo 2): a progress bar draws
-    // to full, then fades away left→right, while the outgoing content slides
-    // up out of frame and the incoming one scales in from small — all on the
-    // demo's signature cubic-bezier(.7,0,.3,1). The resting state (.is-active
-    // class) is committed up front, so the card is correct even when the
-    // motion is skipped (reduced motion / no Web Animations) or interrupted
-    // mid-flight.
+    // (after Codrops' Page Preloading Effect, demo 2). No separate loader
+    // element: the outgoing metric's own progress bar plays the part of the
+    // demo's preloader — it draws left→right to full, then fades away
+    // left→right, while the outgoing content slides up out of frame and the
+    // incoming one scales in from small — all on the demo's signature
+    // cubic-bezier(.7,0,.3,1). The resting state (.is-active class) is
+    // committed up front, so the card is correct even when the motion is
+    // skipped (reduced motion / no Web Animations) or interrupted mid-flight.
     var REVEAL_EASE = 'cubic-bezier(.7,0,.3,1)';
     var DRAW_MS     = 360;   // loader draw, then the reveal plays after it
     var revealAnims = [];
@@ -651,35 +646,34 @@
       // and would otherwise pin the transform.
       summary.classList.add('is-anim');
 
-      // (a) The bar draws left→right to full — the "preload". The clip wipe
-      //     keeps the bar in place until phase (b) clears it (the cleanup
-      //     cancel resets clip + opacity back to the hidden CSS rest state).
-      revealAnims.push(loader.animate(
-        [{ opacity: 0 }, { opacity: 1 }],
-        { duration: 140, easing: REVEAL_EASE, fill: 'both' }
-      ));
-      revealAnims.push(loaderBar.animate(
-        [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }],
-        { duration: DRAW_MS, easing: REVEAL_EASE, fill: 'both' }
-      ));
+      // The outgoing metric's own progress bar is the "preloader".
+      var outBar = outgoing.querySelector('.cm-bar');
+
+      // (a) The outgoing bar draws left→right to full — the "preload". A
+      //     clip wipe reveals it from the left; fill:'both' holds it full
+      //     until phase (b) clears it (the cleanup cancel drops the inline
+      //     clip back to the unclipped CSS rest state).
+      if (outBar) {
+        revealAnims.push(outBar.animate(
+          [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }],
+          { duration: DRAW_MS, easing: REVEAL_EASE, fill: 'both' }
+        ));
+      }
 
       // The reveal proper plays once the bar is full (delay: DRAW_MS). Each
       // actor holds its pre-state through the draw via fill:'both'.
       var after = { delay: DRAW_MS, fill: 'both', easing: REVEAL_EASE };
 
-      // (b) The bar fades away left→right as the content swaps beneath it —
-      //     a clip wipe (left edge clears first, travelling right) carrying an
-      //     opacity fade. fill:'forwards' so its backwards fill can't pin the
-      //     draw/fade-in still running during the delay.
-      revealAnims.push(loaderBar.animate(
-        [{ clipPath: 'inset(0 0 0 0)', opacity: 1 },
-         { clipPath: 'inset(0 0 0 100%)', opacity: 0 }],
-        { delay: DRAW_MS, duration: 320, fill: 'forwards', easing: REVEAL_EASE }
-      ));
-      revealAnims.push(loader.animate(
-        [{ opacity: 1 }, { opacity: 0 }],
-        { delay: DRAW_MS, duration: 320, fill: 'forwards', easing: REVEAL_EASE }
-      ));
+      // (b) The outgoing bar fades away left→right as the content lifts —
+      //     a clip wipe (left edge clears first, travelling right). The
+      //     layer's own opacity (step c) carries the fade; fill:'forwards'
+      //     so this wipe's backwards fill can't pin the draw during the delay.
+      if (outBar) {
+        revealAnims.push(outBar.animate(
+          [{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 0 100%)' }],
+          { delay: DRAW_MS, duration: 320, fill: 'forwards', easing: REVEAL_EASE }
+        ));
+      }
 
       // (c) Outgoing slides up out of frame — the header lift.
       revealAnims.push(outgoing.animate(

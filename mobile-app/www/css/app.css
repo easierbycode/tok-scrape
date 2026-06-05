@@ -769,8 +769,7 @@ body[data-mode="live"] section[data-mode="videos"] {
 
 /* Summary — stage for the metric reveal (see crossfadeSummary). The two bar
    layers sit in a clipped box so the outgoing one is cropped as it slides up
-   out of frame; the horizontal preloader bar sits above them (z-index 3) so
-   it reads on top of both layers while it draws and wipes away. */
+   out of frame while the incoming one scales in beneath it. */
 .cm-summary {
   position: relative;
   height: 30px;
@@ -805,30 +804,10 @@ body[data-mode="live"] section[data-mode="videos"] {
    CSS transition so it can't outrank (and pin) the animated transform. */
 .cm-summary.is-anim .cm-layer { transition: none; }
 
-/* Horizontal "preloader" bar — hidden at rest. During a metric reveal the JS
-   draws it left→right to full (the preload), then wipes it away left→right as
-   the card content swaps beneath. Spans the summary strip and is centred
-   vertically (inset:0 + margin:auto 0 against a fixed height); the clip-path
-   at rest hides it so it never shows when the motion is skipped. */
-.cm-loader {
-  position: absolute;
-  inset: 0;
-  margin: auto 0;
-  z-index: 3;
-  height: 4px;
-  opacity: 0;
-  pointer-events: none;
-}
-.cm-loader-bar {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgb(245 78 0 / 0.65), var(--primary));
-  /* Clipped from the right at rest — the JS draw grows it left→right to full,
-     then a second wipe clears it left→right (left edge first). */
-  clip-path: inset(0 100% 0 0);
-}
+/* The metric reveal has no separate loader element — the outgoing metric's
+   own .cm-bar plays the preloader (drawn to full, then wiped away left→right
+   via a JS clip-path animation; see crossfadeSummary). At rest the bar is
+   unclipped, so the card is correct whenever the motion is skipped. */
 .cm-bar {
   flex: 1 1 auto;
   min-width: 0;
@@ -906,12 +885,11 @@ body[data-mode="live"] section[data-mode="videos"] {
 /* Goal-row deadline pill reads "Goal N/day". */
 .campaign-row .campaign-goalcap { white-space: nowrap; }
 
-/* The auto-cycle telegraph and the reveal loader are purely decorative —
-   hide them when the OS asks to reduce motion (the metric still swaps on the
-   5.5s timer, cross-faded by the .cm-layer opacity transition). */
+/* The auto-cycle telegraph is purely decorative — hide it when the OS asks to
+   reduce motion (the metric still swaps on the 5.5s timer, cross-faded by the
+   .cm-layer opacity transition; the bar draw/wipe is skipped in JS). */
 @media (prefers-reduced-motion: reduce) {
-  .cm-autobar,
-  .cm-loader { display: none; }
+  .cm-autobar { display: none; }
 }
 
 .tablewrap {
