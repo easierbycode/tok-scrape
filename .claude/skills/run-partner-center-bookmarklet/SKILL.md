@@ -1,6 +1,6 @@
 ---
 name: run-partner-center-bookmarklet
-description: Run a TikTok Shop scraper bookmarklet via the Claude in Chrome extension. Four targets — `creator` (bookmarklet-src.js, Partner Center video-analysis dashboard, default), `sellers` (bookmarklet-sellers.js, partner-collabs agency-detail page), `live` (bookmarklet-live.js, seller-side LIVE Dashboard on shop.tiktok.com), and `streamer` (bookmarklet-streamer.js, seller-side Streamer Compass video-analysis view) — and two environments — `dev` (local fixture, default) and `prod` (live TikTok Shop). Trigger on phrases like "run the partner center bookmarklet", "scrape the partner center", "scrape sellers", "scrape live dashboard", "scrape streamer compass", or "/run-partner-center-bookmarklet [dev|prod] [creator|sellers|live|streamer]".
+description: Run a TikTok Shop scraper bookmarklet via the Claude in Chrome extension. Five targets — `creator` (bookmarklet-src.js, Partner Center video-analysis dashboard, default), `sellers` (bookmarklet-sellers.js, partner-collabs agency-detail page), `live` (bookmarklet-live.js, seller-side LIVE Dashboard on shop.tiktok.com), `streamer` (bookmarklet-streamer.js, seller-side Streamer Compass video-analysis view), and `orders` (extension-seller/scrape-order.js, buyer-side Your-Orders list → order-detail "Default" variant price on www.tiktok.com) — and two environments — `dev` (local fixture, default) and `prod` (live TikTok Shop). Trigger on phrases like "run the partner center bookmarklet", "scrape the partner center", "scrape sellers", "scrape live dashboard", "scrape streamer compass", "scrape orders", "find a product's default price in my orders", or "/run-partner-center-bookmarklet [dev|prod] [creator|sellers|live|streamer|orders] [product name]".
 ---
 
 # run-partner-center-bookmarklet
@@ -10,9 +10,10 @@ Automate the manual step of opening a TikTok Shop page and clicking a scraper bo
 ## Inputs
 
 - `$1` — environment: `dev` (default) or `prod`.
-- `$2` — target: `creator` (default), `sellers`, `live`, or `streamer`.
+- `$2` — target: `creator` (default), `sellers`, `live`, `streamer`, or `orders`.
+- `$3` — (only for `orders`) the product name to find in the Orders list, e.g. `"VEVOR Softbox Lighting Kit"`. Pass a distinctive prefix, not the whole title.
 
-The eight combinations resolve like this:
+The combinations resolve like this:
 
 | target   | env  | Page                                                                            | Bookmarklet                |
 | -------- | ---- | ------------------------------------------------------------------------------- | -------------------------- |
@@ -24,10 +25,80 @@ The eight combinations resolve like this:
 | live     | prod | An already-open tab matching `shop.tiktok.com/workbench/live/overview?room_id=*` | `bookmarklet-live.js`      |
 | streamer | dev  | `file:///Users/danieljohnson/CODE/tok-scrape/seller-center2.html`               | `bookmarklet-streamer.js`  |
 | streamer | prod | `https://shop.tiktok.com/streamer/compass/video-analysis/view`                  | `bookmarklet-streamer.js`  |
+| orders   | dev  | `file:///…/tok-scrape-main/fixtures/Tiktok Shop - Orders.html` (list) + `…/Tiktok Shop - Inside a specific order.html` (detail) — see the `orders` section | `extension-seller/scrape-order-list.js` + `scrape-order.js` |
+| orders   | prod | `https://www.tiktok.com/shop/order_list` → SPA-navigates to `…/order_detail?main_order_id=*` | `extension-seller/scrape-order.js`         |
 
 Both `sellers + prod` and `live + prod` have no canonical landing URL because each campaign / live session has a unique id (`campaign_id` / `room_id`). Reuse a tab the user has already navigated to instead of guessing one. `streamer + prod` *does* have a single canonical URL (the seller's own dashboard), so we navigate normally.
 
 `dev` runs are safe for offline testing. POSTs still fire to the real Graylog/Sheets endpoints, so rows will appear tagged with the fixture's data.
+
+## `orders` target (buyer-side Orders → "Default" price)
+
+`orders` is the only **two-page** target: it finds an order by **product name** on the buyer-side Orders list (`www.tiktok.com/shop/order_list`), opens that order's detail page (`…/order_detail?main_order_id=*`), and scrapes the **"Default" variant unit price** — the headline value the user wants (e.g. `62.89`). Unlike the other targets it lives in **this** repo's Chrome-extension layout, so read its scripts from `tok-scrape-main`:
+
+- detail scraper → `/Users/danieljohnson/CODE/tok-scrape-main/extension-seller/scrape-order.js`
+- list/inventory feed (optional) → `/Users/danieljohnson/CODE/tok-scrape-main/extension-seller/scrape-order-list.js`
+- config (defines `globalThis.TOK_CONFIG`) → `/Users/danieljohnson/CODE/tok-scrape-main/extension-seller/config.js`
+
+Parse `GRAYLOG_ENDPOINT` from **`config.js`** (not the scraper — the scraper reads `TOK_CONFIG`). Same stale-check as the other targets: if it lacks `ngrok`, warn and stop. These pages are on `www.tiktok.com`, a different host than the seller scrapers. Because Chrome-MCP can't click the extension toolbar, **inject the source directly**: `javascript_tool` the **`config.js` body first**, then the **`scrape-order.js` body**, so `TOK_CONFIG` exists before the IIFE runs.
+
+### Steps (these replace the generic single-page Steps 5–6 for `orders`)
+
+1. **Open the Orders list.**
+   - `dev`: open `file:///Users/danieljohnson/CODE/tok-scrape-main/fixtures/Tiktok%20Shop%20-%20Orders.html`.
+   - `prod`: navigate to `https://www.tiktok.com/shop/order_list`, then run the **prod login gate** (Step 4) — this page can redirect to login.
+
+2. **List readiness probe** — poll until an order card and a details button are mounted:
+   ```js
+   (() => {
+     const cards = document.querySelectorAll('div.flex.flex-col.gap-12.background-color-UIPageFlat1.p-16.rounded-6.cursor-pointer.shadow').length;
+     const hasBtn = !!document.querySelector('button[data-testid="tux-web-button"]');
+     return { cards, hasBtn };
+   })()
+   // ready iff cards >= 1 && hasBtn
+   ```
+
+3. **Find the order by product name (`$3`) and click into it.** Substitute `$3` for the needle:
+   ```js
+   ((needle) => {
+     const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+     const want = norm(needle);
+     const cards = Array.from(document.querySelectorAll('div.flex.flex-col.gap-12.background-color-UIPageFlat1.p-16.rounded-6.cursor-pointer.shadow'));
+     for (const card of cards) {
+       const imgs = Array.from(card.querySelectorAll('div.relative.flex-shrink-0.w-80.h-80 img[alt]'));
+       if (!imgs.some((im) => norm(im.getAttribute('alt')).includes(want))) continue;
+       let btn = Array.from(card.querySelectorAll('button[data-testid="tux-web-button"]'))
+         .find((b) => { const c = b.querySelector('.tux-button__content-naVKgq'); return c && norm(c.textContent) === 'view order details'; })
+         || card.querySelector('button[data-testid="tux-web-button"]');
+       if (btn) { btn.click(); return { clicked: true, alt: imgs.map((i) => i.getAttribute('alt')) }; }
+       return { clicked: false, reason: 'matched card but no button' };
+     }
+     return { clicked: false, reason: 'no card matched', seen: cards.flatMap((c) => Array.from(c.querySelectorAll('img[alt]')).map((i) => i.getAttribute('alt'))) };
+   })("VEVOR Softbox Lighting Kit")
+   ```
+   On `{clicked:false}`, **stop** and report `seen` (the product names found on the page) so the user can correct the search term.
+
+4. **Wait for the detail page** — poll until navigation settles and the price block is mounted:
+   ```js
+   (() => {
+     const onDetail = /\/shop\/order_detail(?:[/?#]|$)/.test(location.href);
+     const hasPrice = !!document.querySelector('img.w-90.h-90.object-cover.rounded-4[alt]') &&
+                      !!document.querySelector('.flex.justify-between.items-center .H4-Semibold.text-color-UIText1');
+     return { onDetail, hasPrice, url: location.href };
+   })()
+   // ready iff onDetail && hasPrice
+   ```
+   ~20s budget, ~1s between polls (re-call the tool; no sleep loop). On timeout, screenshot and report which of `onDetail` / `hasPrice` failed.
+
+5. **Inject** the `config.js` body, then the `scrape-order.js` body, via `javascript_tool`.
+
+6. **Verify & summarize.** Console: the `[tok-scrape:order]` payload + `[graylog] sent`. Network: a POST to the Graylog ngrok host (opaque / status 0 in the CORS sense, or 202 — presence is the success signal). Report: product, **`defaultPrice`** (e.g. 62.89), `defaultVariant`, `orderId`, `store`, `lineItemCount`, and Graylog `source:tiktok-bookmarklet-orders`.
+
+### dev seam (offline)
+The saved list fixture is a static snapshot — its "View order details" buttons have **no SPA wiring**, so the live click→navigate hop is **prod-only**. In `dev`, validate the two halves separately: run the Step-3 snippet against the list fixture and assert `{clicked:true, alt:[…VEVOR…]}`, then **separately** open `file:///Users/danieljohnson/CODE/tok-scrape-main/fixtures/Tiktok%20Shop%20-%20Inside%20a%20specific%20order.html` and inject `config.js` + `scrape-order.js` — expect `defaultPrice:62.89`, `lineItems[0].variant:"Default"`, and `orderId:577312748349657317` (via the DOM fallback, since the `file://` URL has no `main_order_id`). Requires **"Allow access to file URLs"** on the extension.
+
+### list/inventory feed
+To log **every** order's products instead of drilling into one (store / date / status / product names — no prices, none exist on the list page): on the `order_list` page (or the list fixture) inject `config.js` + **`scrape-order-list.js`** → `[tok-scrape:orders-list]` payload + Graylog `source:tiktok-bookmarklet-orders-list`.
 
 ## Required tools
 
@@ -143,5 +214,5 @@ If the extension isn't connected, stop and tell the user to install/connect it �
 
 - All four Graylog POSTs use `mode: 'no-cors'`, so in the Network panel their responses appear as opaque/status 0. This is by design. Presence of the request is the success signal.
 - The fixtures (`partner-center.html`, `partner-center2.html`, `seller-center.html`, `seller-center2.html`) are snapshots of the real DOM, so the same selectors and readiness probes work in both `dev` and `prod`.
-- The four streams in Graylog are distinguished by the `source` field: `source:tiktok-bookmarklet` (creator) vs `source:tiktok-bookmarklet-sellers` vs `source:tiktok-bookmarklet-live` vs `source:tiktok-bookmarklet-streamer`.
-- For a headless / CI variant of this flow, see `scripts/run-bookmarklet.ts` (Playwright). It mirrors the same toggles via `--target=creator|sellers|live|streamer` and `--env=dev|prod`. For `--target=sellers --env=prod` it requires `--campaign-id=<id>`; for `--target=live --env=prod` it requires `--room-id=<id>`. Streamer prod has a single canonical URL — no extra flag needed.
+- The streams in Graylog are distinguished by the `source` field: `source:tiktok-bookmarklet` (creator) vs `source:tiktok-bookmarklet-sellers` vs `source:tiktok-bookmarklet-live` vs `source:tiktok-bookmarklet-streamer` vs `source:tiktok-bookmarklet-orders` (order detail / Default price) vs `source:tiktok-bookmarklet-orders-list` (orders inventory feed).
+- For a headless / CI variant of this flow, see `scripts/run-bookmarklet.ts` (Playwright). It reads the scrapers + `config.js` from this repo's extension dirs (`extension-seller/`, `extension-agency/`), injects a `chrome.runtime` relay shim so the POSTs fire outside the extension, and mirrors the toggles via `--target=creator|sellers|live|streamer|orders|orders-list` and `--env=dev|prod`. Flags: `--target=sellers --env=prod` needs `--campaign-id=<id>`; `--target=live --env=prod` needs `--room-id=<id>`; `--target=orders --env=prod` needs `--product="<name>"` (it loads the Orders list, finds + clicks into that order, then scrapes the detail). `orders` dev injects against the saved order-detail fixture; `orders-list` enumerates the Orders list. `creator`/`sellers` have no local dev fixture in this repo, so run them with `--env=prod`. Run via `cd scripts && npm i` then e.g. `npm run bookmarklet:orders` / `npm run bookmarklet:orders-list`.

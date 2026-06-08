@@ -13,7 +13,11 @@
     "bookmarklet:live": "tsx run-bookmarklet.ts --target=live --env=dev",
     "bookmarklet:live:prod": "tsx run-bookmarklet.ts --target=live --env=prod",
     "bookmarklet:streamer": "tsx run-bookmarklet.ts --target=streamer --env=dev",
-    "bookmarklet:streamer:prod": "tsx run-bookmarklet.ts --target=streamer --env=prod"
+    "bookmarklet:streamer:prod": "tsx run-bookmarklet.ts --target=streamer --env=prod",
+    "bookmarklet:orders": "tsx run-bookmarklet.ts --target=orders --env=dev",
+    "bookmarklet:orders:prod": "tsx run-bookmarklet.ts --target=orders --env=prod",
+    "bookmarklet:orders-list": "tsx run-bookmarklet.ts --target=orders-list --env=dev",
+    "bookmarklet:orders-list:prod": "tsx run-bookmarklet.ts --target=orders-list --env=prod"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

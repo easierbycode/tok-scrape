@@ -46,6 +46,38 @@ const ROUTES = [
     test: /https:\/\/shop\.tiktok\.com\/streamer\/compass\/livestream-analytics\/view/,
     files: ['config.js', 'scrape-analytics.js'],
     label: 'analytics'
+  },
+  {
+    // Buyer-side order DETAIL (carries the per-line-item / "Default" price).
+    // NB: these order pages are on www.tiktok.com, not shop.tiktok.com — see
+    // the matching host_permissions entry in manifest.json. Listed before the
+    // order_list route below because the detail page embeds the substring
+    // "order_list" in a `source=` query param; anchoring on the path segment
+    // plus this ordering keeps them from cross-matching.
+    test: /https:\/\/www\.tiktok\.com\/shop\/order_detail(?:[/?#]|$)/,
+    files: ['config.js', 'scrape-order.js'],
+    label: 'order'
+  },
+  {
+    // Local dev fixture for the order detail page. Saved via "Save page as…",
+    // so the filename has spaces that the browser percent-encodes to %20 in the
+    // file:// URL — match the encoded form (or a literal space, just in case).
+    // Requires "Allow access to file URLs" on the extension (see live fixture).
+    test: /\/fixtures\/order\.html(?:[?#]|$)/,
+    files: ['config.js', 'scrape-order.js'],
+    label: 'order'
+  },
+  {
+    // Buyer-side order LIST (enumerate orders + product names; no prices/IDs).
+    test: /https:\/\/www\.tiktok\.com\/shop\/order_list(?:[/?#]|$)/,
+    files: ['config.js', 'scrape-order-list.js'],
+    label: 'orders'
+  },
+  {
+    // Local dev fixture for the orders list page.
+    test: /\/fixtures\/orders\.html(?:[?#]|$)/,
+    files: ['config.js', 'scrape-order-list.js'],
+    label: 'orders'
   }
 ];
 
