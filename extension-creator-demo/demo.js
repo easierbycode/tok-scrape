@@ -1,0 +1,211 @@
+// Orchestrator — runs the whole show on the deployed orders.html fixture.
+//
+// 1. Snapshot every order card (store, icon, product description, date, status)
+//    using the exact selectors the seller scraper already relies on.
+// 2. Mark ~9 of every 10 orders as $0 free samples; the rest keep a paid price.
+// 3. For each order in turn: flash its "View order details" button, open the
+//    order.html template filled with that order's data (samples show $0.00 with
+//    the struck price removed), and tick the Lifepreneur scanning HUD.
+// 4. For each sample, look up its retail value on shop.tiktok.com (via the
+//    background relay) by its description; fall back to an estimate when TikTok
+//    can't be parsed, so the tally always completes.
+// 5. Show the Lifepreneur "Sample Value" overlay with the total valuation.
+(function () {
+  const myRun = (window.__lifeRun = (window.__lifeRun || 0) + 1);
+  const alive = () => window.__lifeRun === myRun;
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  const CARD_SEL = 'div.flex.flex-col.gap-12.background-color-UIPageFlat1.p-16.rounded-6.cursor-pointer.shadow';
+  const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
+  const money = (n, dp = 2) => n == null ? '—' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+
+  function hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0); }
+
+  const CENTS = [0.99, 0.49, 0.95, 0.89, 0.97, 0.99, 0.95, 0.79];
+  function estRetail(desc) { const h = hash('r' + desc); return (8 + (h % 42)) + CENTS[h % CENTS.length] - 1 + 0.0; }
+  function paidPrice(desc) { const h = hash('p' + desc); return (19 + (h % 71)) + CENTS[(h >> 3) % CENTS.length] - 1; }
+  const TONES = ['#7c5cff', '#19c37d', '#2bb3d4', '#f5a623', '#e0517a', '#e8650a'];
+  const tone = (desc) => TONES[hash(desc) % TONES.length];
+
+  const CATS = [
+    ['Personal care', /serum|lotion|toothpaste|shampoo|skin|cream|balm|deodorant|moistur|soap.*body|face|hair/i],
+    ['Household', /trash|toilet|paper towel|dish|detergent|cleaner|cleaning|laundry|wipes|sponge|garbage|napkin/i],
+    ['Grocery', /coffee|protein|olive oil|snack|tea|gummies|gummy|probiotic|supplement|vitamin|drink|water|nutrition|honey|sauce|seasoning|bar\b|powder/i],
+    ['Electronics', /cable|charger|usb|led|bulb|headphone|earbud|battery|power bank|camera|charging|softbox|light|speaker|adapter|webcam/i],
+    ['Home goods', /bowl|candle|kitchen|mug|decor|organizer|storage|furniture|lamp|rug|pillow|blanket|curtain|towel|holder|rack/i],
+    ['Apparel', /socks|shirt|wool|hat|gloves|apparel|clothing|shoe|legging|jacket|hoodie|dress|underwear/i],
+    ['Pet', /\bdog\b|\bcat\b|\bpet\b|treats|leash|litter/i],
+    ['Beauty', /makeup|lipstick|\blip\b|nail|brush|mascara|foundation|eyeshadow|beauty/i]
+  ];
+  function category(desc) { for (const [name, re] of CATS) if (re.test(desc)) return name; return 'Other'; }
+
+  // "Ordered on Mar 17" -> "Mar 17, 2026"
+  function dateText(raw) {
+    const m = clean(raw).replace(/^ordered on\s*/i, '');
+    return m ? (/\d{4}/.test(m) ? m : m + ', 2026') : 'Recently';
+  }
+  function shortName(desc) { const d = clean(desc); return d.length > 42 ? d.slice(0, 42) + '…' : d; }
+
+  // ---- snapshot --------------------------------------------------------------
+  const cards = Array.prototype.slice.call(document.querySelectorAll(CARD_SEL));
+  if (!cards.length) {
+    console.warn('[life-demo] no order cards found — is this the orders.html fixture?');
+    return;
+  }
+
+  const orders = cards.map((card, i) => {
+    const iconImg = card.querySelector('img.w-20.h-20') || card.querySelector('.flex.items-center.gap-8 img');
+    const nameEl = card.querySelector('.H4-Semibold.text-color-UIText1');
+    const dateEl = card.querySelector('.P3-Regular.text-color-UIText2');
+    const statusEl = card.querySelector('.H4-Bold.text-color-UIText1');
+    const prodImg = card.querySelector('div.relative.flex-shrink-0.w-80.h-80 img[alt]') || card.querySelector('img.w-full[alt]');
+    let btn = null;
+    card.querySelectorAll('button, .tux-button__content-naVKgq').forEach(b => { if (!btn && /view order details/i.test(b.textContent || '')) btn = b.closest('[data-testid="tux-web-button-container"]') || b.closest('button') || b; });
+    const description = prodImg ? clean(prodImg.getAttribute('alt')) : '';
+    return {
+      i,
+      shopName: nameEl ? clean(nameEl.textContent) : 'Shop',
+      shopIconSrc: iconImg ? iconImg.src : '',
+      description: description || 'Sample item',
+      productImgSrc: prodImg ? prodImg.src : '',
+      dateText: dateText(dateEl ? dateEl.textContent : ''),
+      statusText: statusEl ? clean(statusEl.textContent) : 'Order completed',
+      buttonRef: btn, cardRef: card
+    };
+  }).filter(o => o.description);
+
+  // ---- assign sample / paid + value model -----------------------------------
+  orders.forEach((o, i) => {
+    o.isSample = ((i * 7 + 3) % 10) !== 0;       // ~9 of every 10, scattered
+    o.tone = tone(o.description);
+    o.category = category(o.description);
+    if (o.isSample) {
+      o.paid = 0;
+      o.retail = Math.round(estRetail(o.description) * 100) / 100;
+      o.resolved = true;                         // fallback always yields a value
+      o.confidence = 'med';                      // upgraded to 'high' on a real embedded hit
+      o.name = o.description;
+      o.store = o.shopName;
+      o.date = o.dateText;
+    } else {
+      const p = Math.round(paidPrice(o.description) * 100) / 100;
+      o.paid = p; o.paidText = money(p);
+      o.strikeText = money(Math.round((p + 2 + (hash(o.description) % 14)) * 100) / 100);
+      o.retail = null;
+    }
+  });
+
+  const samples = orders.filter(o => o.isSample);
+  if (!samples.length) { console.warn('[life-demo] no samples after split'); return; }
+
+  // week label from the parsed order dates (best-effort)
+  const model = { weekLabel: weekLabel(orders), accountsConnected: 2, resalePct: 0.10, monthlyMultiplier: 4.3 };
+  // The design frames the total as "this week"; the fixture's orders span the
+  // whole year, so present a tidy 7-day window ending at the most recent order
+  // rather than a Jan–Dec range that would expose the demo seam.
+  function weekLabel(list) {
+    const MON = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+    const ds = [];
+    list.forEach(o => { const m = o.dateText.match(/([A-Z][a-z]{2})\s+(\d{1,2})/); if (m && MON[m[1]] != null) ds.push(new Date(2026, MON[m[1]], +m[2]).getTime()); });
+    if (!ds.length) return '';
+    const latest = Math.max.apply(null, ds);
+    const fmt = (t) => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+    return fmt(latest - 6 * 86400000) + ' – ' + fmt(latest) + ', 2026';
+  }
+
+  // ---- real TikTok retail lookups (pooled, background relay) -----------------
+  const LOOK = { done: 0, total: samples.length, real: 0 };
+  let currentOrder = null;
+  function lookupOne(s) {
+    return new Promise((res) => {
+      let settled = false;
+      const finish = () => { if (settled) return; settled = true; LOOK.done++; res(); };
+      try {
+        chrome.runtime.sendMessage({ source: 'life-demo', type: 'price-lookup', query: s.description }, (resp) => {
+          if (!chrome.runtime.lastError && resp && resp.ok && resp.price != null) {
+            // 'embedded' = parsed from TikTok's JSON (trust as high); 'visible' =
+            // a loose "$x.xx" off the page (weak signal → keep medium confidence).
+            s.retail = resp.price; s.confidence = resp.tier === 'embedded' ? 'high' : 'med'; s._real = true; s.resolved = true; LOOK.real++;
+            if (currentOrder === s && window.LifeTemplate) window.LifeTemplate.setRetail(money(s.retail));
+          }
+          finish();
+        });
+      } catch (_) { finish(); }
+    });
+  }
+  (function pool() {
+    let idx = 0, active = 0; const CONC = 5;
+    const pump = () => {
+      while (active < CONC && idx < samples.length) {
+        active++; lookupOne(samples[idx++]).then(() => { active--; pump(); });
+      }
+    };
+    pump();
+  })();
+
+  function flashButton(o) {
+    const btn = o.buttonRef;
+    try { if (o.cardRef && o.cardRef.isConnected && o.cardRef.scrollIntoView) o.cardRef.scrollIntoView({ block: 'center' }); } catch (_) {}
+    if (!btn || !btn.isConnected) return;
+    const prev = btn.style.cssText;
+    btn.style.outline = '2px solid #e8650a';
+    btn.style.boxShadow = '0 0 0 4px rgba(232,101,10,0.25)';
+    btn.style.borderRadius = '99px';
+    setTimeout(() => { if (btn.isConnected) btn.style.cssText = prev; }, 260);
+  }
+
+  function view(o) {
+    return o.isSample
+      ? { shopName: o.shopName, shopIconSrc: o.shopIconSrc, description: o.description, productImgSrc: o.productImgSrc, dateText: o.dateText, statusText: o.statusText, isSample: true, priceText: money(0), strikeText: null, retailText: o.retail != null ? money(o.retail) : null }
+      : { shopName: o.shopName, shopIconSrc: o.shopIconSrc, description: o.description, productImgSrc: o.productImgSrc, dateText: o.dateText, statusText: o.statusText, isSample: false, priceText: o.paidText, strikeText: o.strikeText, retailText: null };
+  }
+
+  async function settle(maxMs) {
+    const t0 = Date.now();
+    while (LOOK.done < LOOK.total && Date.now() - t0 < maxMs) await sleep(150);
+  }
+
+  // demo.js is re-injected (not load-once guarded) on every toolbar click, so a
+  // second click starts a NEW run that now owns the shared LifeTemplate /
+  // Lifepreneur singletons. A superseded run (alive()===false) must therefore
+  // bail WITHOUT destroying that shared UI — the newest run will tear it down at
+  // its own end. (Never call destroy()/scanStop() from a stale run.)
+
+  // ---- run -------------------------------------------------------------------
+  (async function run() {
+    if (!window.Lifepreneur || !window.LifeTemplate) { console.warn('[life-demo] overlay/template not loaded'); return; }
+    try { await window.LifeTemplate.ensure(); } catch (e) { console.warn('[life-demo] template load failed', e); }
+    if (!alive()) return;
+
+    const total = orders.length;
+    const perOrder = total > 40 ? 240 : total > 20 ? 320 : 460;
+    window.Lifepreneur.scanStart(total);
+    window.Lifepreneur.scanUpdate({ label: 'Reading your order list…' });
+    await sleep(600);
+
+    let running = 0, n = 0;
+    for (const o of orders) {
+      if (!alive()) return;
+      currentOrder = o.isSample ? o : null;
+      flashButton(o);
+      window.LifeTemplate.show(view(o));
+      n++;
+      if (o.isSample) running += (o.retail || 0);
+      window.Lifepreneur.scanUpdate({ n, label: o.shopName + ' · ' + shortName(o.description), runningTotal: running });
+      await sleep(perOrder);
+    }
+
+    window.Lifepreneur.scanUpdate({ n: total, label: 'Matching remaining samples to retail…' });
+    await settle(5000);
+    if (!alive()) return;
+
+    console.log('[life-demo] valued ' + samples.length + ' samples · real TikTok prices: ' + LOOK.real + ', estimated: ' + (samples.length - LOOK.real));
+
+    window.LifeTemplate.hide();
+    setTimeout(() => { if (alive()) window.LifeTemplate.destroy(); }, 420); // guarded: a newer run may now own the iframe
+    window.Lifepreneur.scanStop();
+    await sleep(360);
+    if (!alive()) return;
+    window.Lifepreneur.showResults({ samples, model });
+  })();
+})();

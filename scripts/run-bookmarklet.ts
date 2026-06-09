@@ -24,7 +24,7 @@
  *   sellers      extension-agency/scrape-sellers.js   — (no local fixture; prod only)
  *   live         extension-seller/scrape-live.js      — fixtures/live_overview.html
  *   streamer     extension-seller/scrape-streamer.js  — fixtures/video-analysis_view.html
- *   orders       extension-seller/scrape-order.js     — fixtures/Tiktok Shop - Inside a specific order.html
+ *   orders       extension-seller/scrape-order.js     — fixtures/order.html
  *   orders-list  extension-seller/scrape-order-list.js— fixtures/Tiktok Shop - Orders.html
  *
  * `orders` is the only two-page flow: it scrapes the buyer-side order DETAIL page
@@ -178,7 +178,7 @@ const TARGETS: Record<Target, TargetConfig> = {
     extensionDir: 'extension-seller',
     scraperFiles: ['scrape-order.js'],
     // dev injects against the saved order DETAIL fixture (the price lives there).
-    fixturePath: path.join(FIXTURES, 'Tiktok Shop - Inside a specific order.html'),
+    fixturePath: path.join(FIXTURES, 'order.html'),
     // prod lands on the Orders list, then navigates to the matched order_detail.
     prodUrl: () => ORDER_LIST_URL,
     // Detail-page readiness (no URL check — the dev fixture is a file:// URL).

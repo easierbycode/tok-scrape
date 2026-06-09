@@ -25,7 +25,7 @@ The combinations resolve like this:
 | live     | prod | An already-open tab matching `shop.tiktok.com/workbench/live/overview?room_id=*` | `bookmarklet-live.js`      |
 | streamer | dev  | `file:///Users/danieljohnson/CODE/tok-scrape/seller-center2.html`               | `bookmarklet-streamer.js`  |
 | streamer | prod | `https://shop.tiktok.com/streamer/compass/video-analysis/view`                  | `bookmarklet-streamer.js`  |
-| orders   | dev  | `file:///…/tok-scrape-main/fixtures/Tiktok Shop - Orders.html` (list) + `…/Tiktok Shop - Inside a specific order.html` (detail) — see the `orders` section | `extension-seller/scrape-order-list.js` + `scrape-order.js` |
+| orders   | dev  | `file:///…/tok-scrape-main/fixtures/Tiktok Shop - Orders.html` (list) + `…/order.html` (detail) — see the `orders` section | `extension-seller/scrape-order-list.js` + `scrape-order.js` |
 | orders   | prod | `https://www.tiktok.com/shop/order_list` → SPA-navigates to `…/order_detail?main_order_id=*` | `extension-seller/scrape-order.js`         |
 
 Both `sellers + prod` and `live + prod` have no canonical landing URL because each campaign / live session has a unique id (`campaign_id` / `room_id`). Reuse a tab the user has already navigated to instead of guessing one. `streamer + prod` *does* have a single canonical URL (the seller's own dashboard), so we navigate normally.
