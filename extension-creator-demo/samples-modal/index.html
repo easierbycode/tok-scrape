@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Free Sample Haul — modal demo</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: #e7e7ec;
+      background:
+        radial-gradient(1200px 600px at 20% -10%, #241a3a, transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, #102a2a, transparent 55%),
+        #0c0c11;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    .lede { color: #9a9aa6; font-size: 14px; line-height: 1.5; margin: 0 0 22px; max-width: 60ch; }
+    .lede code { background: #1d1d25; padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 26px; }
+    button {
+      appearance: none; border: 1px solid rgba(255,255,255,.12); background: #1b1b22;
+      color: #e7e7ec; font: inherit; font-weight: 700; font-size: 13px;
+      padding: 10px 14px; border-radius: 10px; cursor: pointer;
+    }
+    button:hover { background: #24242e; }
+    button.primary { background: #f54e00; border-color: #f54e00; color: #fff; }
+    button.primary:hover { background: #ff5e12; }
+    .note { font-size: 12.5px; color: #76768a; line-height: 1.6; }
+    .badge { display: inline-block; font-size: 11px; font-weight: 700; color: #ffce8a;
+      background: rgba(255,206,138,.12); border: 1px solid rgba(255,206,138,.3);
+      padding: 2px 8px; border-radius: 999px; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="badge">MOCK DATA · issue #48</div>
+    <h1>📦 Free Sample Haul — modal demo</h1>
+    <p class="lede">
+      Reveals the original <strong>retail value</strong> of free ($0) TikTok Shop samples — the
+      membership-club pitch that you can replace household expenses with free product.
+      The numbers are mock (<code>samples-mock.js</code>): ~1,500 samples ≈ <strong>$75,000</strong>
+      retail across two accounts in one week.
+    </p>
+
+    <div class="controls">
+      <button class="primary" data-open="smashtv">▶ SmashTV reveal</button>
+      <button data-open="showcase">▶ Price Is Right showcase</button>
+      <button data-open="boring">▶ Boring (just the numbers)</button>
+      <button data-replay>↻ Replay</button>
+      <button data-close>✕ Close</button>
+    </div>
+
+    <p class="note">
+      Inside the modal: a <strong>style switcher</strong> (SmashTV · Showcase) and a
+      <strong>“Just the numbers”</strong> checkbox (its preference is remembered). Press
+      <strong>Esc</strong> or click the backdrop to close. Toggle your OS “reduce motion”
+      setting to see the no-animation path.
+    </p>
+  </div>
+
+  <script src="samples-mock.js"></script>
+  <script src="samples-modal.js"></script>
+  <script>
+    document.querySelectorAll('[data-open]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        TOK_SAMPLES_MODAL.show(window.TOK_SAMPLES_MOCK, { style: b.getAttribute('data-open') });
+      });
+    });
+    document.querySelector('[data-replay]').addEventListener('click', function () { TOK_SAMPLES_MODAL.replay(); });
+    document.querySelector('[data-close]').addEventListener('click', function () { TOK_SAMPLES_MODAL.close(); });
+    // Auto-open the SmashTV reveal so the page is useful the moment it loads.
+    window.addEventListener('load', function () {
+      TOK_SAMPLES_MODAL.show(window.TOK_SAMPLES_MOCK, { style: 'smashtv' });
+    });
+  </script>
+</body>
+</html>
