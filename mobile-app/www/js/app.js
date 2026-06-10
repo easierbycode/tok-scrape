@@ -36,7 +36,10 @@
   // Default GELF HTTP input endpoint, matching the browser extensions
   // (extension-seller/config.js). The bookmarklet-sync sidecar in
   // docker-compose.yml rewrites this on every `docker compose up`.
+  var DEFAULT_GRAYLOG_URL = 'https://tok-graylog-api.ngrok-free.dev';
+  var DEFAULT_GRAYLOG_TOKEN = '1m0r2v13opjqaj64bqcupa5ltkuq8j95jnlkm5epf8eiao2r9jmc';
   var DEFAULT_GELF_URL = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v2';
 
   function loadSettings() {
     try {
@@ -47,19 +50,31 @@
       // Migrate the old broken default: Graylog indexes GELF `host` as `source`,
       // so `host:tiktok-bookmarklet` never matched any message. Rewrite silently.
       if (query === 'host:tiktok-bookmarklet') query = 'source:tiktok-bookmarklet';
+      var url = (s.url || '').replace(/\/+$/, '');
+      var migratedToken = s.token || '';
+      var tokenMigrationApplied = localStorage.getItem(GRAYLOG_TOKEN_MIGRATION_KEY) === '1';
+      if (url === DEFAULT_GRAYLOG_URL &&
+          migratedToken !== DEFAULT_GRAYLOG_TOKEN &&
+          !tokenMigrationApplied) {
+        migratedToken = DEFAULT_GRAYLOG_TOKEN;
+        localStorage.setItem(GRAYLOG_TOKEN_MIGRATION_KEY, '1');
+      }
       var migrated = {
-        url:         s.url         || '',
-        token:       s.token       || '',
+        url:         url,
+        token:       migratedToken,
         query:       query,
         gelfUrl:     s.gelfUrl     || DEFAULT_GELF_URL,
         autoRefresh: !!s.autoRefresh
       };
-      if (migrated.query !== s.query || migrated.gelfUrl !== s.gelfUrl) saveSettings(migrated);
+      if (migrated.url !== s.url ||
+          migrated.token !== s.token ||
+          migrated.query !== s.query ||
+          migrated.gelfUrl !== s.gelfUrl) saveSettings(migrated);
       return migrated;
     } catch (e) { return defaults(); }
   }
   function defaults() {
-    return { url: '', token: '', query: 'source:tiktok-bookmarklet', gelfUrl: DEFAULT_GELF_URL, autoRefresh: false };
+    return { url: DEFAULT_GRAYLOG_URL, token: DEFAULT_GRAYLOG_TOKEN, query: 'source:tiktok-bookmarklet', gelfUrl: DEFAULT_GELF_URL, autoRefresh: false };
   }
   function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
 
