@@ -2,51 +2,95 @@ document.addEventListener('deviceready', function() {
     console.log('[LP-host] deviceready');
     var ORDERS_URL = 'https://easierbycode.com/tok-scrape/fixtures/orders.html';
 
-    // Open InAppBrowser with default settings. UA is configured in config.xml
+    // Open InAppBrowser. location=yes helps with visibility.
     var iab = cordova.InAppBrowser.open(ORDERS_URL, '_blank', 'location=yes,hidden=no,clearcache=yes,clearsessioncache=yes');
 
     var pendingRun = false;
-    var currentUrl = ORDERS_URL;
 
-    // Load bridge from file on every page load
+    // Robust bridge code for injection
+    var bridgeCode = "(function() { " +
+        "if (window.__lpBridge) return; " +
+        "window.__lpBridge = true; " +
+        "console.log('[LP-guest] bridge loading'); " +
+
+        "function post(msg) { " +
+            "var s = JSON.stringify(msg); " +
+            "if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) { " +
+                "window.webkit.messageHandlers.cordova_iab.postMessage(s); " +
+            "} else if (window.cordova_iab && window.cordova_iab.postMessage) { " +
+                "window.cordova_iab.postMessage(s); " +
+            "} " +
+        "} " +
+
+        "var btn = document.createElement('button'); " +
+        "btn.id = '__lifeFab'; " +
+        "btn.textContent = 'LP'; " +
+        "btn.style.cssText = 'position:fixed !important; bottom:100px !important; right:20px !important; width:72px !important; height:72px !important; border-radius:36px !important; background:#e8650a !important; color:#ffffff !important; display:flex !important; align-items:center !important; justify-content:center !important; font-weight:900 !important; font-size:22px !important; box-shadow:0 8px 32px rgba(0,0,0,0.5) !important; z-index:2147483647 !important; cursor:pointer !important; border:3px solid #ffffff !important; outline:none !important; visibility:visible !important; opacity:1 !important; pointer-events:auto !important;'; " +
+
+        "btn.onclick = function(e) { " +
+            "e.preventDefault(); e.stopPropagation(); " +
+            "console.log('[LP-guest] button tapped'); " +
+            "post({ type: 'run-extension' }); " +
+        "}; " +
+
+        "function ensure() { " +
+            "if (!document.getElementById('__lifeFab')) { " +
+                "var target = document.body || document.documentElement; " +
+                "if (target) { target.appendChild(btn); console.log('[LP-guest] button injected'); } " +
+            "} " +
+        "} " +
+        "setInterval(ensure, 1000); " +
+        "ensure(); " +
+
+        // Chrome runtime polyfills
+        "if (!window.chrome) window.chrome = {}; " +
+        "if (!window.chrome.runtime) window.chrome.runtime = {}; " +
+        "window.chrome.runtime.sendMessage = function(m, c) { " +
+            "var id = Math.random().toString(36).substring(7); " +
+            "if (c) { if (!window.__lpc) window.__lpc = {}; window.__lpc[id] = c; } " +
+            "post({ id: id, payload: m }); " +
+        "}; " +
+        "window.__lpRes = function(id, r) { " +
+            "if (window.__lpc && window.__lpc[id]) { window.__lpc[id](r); delete window.__lpc[id]; } " +
+        "}; " +
+    "})();";
+
     iab.addEventListener('loadstop', function(e) {
-        console.log('[LP-host] loadstop:', e.url);
-        currentUrl = e.url;
-        iab.executeScript({ file: 'js/guest-bridge.js' }, function() {
-            console.log('[LP-host] bridge injected');
-            if (pendingRun && e.url.indexOf('/fixtures/orders.html') !== -1) {
-                pendingRun = false;
-                runExtension();
-            }
-        });
+        console.log('[LP-host] loadstop: ' + e.url);
+        iab.executeScript({ code: bridgeCode });
+        // Retry injection to be sure
+        setTimeout(function() { iab.executeScript({ code: bridgeCode }); }, 1000);
+
+        if (pendingRun && e.url && e.url.indexOf('/fixtures/orders.html') !== -1) {
+            pendingRun = false;
+            setTimeout(runExtension, 500);
+        }
     });
 
-    // Handle messages from guest (bridge or extension)
     iab.addEventListener('message', function(e) {
-        console.log('[LP-host] message received:', e.data);
         var data = e.data;
         if (typeof data === 'string') {
-            try { data = JSON.parse(data); } catch(_) { return; }
+            try { data = JSON.parse(data); } catch(ex) { return; }
         }
 
         if (data.type === 'run-extension') {
-            // Check if we are on the target page
-            if (currentUrl && currentUrl.indexOf('/fixtures/orders.html') !== -1) {
-                runExtension();
-            } else {
-                console.log('[LP-host] not on orders page, navigating...');
-                pendingRun = true;
-                iab.executeScript({ code: "window.location.href = '" + ORDERS_URL + "';" });
-            }
-        } else if (data.payload && data.payload.type === 'price-lookup') {
-            handlePriceLookup(data.id, data.payload.query);
+            iab.executeScript({ code: "window.location.href" }, function(values) {
+                var url = (values && values[0]) ? values[0] : "";
+                if (url.indexOf('/fixtures/orders.html') !== -1) {
+                    runExtension();
+                } else {
+                    console.log('[LP-host] redirecting to orders fixture');
+                    pendingRun = true;
+                    iab.executeScript({ code: "window.location.href = '" + ORDERS_URL + "';" });
+                }
+            });
+        } else if (data.id && data.payload && data.payload.type === 'price-lookup') {
+            doPriceLookup(data.id, data.payload.query);
         }
     });
 
     function runExtension() {
-        console.log('[LP-host] runExtension');
-        // Sequential injection of extension files.
-        // These rely on globals from each other.
+        console.log('[LP-host] executing extension scripts');
         iab.executeScript({ file: 'ext/lifepreneur.js' }, function() {
             iab.executeScript({ file: 'ext/template.js' }, function() {
                 iab.executeScript({ file: 'ext/demo.js' });
@@ -54,60 +98,17 @@ document.addEventListener('deviceready', function() {
         });
     }
 
-    function handlePriceLookup(messageId, query) {
-        console.log('[LP-host] price lookup:', query);
-        var lookupUrl = 'https://shop.tiktok.com/us/s?q=' + encodeURIComponent(query);
-
-        // Prefer native HTTP if available (for CORS), fallback to fetch
-        var http = (window.cordova && cordova.plugin && cordova.plugin.http) || null;
-
-        if (http) {
-            http.get(lookupUrl, {}, {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
-            }, function(response) {
-                var hit = firstPriceFromHtml(response.data);
-                var res = hit ? { ok: true, price: hit.price, tier: hit.tier } : { ok: false };
-                iab.executeScript({ code: 'window.__lifeOnResponse("' + messageId + '", ' + JSON.stringify(res) + ');' });
-            }, function(response) {
-                var res = { ok: false, error: response.error };
-                iab.executeScript({ code: 'window.__lifeOnResponse("' + messageId + '", ' + JSON.stringify(res) + ');' });
+    function doPriceLookup(id, query) {
+        var url = 'https://shop.tiktok.com/us/s?q=' + encodeURIComponent(query);
+        fetch(url)
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                var m = html.match(/"price_val"\s*:\s*"?\$?([0-9.]+)/i);
+                var res = m ? { ok: true, price: parseFloat(m[1]) } : { ok: false };
+                iab.executeScript({ code: "if(window.__lpRes) window.__lpRes('" + id + "', " + JSON.stringify(res) + ");" });
+            })
+            .catch(function(err) {
+                iab.executeScript({ code: "if(window.__lpRes) window.__lpRes('" + id + "', {ok:false});" });
             });
-        } else {
-            fetch(lookupUrl)
-                .then(function(r) { return r.text(); })
-                .then(function(html) {
-                    var hit = firstPriceFromHtml(html);
-                    var res = hit ? { ok: true, price: hit.price, tier: hit.tier } : { ok: false };
-                    iab.executeScript({ code: 'window.__lifeOnResponse("' + messageId + '", ' + JSON.stringify(res) + ');' });
-                })
-                .catch(function(err) {
-                    var res = { ok: false, error: String(err) };
-                    iab.executeScript({ code: 'window.__lifeOnResponse("' + messageId + '", ' + JSON.stringify(res) + ');' });
-                });
-        }
-    }
-
-    function firstPriceFromHtml(html) {
-        if (!html) return null;
-        var embedded = [
-            /"sale_price"\s*:\s*\{[^}]*?"price_val"\s*:\s*"?\$?([0-9]+(?:\.[0-9]{1,2})?)/i,
-            /"format(?:ed)?_price"\s*:\s*"?\$?\s*([0-9]+(?:\.[0-9]{1,2})?)/i,
-            /"real_price"\s*:\s*"?\$?\s*([0-9]+(?:\.[0-9]{1,2})?)/i,
-            /"price(?:_str)?"\s*:\s*"\$?\s*([0-9]+(?:\.[0-9]{1,2})?)"/i
-        ];
-        for (var i = 0; i < embedded.length; i++) {
-            var m = html.match(embedded[i]);
-            if (m) {
-                var n = parseFloat(m[1]);
-                if (!isNaN(n) && n >= 0.5 && n <= 9999) return { price: n, tier: 'embedded' };
-            }
-        }
-        var re = /\$\s?([0-9]{1,4}\.[0-9]{2})\b/g;
-        var m;
-        while ((m = re.exec(html)) !== null) {
-            var n = parseFloat(m[1]);
-            if (!isNaN(n) && n >= 3 && n <= 9999) return { price: n, tier: 'visible' };
-        }
-        return null;
     }
 }, false);
