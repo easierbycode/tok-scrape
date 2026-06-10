@@ -1,3 +1,4 @@
+console.log('[LP-ext] demo.js starting');
 // Orchestrator — runs the whole show on the deployed orders.html fixture.
 //
 // 1. Snapshot every order card (store, icon, product description, date, status)

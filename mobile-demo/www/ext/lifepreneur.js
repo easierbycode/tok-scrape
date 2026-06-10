@@ -1,3 +1,4 @@
+console.log('[LP-ext] lifepreneur.js starting');
 // Lifepreneur — "Sample Value" overlay.
 //
 // A vanilla-JS + Shadow-DOM port of the Claude Design handoff

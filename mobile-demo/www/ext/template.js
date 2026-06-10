@@ -1,3 +1,4 @@
+console.log('[LP-ext] template.js starting');
 // Order-detail template manager.
 //
 // The spec: clicking "View order details" on each order should open a template
