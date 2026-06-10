@@ -347,11 +347,90 @@ console.log('[LP-ext] lifepreneur.js starting');
     samples.forEach(x => add(list, ItemRow(x, money(x.retail))));
     add(scroller, list);
 
-    const shareBtn = el('button', BTN_GHOST, { text: 'Share', onclick: () => shareSummary(s, samples) });
+    const shareBtn = el('button', BTN_GHOST, { text: 'Share', onclick: () => showShareCard(s, samples) });
     const dlBtn = el('button', BTN_PRIMARY, { text: '↓ Download full report', onclick: () => downloadReport(samples, M) });
     add(dialog, scroller, Footer(shareBtn, dlBtn));
 
     countUp(heroNum, s.totalValue, { duration: 1100, format: money });
+  }
+
+  function showShareCard(s, samples) {
+    const { dialog } = ModalShell(false);
+    const scroller = el('div', { flex: '1', overflowY: 'auto', padding: '32px 24px 8px', textAlign: 'center' });
+
+    // Avatar + Name
+    const header = el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '24px' });
+    const avatar = el('div', {
+      width: '64px', height: '64px', borderRadius: '99px', background: 'linear-gradient(135deg, var(--accent-2), var(--accent))',
+      display: 'grid', placeItems: 'center', color: '#06130d', fontSize: '24px', fontWeight: '700',
+      boxShadow: '0 0 20px var(--accent-soft)'
+    }, { text: 'K' });
+    const nameLabel = el('div', { fontSize: '20px', fontWeight: '700', color: 'var(--text)' }, { text: 'Karl got' });
+    add(header, avatar, nameLabel);
+    add(scroller, header);
+
+    // Hero Total
+    const hero = el('div', { marginBottom: '32px' });
+    const total = el('div', {
+      fontFamily: 'var(--font-display)', fontSize: '72px', fontWeight: '700', lineHeight: '1',
+      letterSpacing: '-0.03em', color: 'var(--text)'
+    }, { class: 'tnum', text: money(s.totalValue) });
+    const sub = el('div', { fontSize: '18px', color: 'var(--text-dim)', marginTop: '8px' });
+    sub.innerHTML = 'in <span style="color:var(--accent);font-weight:800">FREE</span> products';
+    add(hero, total, sub);
+    add(scroller, hero);
+
+    // Product List (First 3)
+    const list = el('div', { display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--line)', margin: '0 -24px 16px' });
+    const colors = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800'];
+    samples.slice(0, 3).forEach((x, i) => {
+      const row = el('div', { display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 24px', background: 'var(--bg)' });
+      const thumb = Thumb(x.tone || colors[i % colors.length], x.name, 48, 12);
+      const mid = el('div', { flex: '1', textAlign: 'left', minWidth: '0' });
+      add(mid, el('div', { fontSize: '15px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, { text: x.name }));
+      const price = el('div', { color: 'var(--accent)', fontWeight: '700', fontSize: '16px', marginLeft: '12px' }, { class: 'tnum', text: money(x.retail) });
+      add(row, thumb, mid, price);
+      add(list, row);
+    });
+    add(scroller, list);
+
+    if (samples.length > 3) {
+      add(scroller, el('div', { fontSize: '14px', color: 'var(--text-faint)', fontWeight: '600', marginBottom: '24px' }, { text: '+ ' + (samples.length - 3) + ' more free samples' }));
+    }
+
+    // Steps Box
+    const steps = el('div', {
+      background: 'var(--surface)', borderRadius: '16px', padding: '20px', textAlign: 'left',
+      border: '1px solid var(--line)', marginBottom: '16px', margin: '0 4px 24px'
+    });
+    add(steps, el('div', { color: 'var(--accent)', fontWeight: '800', fontSize: '13px', letterSpacing: '0.05em', marginBottom: '12px' }, { text: '2 STEPS!' }));
+    const stepRow = (n, txt) => {
+      const r = el('div', { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' });
+      const dot = el('div', {
+        width: '20px', height: '20px', borderRadius: '99px', border: '1px solid var(--accent)',
+        display: 'grid', placeItems: 'center', color: 'var(--accent)', fontSize: '11px', fontWeight: '800', flexShrink: '0'
+      }, { text: String(n) });
+      add(r, dot, el('div', { fontSize: '15px', fontWeight: '600', color: 'var(--text)' }, { text: txt }));
+      return r;
+    };
+    add(steps, stepRow(1, 'Connect with an influencer agency'), stepRow(2, 'Request FREE products'));
+    add(scroller, steps);
+
+    const modalHeader = dialog.querySelector('header');
+    if (modalHeader) modalHeader.style.display = 'none';
+    const modalGlow = dialog.querySelector('div');
+    if (modalGlow) modalGlow.style.opacity = '0.4';
+
+    // CTA Button in fixed footer
+    const btn = el('button', {
+      width: '100%', padding: '16px', borderRadius: '99px', background: 'linear-gradient(180deg, var(--accent-2), var(--accent))',
+      border: 'none', color: '#06130d', fontWeight: '800', fontSize: '16px', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+    });
+    btn.innerHTML = '✉ Message me your email';
+    btn.onclick = () => { closeModal(); alert('Action: Message email'); };
+
+    add(dialog, scroller, Footer(btn));
   }
 
   function shareSummary(s, samples) {
