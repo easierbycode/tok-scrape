@@ -1,7 +1,7 @@
 (function() {
-    if (window.__lifeBridgeLoaded) return;
-    window.__lifeBridgeLoaded = true;
-    console.log('[LP-guest] bridge init');
+    if (window.__lpBridgeLoaded) return;
+    window.__lpBridgeLoaded = true;
+    console.log('[LP-guest] bridge active');
 
     function post(msg) {
         var s = JSON.stringify(msg);
@@ -12,37 +12,40 @@
         }
     }
 
-    var btn = document.createElement('div');
+    var btn = document.createElement('button');
     btn.id = '__lifeFab';
     btn.textContent = 'LP';
     var style = {
         position: 'fixed',
-        bottom: '30px',
+        bottom: '100px',
         right: '20px',
-        width: '64px',
-        height: '64px',
-        borderRadius: '32px',
+        width: '72px',
+        height: '72px',
+        borderRadius: '36px',
         background: '#e8650a',
         color: '#ffffff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontWeight: '800',
-        fontSize: '20px',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        fontWeight: '900',
+        fontSize: '22px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         zIndex: '2147483647',
         cursor: 'pointer',
+        border: '3px solid #ffffff',
+        outline: 'none',
         userSelect: 'none',
         webkitUserSelect: 'none',
         visibility: 'visible',
-        opacity: '1'
+        opacity: '1',
+        pointerEvents: 'auto'
     };
     for (var k in style) btn.style[k] = style[k];
 
     btn.onclick = function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('[LP-guest] LP clicked');
+        console.log('[LP-guest] LP button clicked');
         post({ type: 'run-extension' });
     };
 
@@ -51,11 +54,10 @@
         var target = document.body || document.documentElement;
         if (target) {
             target.appendChild(btn);
-            console.log('[LP-guest] button added');
+            console.log('[LP-guest] button injected');
         }
     }
 
-    // Polling ensures button survives SPA route changes
     setInterval(ensureButton, 1000);
     ensureButton();
 
