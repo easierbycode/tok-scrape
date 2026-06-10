@@ -25,7 +25,7 @@
  *   live         extension-seller/scrape-live.js      — fixtures/live_overview.html
  *   streamer     extension-seller/scrape-streamer.js  — fixtures/video-analysis_view.html
  *   orders       extension-seller/scrape-order.js     — fixtures/order.html
- *   orders-list  extension-seller/scrape-order-list.js— fixtures/Tiktok Shop - Orders.html
+ *   orders-list  extension-seller/scrape-order-list.js— fixtures/orders.html
  *
  * `orders` is the only two-page flow: it scrapes the buyer-side order DETAIL page
  * (the "Default" variant price). In `dev` it injects directly against the saved
@@ -191,7 +191,7 @@ const TARGETS: Record<Target, TargetConfig> = {
   'orders-list': {
     extensionDir: 'extension-seller',
     scraperFiles: ['scrape-order-list.js'],
-    fixturePath: path.join(FIXTURES, 'Tiktok Shop - Orders.html'),
+    fixturePath: path.join(FIXTURES, 'orders.html'),
     prodUrl: () => ORDER_LIST_URL,
     readinessProbe: () => {
       const cards = document.querySelectorAll(
