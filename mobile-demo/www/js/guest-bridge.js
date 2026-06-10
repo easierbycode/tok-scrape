@@ -1,10 +1,11 @@
 (function() {
     if (window.__lpBridgeLoaded) return;
     window.__lpBridgeLoaded = true;
-    console.log('[LP-guest] bridge active');
+    console.log('[LP-guest] bridge init');
 
     function post(msg) {
         var s = JSON.stringify(msg);
+        console.log('[LP-guest] posting: ' + s);
         if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
             window.webkit.messageHandlers.cordova_iab.postMessage(s);
         } else if (window.cordova_iab && window.cordova_iab.postMessage) {
@@ -12,41 +13,49 @@
         }
     }
 
-    var btn = document.createElement('button');
+    var btn = document.createElement('div');
     btn.id = '__lifeFab';
     btn.textContent = 'LP';
     var style = {
         position: 'fixed',
-        bottom: '100px',
+        bottom: '80px',
         right: '20px',
-        width: '72px',
-        height: '72px',
-        borderRadius: '36px',
+        width: '64px',
+        height: '64px',
+        borderRadius: '32px',
         background: '#e8650a',
         color: '#ffffff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontWeight: '900',
-        fontSize: '22px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        fontSize: '20px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         zIndex: '2147483647',
         cursor: 'pointer',
-        border: '3px solid #ffffff',
-        outline: 'none',
         userSelect: 'none',
         webkitUserSelect: 'none',
         visibility: 'visible',
         opacity: '1',
-        pointerEvents: 'auto'
+        border: '3px solid #ffffff',
+        transition: 'transform 0.1s active'
     };
     for (var k in style) btn.style[k] = style[k];
 
     btn.onclick = function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('[LP-guest] LP button clicked');
-        post({ type: 'run-extension' });
+        console.log('[LP-guest] LP clicked');
+
+        // Visual feedback
+        btn.style.transform = 'scale(0.9)';
+        btn.style.background = '#c65308';
+        setTimeout(function() {
+            btn.style.transform = 'scale(1)';
+            btn.style.background = '#e8650a';
+        }, 200);
+
+        post({ type: 'run-extension', url: window.location.href });
     };
 
     function ensureButton() {
@@ -54,7 +63,7 @@
         var target = document.body || document.documentElement;
         if (target) {
             target.appendChild(btn);
-            console.log('[LP-guest] button injected');
+            console.log('[LP-guest] button added');
         }
     }
 
