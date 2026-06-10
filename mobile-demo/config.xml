@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <widget id="com.easierbycode.mobiledemo" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
-    <name>LifeDemo</name>
+    <name>LP</name>
     <description>
-        Cordova app for Lifepreneur extension demo.
+        LP extension demo app.
     </description>
     <author email="dev@easierbycode.com" href="https://easierbycode.com">
         EasierByCode Team
@@ -13,4 +13,11 @@
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
     <preference name="InAppBrowserStatusBarStyle" value="lightcontent" />
+    <icon src="www/icons/128.png" />
+    <platform name="android">
+        <icon density="ldpi" src="www/icons/16.png" />
+        <icon density="mdpi" src="www/icons/32.png" />
+        <icon density="hdpi" src="www/icons/48.png" />
+        <icon density="xhdpi" src="www/icons/128.png" />
+    </platform>
 </widget>
