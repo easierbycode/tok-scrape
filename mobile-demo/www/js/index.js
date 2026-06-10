@@ -15,7 +15,7 @@ function onDeviceReady() {
     let pendingRun = false;
 
     iab.addEventListener('loadstop', function(e) {
-        // Inject the bridge script
+        // Use executeScript({file:...}) for cleaner injection
         iab.executeScript({ file: 'js/guest-bridge.js' }, () => {
             if (pendingRun && isOrdersUrl(e.url)) {
                 pendingRun = false;
@@ -28,7 +28,6 @@ function onDeviceReady() {
         const data = JSON.parse(e.data);
 
         if (data.type === 'run-extension') {
-            // User tapped the LP button
             if (isOrdersUrl(e.url)) {
                 runExtension(iab);
             } else {
@@ -36,14 +35,13 @@ function onDeviceReady() {
                 iab.executeScript({ code: `window.location.href = "${ORDERS_URL}";` });
             }
         } else if (data.payload && data.payload.type === 'price-lookup') {
-            // Extension requested a price lookup
             handlePriceLookup(iab, data.id, data.payload.query);
         }
     });
 }
 
 function runExtension(iab) {
-    // Ensure order of execution: lifepreneur.js -> template.js -> demo.js
+    // Sequence ensures globals are available before demo.js runs
     iab.executeScript({ file: 'ext/lifepreneur.js' }, () => {
         iab.executeScript({ file: 'ext/template.js' }, () => {
             iab.executeScript({ file: 'ext/demo.js' });
@@ -53,8 +51,6 @@ function runExtension(iab) {
 
 function handlePriceLookup(iab, messageId, query) {
     const lookupUrl = 'https://shop.tiktok.com/us/s?q=' + encodeURIComponent(query);
-
-    // Use cordova-plugin-advanced-http to bypass CORS if available
     const http = (window.cordova && cordova.plugin && cordova.plugin.http) || null;
 
     if (http) {
@@ -64,15 +60,12 @@ function handlePriceLookup(iab, messageId, query) {
         }, function(response) {
             const hit = firstPriceFromHtml(response.data);
             const res = hit ? { ok: true, price: hit.price, tier: hit.tier } : { ok: false };
-            const code = `window.__lifeOnResponse("${messageId}", ${JSON.stringify(res)});`;
-            iab.executeScript({ code: code });
+            iab.executeScript({ code: `window.__lifeOnResponse("${messageId}", ${JSON.stringify(res)});` });
         }, function(response) {
             const res = { ok: false, error: response.error };
-            const code = `window.__lifeOnResponse("${messageId}", ${JSON.stringify(res)});`;
-            iab.executeScript({ code: code });
+            iab.executeScript({ code: `window.__lifeOnResponse("${messageId}", ${JSON.stringify(res)});` });
         });
     } else {
-        // Fallback for browser platform
         fetch(lookupUrl, {
             credentials: 'omit',
             headers: {
@@ -84,13 +77,11 @@ function handlePriceLookup(iab, messageId, query) {
         .then(html => {
             const hit = firstPriceFromHtml(html);
             const res = hit ? { ok: true, price: hit.price, tier: hit.tier } : { ok: false };
-            const code = `window.__lifeOnResponse("${messageId}", ${JSON.stringify(res)});`;
-            iab.executeScript({ code: code });
+            iab.executeScript({ code: `window.__lifeOnResponse("${messageId}", ${JSON.stringify(res)});` });
         })
         .catch(err => {
             const res = { ok: false, error: String(err) };
-            const code = `window.__lifeOnResponse("${messageId}", ${JSON.stringify(res)});`;
-            iab.executeScript({ code: code });
+            iab.executeScript({ code: `window.__lifeOnResponse("${messageId}", ${JSON.stringify(res)});` });
         });
     }
 }
