@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="com.easierbycode.mobiledemo" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+<widget id="com.easierbycode.mobiledemo" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
     <name>LP</name>
     <description>
         LP extension demo app.
@@ -12,12 +12,19 @@
     <allow-navigation href="*" />
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
+
     <preference name="InAppBrowserStatusBarStyle" value="lightcontent" />
+    <preference name="OverrideUserAgent" value="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" />
+
     <icon src="www/icons/128.png" />
     <platform name="android">
         <icon density="ldpi" src="www/icons/16.png" />
         <icon density="mdpi" src="www/icons/32.png" />
         <icon density="hdpi" src="www/icons/48.png" />
         <icon density="xhdpi" src="www/icons/128.png" />
+
+        <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application">
+            <application android:usesCleartextTraffic="true" />
+        </edit-config>
     </platform>
 </widget>

@@ -15,8 +15,7 @@ function onDeviceReady() {
     let pendingRun = false;
 
     iab.addEventListener('loadstop', function(e) {
-        // Use executeScript({file:...}) for cleaner injection
-        iab.executeScript({ file: 'js/guest-bridge.js' }, () => {
+        injectBridge(iab, function() {
             if (pendingRun && isOrdersUrl(e.url)) {
                 pendingRun = false;
                 runExtension(iab);
@@ -35,13 +34,86 @@ function onDeviceReady() {
                 iab.executeScript({ code: `window.location.href = "${ORDERS_URL}";` });
             }
         } else if (data.payload && data.payload.type === 'price-lookup') {
-            handlePriceLookup(iab, data.id, data.payload.query);
+            handlePriceLookup(iab, data.id, data.payload.type, data.payload.query);
         }
     });
 }
 
+function injectBridge(ref, cb) {
+    const code = `
+    (function(){
+        try {
+            if (window.__lifeBridgeLoaded) return;
+            window.__lifeBridgeLoaded = true;
+
+            function post(msg) {
+                var s = JSON.stringify(msg);
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
+                    window.webkit.messageHandlers.cordova_iab.postMessage(s);
+                } else if (window.cordova_iab && window.cordova_iab.postMessage) {
+                    window.cordova_iab.postMessage(s);
+                }
+            }
+
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = "LP";
+            btn.style.cssText = [
+                "position:fixed",
+                "right:16px",
+                "bottom:24px",
+                "z-index:2147483647",
+                "padding:14px 20px",
+                "border:none",
+                "border-radius:28px",
+                "background:#ff3366",
+                "color:#fff",
+                "font:600 15px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif",
+                "box-shadow:0 6px 20px rgba(0,0,0,.45)",
+                "cursor:pointer",
+                "-webkit-tap-highlight-color:transparent"
+            ].join(";");
+
+            btn.addEventListener("click", function(ev){
+                ev.preventDefault();
+                ev.stopPropagation();
+                post({ type: 'run-extension' });
+            });
+
+            function add() {
+                if (document.getElementById("__lifeFab")) return;
+                btn.id = "__lifeFab";
+                (document.documentElement || document.body).appendChild(btn);
+            }
+            setInterval(add, 1000);
+            add();
+
+            if (!window.chrome) window.chrome = {};
+            if (!window.chrome.runtime) window.chrome.runtime = {};
+            window.chrome.runtime.sendMessage = function(message, callback) {
+                var id = Math.random().toString(36).substring(7);
+                if (callback) {
+                    if (!window.__lifeCallbacks) window.__lifeCallbacks = {};
+                    window.__lifeCallbacks[id] = callback;
+                }
+                post({ id: id, payload: message });
+            };
+
+            window.__lifeOnResponse = function(id, response) {
+                if (window.__lifeCallbacks && window.__lifeCallbacks[id]) {
+                    window.__lifeCallbacks[id](response);
+                    delete window.__lifeCallbacks[id];
+                }
+            };
+        } catch (e) {
+            console.error("[tok-scrape] FAB inject failed", e);
+        }
+    })();
+    `;
+    ref.executeScript({ code: code }, cb);
+}
+
 function runExtension(iab) {
-    // Sequence ensures globals are available before demo.js runs
     iab.executeScript({ file: 'ext/lifepreneur.js' }, () => {
         iab.executeScript({ file: 'ext/template.js' }, () => {
             iab.executeScript({ file: 'ext/demo.js' });
@@ -49,7 +121,7 @@ function runExtension(iab) {
     });
 }
 
-function handlePriceLookup(iab, messageId, query) {
+function handlePriceLookup(iab, messageId, type, query) {
     const lookupUrl = 'https://shop.tiktok.com/us/s?q=' + encodeURIComponent(query);
     const http = (window.cordova && cordova.plugin && cordova.plugin.http) || null;
 
