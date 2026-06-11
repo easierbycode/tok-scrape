@@ -13,9 +13,17 @@
         }
     }
 
+    // Lifepreneur logo mark — same trending-up icon + accent gradient as the
+    // extension's Logo() in extension-creator-demo/lifepreneur.js
+    // (#ed8740 ≈ color-mix(in oklab, #e8650a 78%, #fff), precomputed for old WebViews)
+    var FAB_BG = 'linear-gradient(150deg, #ed8740, #e8650a)';
     var btn = document.createElement('div');
     btn.id = '__lifeFab';
-    btn.textContent = 'LP';
+    btn.innerHTML =
+        '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M5 14.5 L10 9 L13.5 12.5 L19 6.5" stroke="#06130d" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="M14.5 6.5 L19 6.5 L19 11" stroke="#06130d" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>';
     var style = {
         position: 'fixed',
         bottom: '80px',
@@ -23,13 +31,10 @@
         width: '64px',
         height: '64px',
         borderRadius: '32px',
-        background: '#e8650a',
-        color: '#ffffff',
+        background: FAB_BG,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontWeight: '900',
-        fontSize: '20px',
         boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         zIndex: '2147483647',
         cursor: 'pointer',
@@ -52,7 +57,7 @@
         btn.style.background = '#c65308';
         setTimeout(function() {
             btn.style.transform = 'scale(1)';
-            btn.style.background = '#e8650a';
+            btn.style.background = FAB_BG;
         }, 200);
 
         post({ type: 'run-extension', url: window.location.href });
