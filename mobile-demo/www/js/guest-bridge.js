@@ -5,7 +5,7 @@
 
     function post(msg) {
         var s = JSON.stringify(msg);
-        console.log('[LP-guest] posting: ' + s);
+        console.log('[LP-guest] posting: ' + (s.length > 300 ? s.slice(0, 300) + '… (' + s.length + ' chars)' : s));
         if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab) {
             window.webkit.messageHandlers.cordova_iab.postMessage(s);
         } else if (window.cordova_iab && window.cordova_iab.postMessage) {

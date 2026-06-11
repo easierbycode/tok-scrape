@@ -13,6 +13,7 @@
   "author": "Apache Cordova Team",
   "license": "Apache-2.0",
   "devDependencies": {
+    "community-cordova-plugin-social-sharing": "^6.3.5",
     "cordova-android": "^13.0.0",
     "cordova-browser": "^7.0.0",
     "cordova-plugin-advanced-http": "^3.3.1",
@@ -24,7 +25,8 @@
       "cordova-plugin-inappbrowser": {},
       "cordova-plugin-advanced-http": {
         "ANDROIDBLACKLISTSECURESOCKETPROTOCOLS": "SSLv3,TLSv1"
-      }
+      },
+      "community-cordova-plugin-social-sharing": {}
     },
     "platforms": [
       "android",

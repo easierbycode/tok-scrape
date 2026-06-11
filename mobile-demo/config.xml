@@ -26,5 +26,13 @@
         <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application">
             <application android:usesCleartextTraffic="true" />
         </edit-config>
+
+        <!-- Android 11+ package visibility: without this, the social-sharing
+             plugin can't see the Facebook app and shareViaFacebook fails. -->
+        <config-file target="app/src/main/AndroidManifest.xml" parent="/manifest">
+            <queries>
+                <package android:name="com.facebook.katana" />
+            </queries>
+        </config-file>
     </platform>
 </widget>

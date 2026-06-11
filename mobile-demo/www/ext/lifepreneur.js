@@ -212,6 +212,174 @@ console.log('[LP-ext] lifepreneur.js starting');
     };
   }
 
+  // ---- share-image capture (SVG foreignObject → canvas → PNG) ----------------
+  // The share card is built entirely from inline styles, so a deep clone plus
+  // the design tokens (rescoped from :host to a class) re-renders pixel-exact
+  // inside a foreignObject. Webfonts must be inlined as data: URLs — external
+  // fetches are blocked while an SVG image rasterizes.
+  let fontCssPromise = null;
+  function embeddedFontCss() {
+    if (fontCssPromise) return fontCssPromise;
+    const attempt = (async () => {
+      const link = document.getElementById('life-fonts');
+      if (!link || !link.href) return '';
+      const css = await (await fetch(link.href)).text();
+      const blocks = css.match(/@font-face\s*\{[^}]*\}/g) || [];
+      const out = [];
+      for (const block of blocks) {
+        const range = block.match(/unicode-range:\s*([^;]+);/i);
+        if (range && !/U\+0000/i.test(range[1])) continue; // latin subset only
+        const u = block.match(/url\((https:[^)]+)\)/i);
+        if (!u) continue;
+        const bytes = new Uint8Array(await (await fetch(u[1])).arrayBuffer());
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+        out.push(block.replace(u[1], 'data:font/woff2;base64,' + btoa(bin)));
+      }
+      return out.join('\n');
+    })();
+    // Timebox the font fetches: the result is cached for the page's lifetime,
+    // so a stalled network here must degrade to system fonts (and allow a
+    // retry on the next capture), never wedge every future capture.
+    fontCssPromise = Promise.race([
+      attempt,
+      new Promise((res) => setTimeout(() => res(null), 4000))
+    ]).then((css) => {
+      if (css == null) { fontCssPromise = null; return ''; }
+      return css;
+    }).catch(() => { fontCssPromise = null; return ''; });
+    return fontCssPromise;
+  }
+
+  function captureCard(dialog) {
+    return embeddedFontCss().then((fontCss) => new Promise((resolve, reject) => {
+      // offsetWidth, not getBoundingClientRect: the entrance transform
+      // (scale 0.96) is still running if the user taps share immediately
+      const W = Math.max(300, dialog.offsetWidth || 400);
+      const clone = dialog.cloneNode(true);
+      clone.querySelectorAll('[data-life-nocapture]').forEach((n) => n.parentNode.removeChild(n));
+      // un-clip: the live card scrolls; the image shows the full content.
+      // box-sizing inline: the rescoped tokens' `all: initial` would otherwise
+      // beat the `*` border-box rule inside the SVG but not during measurement
+      Object.assign(clone.style, { width: W + 'px', maxHeight: 'none', height: 'auto', opacity: '1', transform: 'none', transition: 'none', position: 'static', margin: '0', boxSizing: 'border-box' });
+      clone.classList.add('life-cap-root');
+      clone.querySelectorAll('[data-life-scroll]').forEach((n) => { n.style.overflow = 'visible'; n.style.maxHeight = 'none'; });
+      // measure full height inside the shadow root, where the tokens resolve
+      const sh = ensureHost();
+      const meas = el('div', { position: 'fixed', left: '-100000px', top: '0', width: W + 'px', pointerEvents: 'none' });
+      meas.appendChild(clone);
+      sh.appendChild(meas);
+      const H = Math.ceil(clone.getBoundingClientRect().height) + 1;
+      sh.removeChild(meas);
+      const css = TOKENS.replace(':host', '.life-cap-root') + '\n' + fontCss;
+      const xhtml = new XMLSerializer().serializeToString(clone);
+      const svgSrc = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
+        '<style>' + css + '</style>' +
+        '<foreignObject width="100%" height="100%">' + xhtml + '</foreignObject></svg>';
+      let settled = false;
+      const ok = (v) => { if (!settled) { settled = true; resolve(v); } };
+      const fail = (why) => { if (!settled) { settled = true; reject(new Error(why)); } };
+      setTimeout(() => fail('share-image rasterize timed out'), 10000);
+      const img = new Image();
+      img.onload = () => {
+        const draw = () => {
+          try {
+            // mobile GPUs cap canvas textures (often 4096px) and overflow is a
+            // silent blank PNG — clamp the export scale to stay under it
+            const scale = Math.min(Math.min(3, Math.max(2, window.devicePixelRatio || 1)), 4000 / H, 4000 / W);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(W * scale);
+            canvas.height = Math.round(H * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.scale(scale, scale);
+            ctx.drawImage(img, 0, 0, W, H);
+            ok(canvas.toDataURL('image/png'));
+          } catch (e) { if (!settled) { settled = true; reject(e); } }
+        };
+        // decode + a frame before drawing — engines can fire onload before the
+        // SVG subresources (embedded fonts) are ready, yielding partial renders.
+        // draw is idempotent and scheduled via BOTH rAF and a timer: rAF never
+        // fires while the page is hidden/occluded (background WebView), which
+        // would otherwise wedge the capture forever.
+        const after = () => { requestAnimationFrame(draw); setTimeout(draw, 250); };
+        if (img.decode) { img.decode().then(after, after); setTimeout(after, 500); } else after();
+      };
+      img.onerror = () => fail('share-image rasterize failed');
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgSrc);
+    }));
+  }
+
+  // ---- share plumbing ---------------------------------------------------------
+  function sendToHost(msg, timeoutMs) {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v) => { if (!done) { done = true; resolve(v); } };
+      setTimeout(() => finish(null), timeoutMs || 2500);
+      try {
+        chrome.runtime.sendMessage(msg, (resp) => {
+          try { if (chrome.runtime.lastError) return finish(null); } catch (_) {}
+          finish(resp || null);
+        });
+      } catch (_) { finish(null); }
+    });
+  }
+
+  function dataUrlToFile(dataUrl, name) {
+    const b64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new File([bytes], name, { type: 'image/png' });
+  }
+
+  async function shareImage(dataUrl, text) {
+    // 1) native share via the Cordova host — opens the Facebook app directly.
+    // Generous timeout: the multi-MB data URL takes a while to cross the
+    // bridge on slow devices, and a premature fallback would double the share
+    // UI (the host can't be cancelled once the message is posted). Contexts
+    // without a host resolve instantly via the catch/lastError paths.
+    const resp = await sendToHost({ source: 'life-demo', type: 'share-image', dataUrl, text }, 8000);
+    if (resp && resp.ok) return { via: resp.via || 'native' };
+    // 2) Web Share API with the image attached (share sheet)
+    try {
+      const file = dataUrlToFile(dataUrl, 'lifepreneur-free-samples.png');
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text });
+        return { via: 'webshare' };
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return { via: 'cancelled' }; }
+    // Inside the InAppBrowser the download fallback can't work (the host drops
+    // the download event) and window.open('_blank') would navigate THIS
+    // webview to a Facebook login wall, killing the demo — fail honestly.
+    if (window.cordova_iab || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab)) {
+      return { via: 'unavailable' };
+    }
+    // 3) browser only: save the PNG + open Facebook's share dialog (URL-only —
+    // sharer.php can't carry a local image, so the user attaches the saved PNG)
+    const a = el('a', null, { href: dataUrl, download: 'lifepreneur-free-samples.png' });
+    document.documentElement.appendChild(a); a.click(); a.remove();
+    window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(location.href), '_blank');
+    return { via: 'sharer-url' };
+  }
+
+  // The host calls this if the native share fails after it already acked —
+  // the only error channel once the early {ok:true} response is consumed.
+  window.__lifeShareFailed = function () { toast('Sharing failed — please try again'); };
+
+  function toast(msg) {
+    const sh = ensureHost();
+    const t = el('div', {
+      position: 'fixed', bottom: '28px', left: '50%', transform: 'translateX(-50%)',
+      background: 'rgba(20,23,30,0.95)', color: 'var(--text)', border: '1px solid var(--line-strong)',
+      padding: '10px 16px', borderRadius: '99px', fontSize: '13px', fontWeight: '600',
+      zIndex: String(Z + 2), pointerEvents: 'none', opacity: '0', transition: 'opacity 0.25s ease',
+      maxWidth: '86vw', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+    }, { text: msg });
+    add(sh, t);
+    requestAnimationFrame(() => { t.style.opacity = '1'; });
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2600);
+  }
+
   // ---- modal shell ----------------------------------------------------------
   let openModal = null;
   function closeModal() {
@@ -356,7 +524,7 @@ console.log('[LP-ext] lifepreneur.js starting');
 
   function showShareCard(s, samples) {
     const { dialog } = ModalShell(false);
-    const scroller = el('div', { flex: '1', overflowY: 'auto', padding: '32px 24px 8px', textAlign: 'center' });
+    const scroller = el('div', { flex: '1', overflowY: 'auto', padding: '32px 24px 8px', textAlign: 'center' }, { 'data-life-scroll': '1' });
 
     // Avatar + Name
     const header = el('div', { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '24px' });
@@ -421,7 +589,7 @@ console.log('[LP-ext] lifepreneur.js starting');
     const modalGlow = dialog.querySelector('div');
     if (modalGlow) modalGlow.style.opacity = '0.4';
 
-    // CTA Button in fixed footer
+    // CTA Button in fixed footer (kept in the shared image)
     const btn = el('button', {
       width: '100%', padding: '16px', borderRadius: '99px', background: 'linear-gradient(180deg, var(--accent-2), var(--accent))',
       border: 'none', color: '#06130d', fontWeight: '800', fontSize: '16px', cursor: 'pointer',
@@ -430,7 +598,45 @@ console.log('[LP-ext] lifepreneur.js starting');
     btn.innerHTML = '✉ Message me your email';
     btn.onclick = () => { closeModal(); alert('Action: Message email'); };
 
-    add(dialog, scroller, Footer(btn));
+    // Facebook share — renders the card (message button included) to a PNG and
+    // posts it; excluded from the capture itself via data-life-nocapture.
+    const shareText = 'Karl got ' + money(s.totalValue) + ' in FREE products with Lifepreneur';
+    let imgPromise = null;
+    const ensureImage = () => (imgPromise = imgPromise || captureCard(dialog).catch((e) => { imgPromise = null; throw e; }));
+
+    const fbBtn = el('button', {
+      width: '100%', padding: '14px', borderRadius: '99px', border: 'none', cursor: 'pointer',
+      background: '#1877F2', color: '#fff', fontWeight: '800', fontSize: '15px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+    }, { 'data-life-nocapture': '1' });
+    const fbIcon = svg('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none' });
+    add(fbIcon, svg('path', { d: 'M13.4 21v-8.2h2.76l.41-3.2H13.4V7.55c0-.93.26-1.56 1.59-1.56h1.69V3.13c-.29-.04-1.3-.13-2.47-.13-2.44 0-4.12 1.5-4.12 4.23v2.36H7.33v3.2h2.76V21h3.31z', fill: '#fff' }));
+    const fbLabel = el('span', null, { text: 'Share to Facebook' });
+    add(fbBtn, fbIcon, fbLabel);
+    fbBtn.onclick = async () => {
+      if (fbBtn.disabled) return;
+      fbBtn.disabled = true; fbBtn.style.opacity = '0.75'; fbLabel.textContent = 'Creating image…';
+      try {
+        const dataUrl = await ensureImage();
+        fbLabel.textContent = 'Opening share…';
+        const r = await shareImage(dataUrl, shareText);
+        if (r.via === 'sharer-url') toast('Image saved — attach it to your Facebook post');
+        if (r.via === 'unavailable') toast('Sharing isn’t available on this build');
+        fbLabel.textContent = (r.via === 'cancelled' || r.via === 'unavailable') ? 'Share to Facebook' : '✓ Ready to post';
+      } catch (e) {
+        console.warn('[life-demo] share failed', e);
+        toast('Couldn’t create the share image');
+        fbLabel.textContent = 'Share to Facebook';
+      }
+      setTimeout(() => { fbLabel.textContent = 'Share to Facebook'; fbBtn.disabled = false; fbBtn.style.opacity = '1'; }, 1800);
+    };
+    // pre-render the image once the entrance transition settles → instant
+    // share; skip if the card was already dismissed in that window
+    setTimeout(() => { if (dialog.isConnected) ensureImage().catch(() => {}); }, 700);
+
+    const col = el('div', { display: 'flex', flexDirection: 'column', gap: '10px', flex: '1' });
+    add(col, btn, fbBtn);
+    add(dialog, scroller, Footer(col));
   }
 
   function shareSummary(s, samples) {
@@ -620,6 +826,6 @@ console.log('[LP-ext] lifepreneur.js starting');
   window.Lifepreneur = {
     scanStart, scanUpdate, scanStop,
     showResults, showQueued, close: closeModal,
-    _summarize: summarize, _money: money
+    _summarize: summarize, _money: money, _captureCard: captureCard
   };
 })();

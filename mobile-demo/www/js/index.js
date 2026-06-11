@@ -37,7 +37,8 @@ document.addEventListener('deviceready', function() {
     });
 
     iab.addEventListener('message', function(e) {
-        console.log('[LP-host] message received: ' + JSON.stringify(e.data));
+        var msgStr = JSON.stringify(e.data);
+        console.log('[LP-host] message received: ' + (msgStr.length > 300 ? msgStr.slice(0, 300) + '… (' + msgStr.length + ' chars)' : msgStr));
         var data = e.data;
         if (typeof data === 'string') {
             try { data = JSON.parse(data); } catch(ex) { return; }
@@ -54,8 +55,41 @@ document.addEventListener('deviceready', function() {
             }
         } else if (data.id && data.payload && data.payload.type === 'price-lookup') {
             doPriceLookup(data.id, data.payload.query);
+        } else if (data.id && data.payload && data.payload.type === 'share-image') {
+            doShareImage(data.id, data.payload.dataUrl, data.payload.text);
         }
     });
+
+    function doShareImage(id, dataUrl, text) {
+        console.log('[LP-host] share-image request');
+        var respond = function(res) {
+            iab.executeScript({ code: "if(window.__lifeOnResponse) window.__lifeOnResponse(" + JSON.stringify(String(id)) + ", " + JSON.stringify(res) + ");" });
+        };
+        // community-cordova-plugin-social-sharing ≥6.3 exposes SocialSharingPlugin;
+        // older builds used window.plugins.socialsharing
+        var sharing = window.SocialSharingPlugin || (window.plugins && window.plugins.socialsharing);
+        if (!sharing || !dataUrl) {
+            respond({ ok: false, reason: 'no-plugin' });
+            return;
+        }
+        // Ack immediately so the page doesn't fall back to its own share UI;
+        // the Facebook app / share sheet opens on top of the InAppBrowser.
+        // The early ack closes the normal response channel, so terminal
+        // failures are pushed through the page's __lifeShareFailed hook.
+        respond({ ok: true, via: 'native' });
+        var notifyFailure = function() {
+            iab.executeScript({ code: "if(window.__lifeShareFailed) window.__lifeShareFailed();" });
+        };
+        sharing.shareViaFacebook(text || '', [dataUrl], null, function() {
+            console.log('[LP-host] shared via Facebook');
+        }, function(err) {
+            console.warn('[LP-host] Facebook share failed (' + err + '), falling back to share sheet');
+            sharing.shareWithOptions({ message: text || '', files: [dataUrl] }, function() {}, function(e2) {
+                console.error('[LP-host] share sheet failed: ' + e2);
+                notifyFailure();
+            });
+        });
+    }
 
     function runExtension() {
         console.log('[LP-host] runExtension starting');
