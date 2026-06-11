@@ -13,6 +13,7 @@
 //     price out of the search-results HTML.
 
 const DEPLOYED_ORDERS_URL = 'https://easierbycode.com/tok-scrape/fixtures/orders.html';
+const KIOSK_API_BASE = 'https://thirsty-store-kiosk.easierbycode.deno.net';
 const SUPPORTED_FIXTURES = [
   {
     origin: 'https://easierbycode.com',
@@ -20,6 +21,7 @@ const SUPPORTED_FIXTURES = [
   }
 ];
 const LOCAL_FIXTURE_HOSTS = new Set(['localhost', '127.0.0.1']);
+const LOCAL_ORDER_LIST_PATHS = new Set(['/fixtures/orders.html', '/orders', '/orders/']);
 
 // Scripts share one isolated world, so later files can read globals the earlier
 // ones define (same pattern as the seller extension's config.js → scrape-*.js).
@@ -34,11 +36,9 @@ function fixtureForUrl(value) {
       url.origin === fixture.origin && url.pathname === fixture.path
     );
     if (deployed) return deployed;
-    if (
-      url.protocol === 'http:' &&
-      LOCAL_FIXTURE_HOSTS.has(url.hostname) &&
-      url.pathname === '/fixtures/orders.html'
-    ) {
+    if (url.protocol === 'http:' &&
+        LOCAL_FIXTURE_HOSTS.has(url.hostname) &&
+        LOCAL_ORDER_LIST_PATHS.has(url.pathname)) {
       return { origin: url.origin, path: url.pathname };
     }
     return null;
@@ -177,10 +177,60 @@ async function lookupPrice(query) {
   }
 }
 
+async function persistSampleProduct(product) {
+  const name = String((product && product.name) || '').trim();
+  const price = Number(product && product.price);
+  if (!name || !Number.isFinite(price) || price <= 0) {
+    return { ok: false, error: 'Missing product name or price' };
+  }
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    const r = await fetch(KIOSK_API_BASE + '/api/sample-products', {
+      method: 'POST',
+      credentials: 'omit',
+      signal: ctrl.signal,
+      headers: {
+        'content-type': 'application/json',
+        'accept': 'application/json'
+      },
+      body: JSON.stringify({
+        productId: product.productId,
+        name,
+        price,
+        sampleCount: product.sampleCount || 1,
+        category: product.category || 'Samples',
+        seller: product.seller || product.store || 'Lifepreneur extension',
+        sourceUrl: product.sourceUrl,
+        fetchedAt: product.fetchedAt,
+        lastSeen: product.lastSeen,
+        notes: product.notes || ''
+      })
+    });
+    const text = await r.text();
+    const body = text ? JSON.parse(text) : {};
+    if (!r.ok) {
+      return { ok: false, status: r.status, error: body.error || text || 'Persist failed' };
+    }
+    return { ok: true, sample: body };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg || msg.source !== 'life-demo') return false;
   if (msg.type === 'price-lookup') {
     lookupPrice(msg.query).then(sendResponse);
+    return true; // async sendResponse
+  }
+  if (msg.type === 'persist-sample-product') {
+    persistSampleProduct(msg.product).then(sendResponse, (e) => {
+      sendResponse({ ok: false, error: String((e && e.message) || e) });
+    });
     return true; // async sendResponse
   }
   return false;

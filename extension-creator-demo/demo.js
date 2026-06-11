@@ -21,6 +21,7 @@
   const money = (n, dp = 2) => n == null ? '—' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
   function hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0); }
+  function persistedProductId(desc) { return '900' + String(hash(clean(desc))).padStart(10, '0'); }
 
   const CENTS = [0.99, 0.49, 0.95, 0.89, 0.97, 0.99, 0.95, 0.79];
   function estRetail(desc) { const h = hash('r' + desc); return (8 + (h % 42)) + CENTS[h % CENTS.length] - 1 + 0.0; }
@@ -129,6 +130,7 @@
             // when the order card didn't have one (the card's own image is the
             // surer match; the lookup is a description search)
             if (resp.img && !s.img) s.img = resp.img;
+            if (resp.url) s.sourceUrl = resp.url;
             if (resp.ok && resp.price != null) {
               // 'embedded' = parsed from TikTok's JSON (trust as high); 'visible' =
               // a loose "$x.xx" off the page (weak signal → keep medium confidence).
@@ -150,6 +152,73 @@
     };
     pump();
   })();
+
+  const persistedSamples = new Set();
+  function persistOneSample(s) {
+    const price = Number(s && s.retail);
+    const name = clean(s && s.description);
+    const key = name.toLowerCase();
+    if (!name || !Number.isFinite(price) || price <= 0 || persistedSamples.has(key)) {
+      return Promise.resolve({ ok: false, skipped: true });
+    }
+    persistedSamples.add(key);
+
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+      return Promise.resolve({ ok: false, skipped: true });
+    }
+
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({
+          source: 'life-demo',
+          type: 'persist-sample-product',
+          product: {
+            productId: persistedProductId(name),
+            name,
+            price,
+            sampleCount: 1,
+            category: s.category || 'Samples',
+            seller: s.store || s.shopName || 'Lifepreneur extension',
+            sourceUrl: s.sourceUrl,
+            fetchedAt: new Date().toISOString(),
+            lastSeen: s.dateText || s.date || new Date().toISOString(),
+            notes: (s._real ? 'Resolved by extension lookup' : 'Estimated by extension demo') +
+              (s.confidence ? ' · confidence ' + s.confidence : '')
+          }
+        }, (resp) => {
+          if (chrome.runtime.lastError) {
+            resolve({ ok: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(resp || { ok: false });
+          }
+        });
+      } catch (e) {
+        resolve({ ok: false, error: String((e && e.message) || e) });
+      }
+    });
+  }
+
+  async function persistPricedSamples(list) {
+    let idx = 0, active = 0, saved = 0, failed = 0;
+    const CONC = 5;
+    await new Promise((resolve) => {
+      const pump = () => {
+        if (idx >= list.length && active === 0) return resolve();
+        while (active < CONC && idx < list.length) {
+          active++;
+          persistOneSample(list[idx++]).then((resp) => {
+            if (resp && resp.ok) saved++;
+            else if (!resp || !resp.skipped) failed++;
+          }).finally(() => {
+            active--;
+            pump();
+          });
+        }
+      };
+      pump();
+    });
+    return { saved, failed };
+  }
 
   function flashButton(o) {
     const btn = o.buttonRef;
@@ -206,8 +275,11 @@
     window.Lifepreneur.scanUpdate({ n: total, label: 'Matching remaining samples to retail…' });
     await settle(5000);
     if (!alive()) return;
+    const persisted = await persistPricedSamples(samples);
+    if (!alive()) return;
 
     console.log('[life-demo] valued ' + samples.length + ' samples · real TikTok prices: ' + LOOK.real + ', estimated: ' + (samples.length - LOOK.real));
+    console.log('[life-demo] persisted priced samples to Thirsty kiosk: ' + persisted.saved + ' saved, ' + persisted.failed + ' failed');
 
     window.LifeTemplate.hide();
     setTimeout(() => { if (alive()) window.LifeTemplate.destroy(); }, 420); // guarded: a newer run may now own the iframe

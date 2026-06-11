@@ -7,6 +7,7 @@ this overlay corroborates them against their **retail value**.
 Supported fixture URLs:
 
 - `http://localhost:8741/fixtures/orders.html`
+- `http://localhost:5173/orders/`
 - `https://easierbycode.com/tok-scrape/fixtures/orders.html`
 
 ## What it does
@@ -14,13 +15,14 @@ Supported fixture URLs:
 Click the toolbar icon and it:
 
 1. **Uses the active fixture tab** when it is already on local
-   `orders.html` or the deployed fixture. From any other tab, it navigates to
+   `orders.html`, local `/orders/`, or the deployed fixture. From any other tab, it navigates to
    `https://easierbycode.com/tok-scrape/fixtures/orders.html`.
 2. **Loops every order.** For each one it flashes the *View order details* button
-   and opens a detail **template** — the real `fixtures/order.html`, rendered in a
-   same-origin iframe (its scripts stripped so its React bundle can't hydrate over
-   the fills) with the **shop icon/name, product description, purchase date and
-   price** filled in.
+   and opens a detail **template** — the real `fixtures/order.html` from the
+   current fixture host when available, otherwise the deployed detail fixture,
+   rendered in an iframe (its scripts stripped so its React bundle can't hydrate
+   over the fills) with the **shop icon/name, product description, purchase date
+   and price** filled in.
 3. **Marks ~9 of every 10 orders as samples:** their price is swapped to **$0.00**
    and the struck-through "original" price is removed.
 4. **Looks up each sample's retail value** by its description — the background
@@ -49,8 +51,9 @@ Click the toolbar icon and it:
 
 `chrome://extensions` → Developer mode → **Load unpacked** → pick this folder.
 Then click the toolbar icon on any tab (it will navigate to the fixture itself).
-If you are already on `http://localhost:8741/fixtures/orders.html`, the demo
-will run there without navigating away.
+If you are already on `http://localhost:8741/fixtures/orders.html` or
+`http://localhost:5173/orders/`, the demo will run there without navigating
+away.
 
 ## Notes / scope
 
