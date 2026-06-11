@@ -1,14 +1,20 @@
 # extension-creator-demo — Lifepreneur "Sample Value"
 
 A self-contained Chrome (MV3) demo that tells the **Lifepreneur** story over the
-deployed orders fixture: most of your TikTok Shop orders are **$0 free samples**,
-and this overlay corroborates them against their **retail value**.
+orders fixture: most of your TikTok Shop orders are **$0 free samples**, and
+this overlay corroborates them against their **retail value**.
+
+Supported fixture URLs:
+
+- `http://localhost:8741/fixtures/orders.html`
+- `https://easierbycode.com/tok-scrape/fixtures/orders.html`
 
 ## What it does
 
 Click the toolbar icon and it:
 
-1. **Navigates** the active tab to
+1. **Uses the active fixture tab** when it is already on local
+   `orders.html` or the deployed fixture. From any other tab, it navigates to
    `https://easierbycode.com/tok-scrape/fixtures/orders.html`.
 2. **Loops every order.** For each one it flashes the *View order details* button
    and opens a detail **template** — the real `fixtures/order.html`, rendered in a
@@ -32,10 +38,10 @@ Click the toolbar icon and it:
 
 | file | role |
 |------|------|
-| `manifest.json` | MV3; host perms for `easierbycode.com` + `shop.tiktok.com` |
-| `background.js` | toolbar click → navigate + inject; TikTok price-lookup relay |
+| `manifest.json` | MV3; host perms for localhost, `easierbycode.com` + `shop.tiktok.com` |
+| `background.js` | toolbar click → use current supported fixture or navigate + inject; TikTok price-lookup relay |
 | `demo.js` | orchestrator: snapshot orders → loop templates → tally → overlay |
-| `template.js` | renders `order.html` in an iframe and fills each order's fields |
+| `template.js` | renders same-host `order.html` in an iframe and fills each order's fields |
 | `lifepreneur.js` | the Shadow-DOM overlay (Scanning HUD + Results + Queued) |
 | `icons/` | identical to `extension-seller/icons/` |
 
@@ -43,6 +49,8 @@ Click the toolbar icon and it:
 
 `chrome://extensions` → Developer mode → **Load unpacked** → pick this folder.
 Then click the toolbar icon on any tab (it will navigate to the fixture itself).
+If you are already on `http://localhost:8741/fixtures/orders.html`, the demo
+will run there without navigating away.
 
 ## Notes / scope
 

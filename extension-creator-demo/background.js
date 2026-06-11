@@ -1,17 +1,25 @@
 // Lifepreneur "Sample Value" demo — service worker.
 //
 // Two jobs:
-//  1) On the toolbar-icon click, drive the demo: navigate the active tab to the
-//     deployed orders.html fixture (if it isn't already there), wait for the
-//     page to finish loading, then inject the three content scripts that run the
-//     show (overlay UI → order-detail template manager → orchestrator).
+//  1) On the toolbar-icon click, drive the demo: use the active tab when it is
+//     already on a supported orders.html fixture, otherwise navigate to the
+//     deployed fixture, wait for the page to finish loading, then inject the
+//     three content scripts that run the show (overlay UI → order-detail
+//     template manager → orchestrator).
 //  2) Relay cross-origin TikTok Shop price lookups. A content script on
-//     easierbycode.com can't fetch shop.tiktok.com (CORS), but the worker can
+//     the fixture page can't fetch shop.tiktok.com (CORS), but the worker can
 //     (see host_permissions), so the orchestrator asks us to look up the retail
 //     price of a free-sample item by its description and we parse the first
 //     price out of the search-results HTML.
 
-const ORDERS_URL = 'https://easierbycode.com/tok-scrape/fixtures/orders.html';
+const DEPLOYED_ORDERS_URL = 'https://easierbycode.com/tok-scrape/fixtures/orders.html';
+const SUPPORTED_FIXTURES = [
+  {
+    origin: 'https://easierbycode.com',
+    path: '/tok-scrape/fixtures/orders.html'
+  }
+];
+const LOCAL_FIXTURE_HOSTS = new Set(['localhost', '127.0.0.1']);
 
 // Scripts share one isolated world, so later files can read globals the earlier
 // ones define (same pattern as the seller extension's config.js → scrape-*.js).
@@ -19,10 +27,31 @@ const INJECT_FILES = ['lifepreneur.js', 'template.js', 'demo.js'];
 
 const bareUrl = (u) => (u || '').split('#')[0].split('?')[0];
 
+function fixtureForUrl(value) {
+  try {
+    const url = new URL(bareUrl(value));
+    const deployed = SUPPORTED_FIXTURES.find((fixture) =>
+      url.origin === fixture.origin && url.pathname === fixture.path
+    );
+    if (deployed) return deployed;
+    if (
+      url.protocol === 'http:' &&
+      LOCAL_FIXTURE_HOSTS.has(url.hostname) &&
+      url.pathname === '/fixtures/orders.html'
+    ) {
+      return { origin: url.origin, path: url.pathname };
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Resolve once the given tab reports status:complete on (or already sitting at)
 // the orders URL. Falls back on a timeout so a hung navigation never wedges the
 // click handler.
-function waitForComplete(tabId, timeoutMs = 15000) {
+function waitForComplete(tabId, expectedUrl, timeoutMs = 15000) {
+  const expected = bareUrl(expectedUrl);
   return new Promise((resolve) => {
     let done = false;
     const finish = () => {
@@ -34,13 +63,13 @@ function waitForComplete(tabId, timeoutMs = 15000) {
     };
     const onUpdated = (id, info, tab) => {
       if (id === tabId && info.status === 'complete' &&
-          bareUrl(tab && tab.url) === ORDERS_URL) finish();
+          bareUrl(tab && tab.url) === expected) finish();
     };
     chrome.tabs.onUpdated.addListener(onUpdated);
     // Already loaded? (e.g. we didn't navigate.)
     chrome.tabs.get(tabId, (tab) => {
       if (!chrome.runtime.lastError && tab && tab.status === 'complete' &&
-          bareUrl(tab.url) === ORDERS_URL) finish();
+          bareUrl(tab.url) === expected) finish();
     });
     const timer = setTimeout(finish, timeoutMs);
   });
@@ -49,9 +78,14 @@ function waitForComplete(tabId, timeoutMs = 15000) {
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab || !tab.id) return;
   try {
-    if (bareUrl(tab.url) !== ORDERS_URL) {
-      await chrome.tabs.update(tab.id, { url: ORDERS_URL });
-      await waitForComplete(tab.id);
+    const activeFixture = fixtureForUrl(tab.url);
+    const launchUrl = activeFixture ? bareUrl(tab.url) : DEPLOYED_ORDERS_URL;
+
+    if (!activeFixture) {
+      await chrome.tabs.update(tab.id, { url: launchUrl });
+      await waitForComplete(tab.id, launchUrl);
+    } else if (tab.status !== 'complete') {
+      await waitForComplete(tab.id, launchUrl);
     }
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },

@@ -1,4 +1,5 @@
-// Orchestrator — runs the whole show on the deployed orders.html fixture.
+// Orchestrator — runs the whole show on the supported orders.html fixture
+// currently loaded in the tab (localhost or easierbycode.com).
 //
 // 1. Snapshot every order card (store, icon, product description, date, status)
 //    using the exact selectors the seller scraper already relies on.

@@ -3,9 +3,10 @@
 // The spec: clicking "View order details" on each order should open a template
 // that "uses fixtures/order.html as its starting point" with the shop icon/name,
 // product description, purchase date and price filled in. We literally render
-// order.html — fetched same-origin, scripts stripped so its React bundle can't
-// hydrate over our fills — inside a centered iframe, then mutate the exact nodes
-// the seller scraper already knows (see scrape-order.js for the same selectors).
+// the sibling order.html fixture from the current fixture host (localhost or
+// easierbycode.com) — scripts stripped so its React bundle can't hydrate over
+// our fills — inside a centered iframe, then mutate the exact nodes the seller
+// scraper already knows (see scrape-order.js for the same selectors).
 //
 // window.LifeTemplate:
 //   ensure()                 -> Promise<void>, builds + loads the iframe once
@@ -17,11 +18,24 @@
   window.__LifeTemplateLoaded = true;
 
   const Z = 2147483590; // below the Lifepreneur HUD/modal, above the host page
-  const ORDER_URL = 'https://easierbycode.com/tok-scrape/fixtures/order.html';
-  const BASE = 'https://easierbycode.com/tok-scrape/fixtures/';
+  const BASE = fixtureBaseFromLocation();
+  const ORDER_URL = new URL('order.html', BASE).href;
   const ACCENT = '#e8650a';
 
   let scrim, frame, iframe, ready = null, annotation = null;
+
+  function fixtureBaseFromLocation() {
+    try {
+      const url = new URL(window.location.href);
+      if (/\/fixtures\/orders\.html$/i.test(url.pathname)) {
+        url.pathname = url.pathname.replace(/orders\.html$/i, '');
+        url.search = '';
+        url.hash = '';
+        return url.href;
+      }
+    } catch (_) {}
+    return 'https://easierbycode.com/tok-scrape/fixtures/';
+  }
 
   function buildSrcdoc(html) {
     // Strip every <script> (the live lib-react/main/page bundles would otherwise

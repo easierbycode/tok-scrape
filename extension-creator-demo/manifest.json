@@ -2,10 +2,12 @@
   "manifest_version": 3,
   "name": "Lifepreneur — Sample Value (demo)",
   "version": "0.1.0",
-  "description": "Demo: open the deployed orders.html fixture, auto-open each order's detail template, mark 9/10 as $0 free samples, look up their TikTok Shop retail value, and tally the total in a Lifepreneur 'Sample Value' overlay.",
+  "description": "Demo: open the orders.html fixture locally or on easierbycode.com, auto-open each order's detail template, mark 9/10 as $0 free samples, look up their TikTok Shop retail value, and tally the total in a Lifepreneur 'Sample Value' overlay.",
   "background": { "service_worker": "background.js" },
   "permissions": ["scripting", "activeTab", "tabs"],
   "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
     "https://easierbycode.com/*",
     "https://shop.tiktok.com/*"
   ],
