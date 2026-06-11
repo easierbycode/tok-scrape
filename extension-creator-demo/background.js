@@ -2,18 +2,24 @@
 //
 // Two jobs:
 //  1) On the toolbar-icon click, drive the demo: use the active tab when it is
-//     already on a supported orders.html fixture, otherwise navigate to the
+//     already on a supported order-list page, otherwise navigate to the
 //     deployed fixture, wait for the page to finish loading, then inject the
 //     three content scripts that run the show (overlay UI → order-detail
 //     template manager → orchestrator).
-//  2) Relay cross-origin TikTok Shop price lookups. A content script on
-//     the fixture page can't fetch shop.tiktok.com (CORS), but the worker can
+//  2) Relay cross-origin TikTok Shop price lookups. A content script can't
+//     reliably fetch shop.tiktok.com (CORS), but the worker can
 //     (see host_permissions), so the orchestrator asks us to look up the retail
 //     price of a free-sample item by its description and we parse the first
 //     price out of the search-results HTML.
 
 const DEPLOYED_ORDERS_URL = 'https://easierbycode.com/tok-scrape/fixtures/orders.html';
 const KIOSK_API_BASE = 'https://thirsty-store-kiosk.easierbycode.deno.net';
+
+// Direct Graylog write path, same as the seller/agency scrapers. The
+// bookmarklet-sync sidecar rewrites these two lines on `docker compose up`
+// (see scripts/sync-bookmarklet.py).
+var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+var GRAYLOG_TOKEN    = '1d1l5fhd0bugo25s5ulib29vtjshp93q8sg4ll76nck84rj6krlr';
 const SUPPORTED_FIXTURES = [
   {
     origin: 'https://easierbycode.com',
@@ -22,6 +28,8 @@ const SUPPORTED_FIXTURES = [
 ];
 const LOCAL_FIXTURE_HOSTS = new Set(['localhost', '127.0.0.1']);
 const LOCAL_ORDER_LIST_PATHS = new Set(['/fixtures/orders.html', '/orders', '/orders/']);
+const TIKTOK_ORDER_LIST_HOSTS = new Set(['www.tiktok.com']);
+const TIKTOK_ORDER_LIST_PATHS = new Set(['/shop/order_list', '/shop/order_list/']);
 
 // Scripts share one isolated world, so later files can read globals the earlier
 // ones define (same pattern as the seller extension's config.js → scrape-*.js).
@@ -29,7 +37,7 @@ const INJECT_FILES = ['lifepreneur.js', 'template.js', 'demo.js'];
 
 const bareUrl = (u) => (u || '').split('#')[0].split('?')[0];
 
-function fixtureForUrl(value) {
+function orderListPageForUrl(value) {
   try {
     const url = new URL(bareUrl(value));
     const deployed = SUPPORTED_FIXTURES.find((fixture) =>
@@ -39,6 +47,11 @@ function fixtureForUrl(value) {
     if (url.protocol === 'http:' &&
         LOCAL_FIXTURE_HOSTS.has(url.hostname) &&
         LOCAL_ORDER_LIST_PATHS.has(url.pathname)) {
+      return { origin: url.origin, path: url.pathname };
+    }
+    if (url.protocol === 'https:' &&
+        TIKTOK_ORDER_LIST_HOSTS.has(url.hostname) &&
+        TIKTOK_ORDER_LIST_PATHS.has(url.pathname)) {
       return { origin: url.origin, path: url.pathname };
     }
     return null;
@@ -78,10 +91,10 @@ function waitForComplete(tabId, expectedUrl, timeoutMs = 15000) {
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab || !tab.id) return;
   try {
-    const activeFixture = fixtureForUrl(tab.url);
-    const launchUrl = activeFixture ? bareUrl(tab.url) : DEPLOYED_ORDERS_URL;
+    const activeOrderList = orderListPageForUrl(tab.url);
+    const launchUrl = activeOrderList ? bareUrl(tab.url) : DEPLOYED_ORDERS_URL;
 
-    if (!activeFixture) {
+    if (!activeOrderList) {
       await chrome.tabs.update(tab.id, { url: launchUrl });
       await waitForComplete(tab.id, launchUrl);
     } else if (tab.status !== 'complete') {
@@ -177,13 +190,59 @@ async function lookupPrice(query) {
   }
 }
 
-async function persistSampleProduct(product) {
-  const name = String((product && product.name) || '').trim();
-  const price = Number(product && product.price);
-  if (!name || !Number.isFinite(price) || price <= 0) {
-    return { ok: false, error: 'Missing product name or price' };
-  }
+const normName = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
+async function fetchKioskJson(path) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(KIOSK_API_BASE + path, {
+      credentials: 'omit',
+      signal: ctrl.signal,
+      headers: { 'accept': 'application/json' }
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Known prices already in the kiosk, by product id and by normalized name.
+// /api/unpriced-samples carries recovered prices (edits) for sample rows;
+// /api/products carries raw Graylog prices for everything else. A lookup
+// failure just yields empty maps — when the kiosk can't be asked, persist
+// rather than silently drop data. One in-flight load is shared by the pool,
+// re-fetched after a minute.
+let knownPricesPromise = null;
+let knownPricesAt = 0;
+function loadKnownPrices() {
+  if (!knownPricesPromise || Date.now() - knownPricesAt > 60000) {
+    knownPricesAt = Date.now();
+    knownPricesPromise = (async () => {
+      const byId = new Map(), byName = new Map();
+      const note = (id, name, price) => {
+        const p = Number(price) || 0;
+        if (p <= 0) return;
+        if (id) byId.set(String(id), Math.max(p, byId.get(String(id)) || 0));
+        const n = normName(name);
+        if (n) byName.set(n, Math.max(p, byName.get(n) || 0));
+      };
+      const [samples, products] = await Promise.all([
+        fetchKioskJson('/api/unpriced-samples?limit=1000'),
+        fetchKioskJson('/api/products?limit=500')
+      ]);
+      ((samples && samples.items) || []).forEach((s) => note(s.productId, s.name, s.price));
+      (Array.isArray(products) ? products : []).forEach((p) => note(p.productId, p.name, p.min_sku_original_price));
+      return { byId, byName };
+    })();
+  }
+  return knownPricesPromise;
+}
+
+async function postSampleToKiosk(product, name, price) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 5000);
   try {
@@ -219,6 +278,100 @@ async function persistSampleProduct(product) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Write the product straight to Graylog the way the seller/agency scrapers do.
+// Mirrors the kiosk's own GELF shape: the product row rides in core_data_json
+// (price 0, so it stays in the recovery queue) and the price in
+// sample_edit_json, which the kiosk recovers on read.
+async function sendSampleToGraylog(product, name, price) {
+  if (!GRAYLOG_ENDPOINT || !GRAYLOG_TOKEN) return { ok: false, error: 'Graylog not configured' };
+  const now = new Date().toISOString();
+  const sampleCount = Number(product.sampleCount) || 1;
+  const seller = product.seller || product.store || 'Lifepreneur extension';
+  const gelf = {
+    version: '1.1',
+    host: 'lifepreneur-extension',
+    short_message: 'thirsty sample product: ' + name,
+    timestamp: Math.floor(Date.now() / 1000),
+    _graylog_key: GRAYLOG_TOKEN,
+    _sample_source: 'extension',
+    _core_data_json: JSON.stringify({
+      productId: product.productId,
+      name,
+      min_sku_original_price: 0,
+      sample_count: sampleCount,
+      category: product.category || 'Samples',
+      seller,
+      estimated_retail_value: price * sampleCount,
+      scrapedAt: product.fetchedAt || now
+    }),
+    _sample_edit_json: JSON.stringify({
+      productId: product.productId,
+      price,
+      sampleCount,
+      notes: product.notes || '',
+      source: 'extension',
+      sourceUrl: product.sourceUrl,
+      apiTitle: name,
+      apiSeller: seller,
+      fetchedAt: product.fetchedAt || now,
+      updatedAt: now
+    })
+  };
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    const r = await fetch(GRAYLOG_ENDPOINT, {
+      method: 'POST',
+      credentials: 'omit',
+      signal: ctrl.signal,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(gelf)
+    });
+    if (!r.ok) return { ok: false, status: r.status, error: 'GELF post failed: ' + r.status };
+    return { ok: true, status: r.status };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function persistSampleProduct(product) {
+  const name = String((product && product.name) || '').trim();
+  const price = Number(product && product.price);
+  if (!name || !Number.isFinite(price) || price <= 0) {
+    return { ok: false, error: 'Missing product name or price' };
+  }
+
+  // Only products the kiosk doesn't already have a price for get persisted.
+  // Unpriced rows still go through — recovering their price is the point.
+  const known = await loadKnownPrices();
+  const knownPrice = Math.max(
+    known.byId.get(String((product && product.productId) || '')) || 0,
+    known.byName.get(normName(name)) || 0
+  );
+  if (knownPrice > 0) {
+    return { ok: true, skipped: 'already-priced', price: knownPrice };
+  }
+
+  // Prefer the kiosk endpoint (it stores provenance and forwards to Graylog).
+  // When the kiosk is unreachable, older than this feature, or couldn't reach
+  // Graylog itself, write the GELF message directly so the data still lands
+  // in the durable store.
+  const viaKiosk = await postSampleToKiosk(product, name, price);
+  const durable = viaKiosk.ok && viaKiosk.sample &&
+    Array.isArray(viaKiosk.sample.persistedTo) &&
+    viaKiosk.sample.persistedTo.indexOf('graylog') !== -1;
+  if (durable) return viaKiosk;
+
+  const viaGelf = await sendSampleToGraylog(product, name, price);
+  if (viaGelf.ok || viaKiosk.ok) {
+    return { ok: true, kiosk: !!viaKiosk.ok, graylog: !!viaGelf.ok, sample: viaKiosk.sample };
+  }
+  return { ok: false, error: viaGelf.error || viaKiosk.error || 'Persist failed' };
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

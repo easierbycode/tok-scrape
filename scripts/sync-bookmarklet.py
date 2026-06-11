@@ -129,11 +129,13 @@ def get_graylog_token() -> str:
 
 
 # Files whose `var GRAYLOG_ENDPOINT` / `var GRAYLOG_TOKEN` lines this sidecar
-# rewrites on every `docker compose up`. Both Chrome extensions share the
-# same Graylog stream, so each extension's `config.js` is rewritten once.
+# rewrites on every `docker compose up`. All Chrome extensions share the
+# same Graylog stream; the creator demo keeps its Graylog config at the top
+# of background.js instead of a config.js.
 SOURCES = (
     "extension-agency/config.js",
     "extension-seller/config.js",
+    "extension-creator-demo/background.js",
 )
 
 

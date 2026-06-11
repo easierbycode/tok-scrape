@@ -199,7 +199,7 @@
   }
 
   async function persistPricedSamples(list) {
-    let idx = 0, active = 0, saved = 0, failed = 0;
+    let idx = 0, active = 0, saved = 0, failed = 0, skipped = 0;
     const CONC = 5;
     await new Promise((resolve) => {
       const pump = () => {
@@ -207,8 +207,9 @@
         while (active < CONC && idx < list.length) {
           active++;
           persistOneSample(list[idx++]).then((resp) => {
-            if (resp && resp.ok) saved++;
-            else if (!resp || !resp.skipped) failed++;
+            if (resp && resp.skipped) skipped++;
+            else if (resp && resp.ok) saved++;
+            else failed++;
           }).finally(() => {
             active--;
             pump();
@@ -217,7 +218,7 @@
       };
       pump();
     });
-    return { saved, failed };
+    return { saved, failed, skipped };
   }
 
   function flashButton(o) {
@@ -279,7 +280,7 @@
     if (!alive()) return;
 
     console.log('[life-demo] valued ' + samples.length + ' samples · real TikTok prices: ' + LOOK.real + ', estimated: ' + (samples.length - LOOK.real));
-    console.log('[life-demo] persisted priced samples to Thirsty kiosk: ' + persisted.saved + ' saved, ' + persisted.failed + ' failed');
+    console.log('[life-demo] persisted priced samples to Thirsty kiosk: ' + persisted.saved + ' saved, ' + persisted.skipped + ' already saved, ' + persisted.failed + ' failed');
 
     window.LifeTemplate.hide();
     setTimeout(() => { if (alive()) window.LifeTemplate.destroy(); }, 420); // guarded: a newer run may now own the iframe

@@ -10,7 +10,9 @@
     "http://127.0.0.1/*",
     "https://easierbycode.com/*",
     "https://shop.tiktok.com/*",
-    "https://thirsty-store-kiosk.easierbycode.deno.net/*"
+    "https://www.tiktok.com/*",
+    "https://thirsty-store-kiosk.easierbycode.deno.net/*",
+    "https://tok-graylog-gelf.ngrok-free.dev/*"
   ],
   "icons": {
     "16":  "icons/16.png",
