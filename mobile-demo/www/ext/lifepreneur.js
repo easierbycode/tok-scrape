@@ -251,8 +251,33 @@ console.log('[LP-ext] lifepreneur.js starting');
     return fontCssPromise;
   }
 
+  // External <img> srcs never load while an SVG image rasterizes (same secure
+  // static mode that blocks external fonts) — inline them as data: URLs, or
+  // drop the node so its styled fallback shows instead of a blank box.
+  function inlineCloneImages(clone) {
+    const imgs = Array.prototype.slice.call(clone.querySelectorAll('img'));
+    return Promise.all(imgs.map((im) => {
+      const src = im.getAttribute('src') || '';
+      if (!src || src.lastIndexOf('data:', 0) === 0) return Promise.resolve();
+      const strip = () => { if (im.parentNode) im.parentNode.removeChild(im); };
+      return Promise.race([
+        (async () => {
+          const blob = await (await fetch(im.src)).blob();
+          const dataUrl = await new Promise((res, rej) => {
+            const fr = new FileReader();
+            fr.onload = () => res(fr.result);
+            fr.onerror = rej;
+            fr.readAsDataURL(blob);
+          });
+          im.setAttribute('src', dataUrl);
+        })(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('img inline timeout')), 2500))
+      ]).catch(strip);
+    }));
+  }
+
   function captureCard(dialog) {
-    return embeddedFontCss().then((fontCss) => new Promise((resolve, reject) => {
+    return embeddedFontCss().then((fontCss) => {
       // offsetWidth, not getBoundingClientRect: the entrance transform
       // (scale 0.96) is still running if the user taps share immediately
       const W = Math.max(300, dialog.offsetWidth || 400);
@@ -264,6 +289,7 @@ console.log('[LP-ext] lifepreneur.js starting');
       Object.assign(clone.style, { width: W + 'px', maxHeight: 'none', height: 'auto', opacity: '1', transform: 'none', transition: 'none', position: 'static', margin: '0', boxSizing: 'border-box' });
       clone.classList.add('life-cap-root');
       clone.querySelectorAll('[data-life-scroll]').forEach((n) => { n.style.overflow = 'visible'; n.style.maxHeight = 'none'; });
+      return inlineCloneImages(clone).then(() => new Promise((resolve, reject) => {
       // measure full height inside the shadow root, where the tokens resolve
       const sh = ensureHost();
       const meas = el('div', { position: 'fixed', left: '-100000px', top: '0', width: W + 'px', pointerEvents: 'none' });
@@ -306,7 +332,8 @@ console.log('[LP-ext] lifepreneur.js starting');
       };
       img.onerror = () => fail('share-image rasterize failed');
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgSrc);
-    }));
+      }));
+    });
   }
 
   // ---- share plumbing ---------------------------------------------------------
@@ -531,9 +558,18 @@ console.log('[LP-ext] lifepreneur.js starting');
     const avatar = el('div', {
       width: '64px', height: '64px', borderRadius: '99px', background: 'linear-gradient(135deg, var(--accent-2), var(--accent))',
       display: 'grid', placeItems: 'center', color: '#06130d', fontSize: '24px', fontWeight: '700',
-      boxShadow: '0 0 20px var(--accent-soft)'
+      boxShadow: '0 0 20px var(--accent-soft)', position: 'relative', overflow: 'hidden'
     }, { text: 'K' });
-    const nameLabel = el('div', { fontSize: '20px', fontWeight: '700', color: 'var(--text)' }, { text: 'Karl got' });
+    // Kyle's avatar from the fixture (resolved against the host page so it
+    // works on both the deployed fixture and local previews); the gradient
+    // "K" underneath stays as the fallback if the image can't load
+    const avatarImg = el('img', { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover' }, {
+      src: new URL('orders_files/831fd8188287557752e933eac7af810a~tplv-tiktokx-cropcenter_100_100.webp', location.href).href,
+      alt: 'Kyle'
+    });
+    avatarImg.addEventListener('error', () => avatarImg.remove());
+    add(avatar, avatarImg);
+    const nameLabel = el('div', { fontSize: '20px', fontWeight: '700', color: 'var(--text)' }, { text: 'Kyle got' });
     add(header, avatar, nameLabel);
     add(scroller, header);
 
@@ -589,18 +625,19 @@ console.log('[LP-ext] lifepreneur.js starting');
     const modalGlow = dialog.querySelector('div');
     if (modalGlow) modalGlow.style.opacity = '0.4';
 
-    // CTA Button in fixed footer (kept in the shared image)
+    // CTA Button — lives in the card body so it's part of the shared image
     const btn = el('button', {
       width: '100%', padding: '16px', borderRadius: '99px', background: 'linear-gradient(180deg, var(--accent-2), var(--accent))',
       border: 'none', color: '#06130d', fontWeight: '800', fontSize: '16px', cursor: 'pointer',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', margin: '0 0 24px'
     });
     btn.innerHTML = '✉ Message me your email';
     btn.onclick = () => { closeModal(); alert('Action: Message email'); };
+    add(scroller, btn);
 
     // Facebook share — renders the card (message button included) to a PNG and
     // posts it; excluded from the capture itself via data-life-nocapture.
-    const shareText = 'Karl got ' + money(s.totalValue) + ' in FREE products with Lifepreneur';
+    const shareText = 'Kyle got ' + money(s.totalValue) + ' in FREE products with Lifepreneur';
     let imgPromise = null;
     const ensureImage = () => (imgPromise = imgPromise || captureCard(dialog).catch((e) => { imgPromise = null; throw e; }));
 
@@ -634,9 +671,11 @@ console.log('[LP-ext] lifepreneur.js starting');
     // share; skip if the card was already dismissed in that window
     setTimeout(() => { if (dialog.isConnected) ensureImage().catch(() => {}); }, 700);
 
-    const col = el('div', { display: 'flex', flexDirection: 'column', gap: '10px', flex: '1' });
-    add(col, btn, fbBtn);
-    add(dialog, scroller, Footer(col));
+    // the footer now only holds the share button, so exclude it wholesale —
+    // otherwise the capture would end in an empty footer strip
+    const foot = Footer(fbBtn);
+    foot.setAttribute('data-life-nocapture', '1');
+    add(dialog, scroller, foot);
   }
 
   function shareSummary(s, samples) {
