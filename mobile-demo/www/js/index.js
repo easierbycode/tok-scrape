@@ -109,8 +109,7 @@ document.addEventListener('deviceready', function() {
             http.get(lookupUrl, {}, {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
             }, function(response) {
-                var hit = firstPriceFromHtml(response.data);
-                var res = hit ? { ok: true, price: hit.price, tier: hit.tier } : { ok: false };
+                var res = lookupResultFromHtml(response.data);
                 iab.executeScript({ code: "if(window.__lifeOnResponse) window.__lifeOnResponse('" + id + "', " + JSON.stringify(res) + ");" });
             }, function(response) {
                 iab.executeScript({ code: "if(window.__lifeOnResponse) window.__lifeOnResponse('" + id + "', {ok:false});" });
@@ -119,14 +118,21 @@ document.addEventListener('deviceready', function() {
             fetch(lookupUrl)
                 .then(function(r) { return r.text(); })
                 .then(function(html) {
-                    var hit = firstPriceFromHtml(html);
-                    var res = hit ? { ok: true, price: hit.price, tier: hit.tier } : { ok: false };
+                    var res = lookupResultFromHtml(html);
                     iab.executeScript({ code: "if(window.__lifeOnResponse) window.__lifeOnResponse('" + id + "', " + JSON.stringify(res) + ");" });
                 })
                 .catch(function(err) {
                     iab.executeScript({ code: "if(window.__lifeOnResponse) window.__lifeOnResponse('" + id + "', {ok:false});" });
                 });
         }
+    }
+
+    function lookupResultFromHtml(html) {
+        var hit = firstPriceFromHtml(html);
+        var img = firstImageFromHtml(html);
+        return hit
+            ? { ok: true, price: hit.price, tier: hit.tier, img: img || undefined }
+            : { ok: false, img: img || undefined };
     }
 
     function firstPriceFromHtml(html) {
@@ -149,6 +155,22 @@ document.addEventListener('deviceready', function() {
         while ((m = re.exec(html)) !== null) {
             var n = parseFloat(m[1]);
             if (!isNaN(n) && n >= 3 && n <= 9999) return { price: n, tier: 'visible' };
+        }
+        return null;
+    }
+
+    function firstImageFromHtml(html) {
+        if (!html) return null;
+        var patterns = [
+            /"(?:thumb_)?url_list"\s*:\s*\[\s*"(https:[^"]+?)"/i,
+            /"(?:cover|image|img|main_image)(?:_url)?"\s*:\s*"(https:[^"]+?)"/i
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var m = html.match(patterns[i]);
+            if (m) {
+                var url = m[1].replace(/\\u002F/gi, '/').replace(/\\\//g, '/');
+                if (/^https:\/\/[^"\\\s]+$/.test(url)) return url;
+            }
         }
         return null;
     }

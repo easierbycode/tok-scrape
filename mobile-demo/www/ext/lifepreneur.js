@@ -1,4 +1,3 @@
-console.log('[LP-ext] lifepreneur.js starting');
 // Lifepreneur — "Sample Value" overlay.
 //
 // A vanilla-JS + Shadow-DOM port of the Claude Design handoff
@@ -337,6 +336,10 @@ console.log('[LP-ext] lifepreneur.js starting');
   }
 
   // ---- share plumbing ---------------------------------------------------------
+  function hasNativeShareHost() {
+    return !!(window.cordova_iab || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab));
+  }
+
   function sendToHost(msg, timeoutMs) {
     return new Promise((resolve) => {
       let done = false;
@@ -360,13 +363,13 @@ console.log('[LP-ext] lifepreneur.js starting');
   }
 
   async function shareImage(dataUrl, text) {
-    // 1) native share via the Cordova host — opens the Facebook app directly.
-    // Generous timeout: the multi-MB data URL takes a while to cross the
-    // bridge on slow devices, and a premature fallback would double the share
-    // UI (the host can't be cancelled once the message is posted). Contexts
-    // without a host resolve instantly via the catch/lastError paths.
-    const resp = await sendToHost({ source: 'life-demo', type: 'share-image', dataUrl, text }, 8000);
-    if (resp && resp.ok) return { via: resp.via || 'native' };
+    // 1) Native share via the Cordova host when this same script runs in the
+    // mobile demo. In the Chrome extension demo there is no bridge, so skip
+    // straight to the web/browser fallbacks.
+    if (hasNativeShareHost()) {
+      const resp = await sendToHost({ source: 'life-demo', type: 'share-image', dataUrl, text }, 8000);
+      if (resp && resp.ok) return { via: resp.via || 'native' };
+    }
     // 2) Web Share API with the image attached (share sheet)
     try {
       const file = dataUrlToFile(dataUrl, 'lifepreneur-free-samples.png');
@@ -375,12 +378,9 @@ console.log('[LP-ext] lifepreneur.js starting');
         return { via: 'webshare' };
       }
     } catch (e) { if (e && e.name === 'AbortError') return { via: 'cancelled' }; }
-    // Inside the InAppBrowser the download fallback can't work (the host drops
-    // the download event) and window.open('_blank') would navigate THIS
-    // webview to a Facebook login wall, killing the demo — fail honestly.
-    if (window.cordova_iab || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab)) {
-      return { via: 'unavailable' };
-    }
+    // Inside the InAppBrowser, the browser fallback cannot save the image and
+    // window.open would navigate the webview away from the demo.
+    if (hasNativeShareHost()) return { via: 'unavailable' };
     // 3) browser only: save the PNG + open Facebook's share dialog (URL-only —
     // sharer.php can't carry a local image, so the user attaches the saved PNG)
     const a = el('a', null, { href: dataUrl, download: 'lifepreneur-free-samples.png' });
@@ -584,12 +584,21 @@ console.log('[LP-ext] lifepreneur.js starting');
     add(hero, total, sub);
     add(scroller, hero);
 
-    // Product List (First 3)
+    // Product List (First 2)
     const list = el('div', { display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--line)', margin: '0 -24px 16px' });
     const colors = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800'];
-    samples.slice(0, 3).forEach((x, i) => {
+    samples.slice(0, 2).forEach((x, i) => {
       const row = el('div', { display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 24px', background: 'var(--bg)' });
       const thumb = Thumb(x.tone || colors[i % colors.length], x.name, 48, 12);
+      // product image saved by the demo, overlaid on the lettered tile — the
+      // tile stays as the fallback when there's no image or it fails to load
+      // (the capture path strips un-inlinable imgs the same way)
+      if (x.img) {
+        Object.assign(thumb.style, { position: 'relative', overflow: 'hidden' });
+        const im = el('img', { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover' }, { src: x.img, alt: x.name });
+        im.addEventListener('error', () => im.remove());
+        add(thumb, im);
+      }
       const mid = el('div', { flex: '1', textAlign: 'left', minWidth: '0' });
       add(mid, el('div', { fontSize: '15px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, { text: x.name }));
       const price = el('div', { color: 'var(--accent)', fontWeight: '700', fontSize: '16px', marginLeft: '12px' }, { class: 'tnum', text: money(x.retail) });
@@ -598,8 +607,8 @@ console.log('[LP-ext] lifepreneur.js starting');
     });
     add(scroller, list);
 
-    if (samples.length > 3) {
-      add(scroller, el('div', { fontSize: '14px', color: 'var(--text-faint)', fontWeight: '600', marginBottom: '24px' }, { text: '+ ' + (samples.length - 3) + ' more free samples' }));
+    if (samples.length > 2) {
+      add(scroller, el('div', { fontSize: '14px', color: 'var(--text-faint)', fontWeight: '600', marginBottom: '24px' }, { text: '+ ' + (samples.length - 2) + ' more free samples' }));
     }
 
     // Steps Box

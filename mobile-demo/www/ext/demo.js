@@ -1,5 +1,5 @@
-console.log('[LP-ext] demo.js starting');
-// Orchestrator — runs the whole show on the deployed orders.html fixture.
+// Orchestrator — runs the whole show on the supported orders.html fixture
+// currently loaded in the tab (localhost or easierbycode.com).
 //
 // 1. Snapshot every order card (store, icon, product description, date, status)
 //    using the exact selectors the seller scraper already relies on.
@@ -88,6 +88,7 @@ console.log('[LP-ext] demo.js starting');
       o.name = o.description;
       o.store = o.shopName;
       o.date = o.dateText;
+      o.img = o.productImgSrc;                   // share card shows it; lookup fills gaps
     } else {
       const p = Math.round(paidPrice(o.description) * 100) / 100;
       o.paid = p; o.paidText = money(p);
@@ -123,11 +124,17 @@ console.log('[LP-ext] demo.js starting');
       const finish = () => { if (settled) return; settled = true; LOOK.done++; res(); };
       try {
         chrome.runtime.sendMessage({ source: 'life-demo', type: 'price-lookup', query: s.description }, (resp) => {
-          if (!chrome.runtime.lastError && resp && resp.ok && resp.price != null) {
-            // 'embedded' = parsed from TikTok's JSON (trust as high); 'visible' =
-            // a loose "$x.xx" off the page (weak signal → keep medium confidence).
-            s.retail = resp.price; s.confidence = resp.tier === 'embedded' ? 'high' : 'med'; s._real = true; s.resolved = true; LOOK.real++;
-            if (currentOrder === s && window.LifeTemplate) window.LifeTemplate.setRetail(money(s.retail));
+          if (!chrome.runtime.lastError && resp) {
+            // product image from TikTok's embedded JSON — only fills the gap
+            // when the order card didn't have one (the card's own image is the
+            // surer match; the lookup is a description search)
+            if (resp.img && !s.img) s.img = resp.img;
+            if (resp.ok && resp.price != null) {
+              // 'embedded' = parsed from TikTok's JSON (trust as high); 'visible' =
+              // a loose "$x.xx" off the page (weak signal → keep medium confidence).
+              s.retail = resp.price; s.confidence = resp.tier === 'embedded' ? 'high' : 'med'; s._real = true; s.resolved = true; LOOK.real++;
+              if (currentOrder === s && window.LifeTemplate) window.LifeTemplate.setRetail(money(s.retail));
+            }
           }
           finish();
         });

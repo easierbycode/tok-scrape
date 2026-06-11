@@ -25,6 +25,22 @@ function firstPriceFromHtml(html) {
     return null;
 }
 
+function firstImageFromHtml(html) {
+    if (!html) return null;
+    const patterns = [
+        /"(?:thumb_)?url_list"\s*:\s*\[\s*"(https:[^"]+?)"/i,
+        /"(?:cover|image|img|main_image)(?:_url)?"\s*:\s*"(https:[^"]+?)"/i
+    ];
+    for (const re of patterns) {
+        const m = html.match(re);
+        if (m) {
+            const url = m[1].replace(/\\u002F/gi, '/').replace(/\\\//g, '/');
+            if (/^https:\/\/[^"\\\s]+$/.test(url)) return url;
+        }
+    }
+    return null;
+}
+
 // Tests
 try {
     // Test embedded price
@@ -43,6 +59,11 @@ try {
     const html3 = '<div>No price here</div>';
     const res3 = firstPriceFromHtml(html3);
     assert.strictEqual(res3, null);
+
+    // Test embedded image
+    const html4 = '{"url_list": ["https:\\/\\/example.com\\/product.webp"]}';
+    const res4 = firstImageFromHtml(html4);
+    assert.strictEqual(res4, 'https://example.com/product.webp');
 
     console.log('All tests passed!');
 } catch (e) {

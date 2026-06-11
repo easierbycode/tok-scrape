@@ -5,6 +5,8 @@
   "description": "A sample Apache Cordova application that responds to the deviceready event.",
   "main": "index.js",
   "scripts": {
+    "sync:extension-demo": "node scripts/sync-extension-demo.js",
+    "prebuild:apk:wireless": "node scripts/sync-extension-demo.js",
     "build:apk:wireless": "node ../scripts/build-apk-wireless.js",
     "test": "node test-price-parser.js"
   },
