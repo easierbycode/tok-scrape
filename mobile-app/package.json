@@ -9,6 +9,8 @@
     "doctor": "node scripts/check-android-sdk.js",
     "prebuild": "node scripts/check-android-sdk.js",
     "build": "cordova build android",
+    "prebuild:apk:wireless": "node scripts/check-android-sdk.js",
+    "build:apk:wireless": "node ../scripts/build-apk-wireless.js",
     "prebuild:release": "node scripts/check-android-sdk.js",
     "build:release": "cordova build android --release",
     "prebuild:preloaded": "node scripts/check-android-sdk.js",
