@@ -129,6 +129,26 @@ function firstPriceFromHtml(html) {
   return null;
 }
 
+// First product image out of the same embedded JSON, so the share card can show
+// the real product photo when the order card didn't carry one. Best-effort like
+// the price: a miss just means the lettered tile fallback.
+function firstImageFromHtml(html) {
+  if (!html) return null;
+  const patterns = [
+    /"(?:thumb_)?url_list"\s*:\s*\[\s*"(https:[^"]+?)"/i,
+    /"(?:cover|image|img|main_image)(?:_url)?"\s*:\s*"(https:[^"]+?)"/i
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m) {
+      // embedded JSON escapes slashes both ways
+      const url = m[1].replace(/\\u002F/gi, '/').replace(/\\\//g, '/');
+      if (/^https:\/\/[^"\\\s]+$/.test(url)) return url;
+    }
+  }
+  return null;
+}
+
 async function lookupPrice(query) {
   const url = 'https://shop.tiktok.com/us/s?q=' + encodeURIComponent(query);
   const ctrl = new AbortController();
@@ -146,9 +166,10 @@ async function lookupPrice(query) {
     if (!r.ok) return { ok: false, status: r.status, url };
     const html = await r.text();
     const hit = firstPriceFromHtml(html);
+    const img = firstImageFromHtml(html) || undefined;
     return hit
-      ? { ok: true, price: hit.price, tier: hit.tier, url, status: r.status }
-      : { ok: false, url, status: r.status };
+      ? { ok: true, price: hit.price, tier: hit.tier, img, url, status: r.status }
+      : { ok: false, img, url, status: r.status };
   } catch (e) {
     return { ok: false, error: String((e && e.message) || e), url };
   } finally {
