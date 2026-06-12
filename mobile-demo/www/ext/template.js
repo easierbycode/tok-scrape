@@ -18,40 +18,81 @@
   window.__LifeTemplateLoaded = true;
 
   const Z = 2147483590; // below the Lifepreneur HUD/modal, above the host page
-  const BASE = fixtureBaseFromLocation();
-  const ORDER_URL = new URL('order.html', BASE).href;
+  const DEPLOYED_FIXTURE_BASE = 'https://easierbycode.com/tok-scrape/fixtures/';
+  const TEMPLATE_SOURCES = templateSourcesFromLocation();
   const ACCENT = '#e8650a';
 
   let scrim, frame, iframe, ready = null, annotation = null;
 
-  function fixtureBaseFromLocation() {
-    try {
-      const url = new URL(window.location.href);
-      if (/\/fixtures\/orders\.html$/i.test(url.pathname)) {
-        url.pathname = url.pathname.replace(/orders\.html$/i, '');
-        url.search = '';
-        url.hash = '';
-        return url.href;
-      }
-    } catch (_) {}
-    return 'https://easierbycode.com/tok-scrape/fixtures/';
+  function sourceFromBase(base) {
+    return { url: new URL('order.html', base).href, base };
   }
 
-  function buildSrcdoc(html) {
+  function uniqueSources(sources) {
+    const seen = new Set();
+    return sources.filter((source) => {
+      const key = source.url + '|' + source.base;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function templateSourcesFromLocation() {
+    const sources = [];
+    try {
+      const url = new URL(window.location.href);
+      if (/\/fixtures\/orders(?:-wizard)?\.html$/i.test(url.pathname)) {
+        url.pathname = url.pathname.replace(/orders(?:-wizard)?\.html$/i, '');
+        url.search = '';
+        url.hash = '';
+        sources.push(sourceFromBase(url.href));
+      }
+      if (
+        url.protocol === 'http:' &&
+        (url.hostname === 'localhost' || url.hostname === '127.0.0.1') &&
+        /^\/orders\/?$/i.test(url.pathname)
+      ) {
+        sources.push(
+          { url: url.origin + '/order/', base: url.origin + '/order/' },
+          { url: url.origin + '/order.html', base: url.origin + '/' },
+          sourceFromBase(url.origin + '/fixtures/')
+        );
+      }
+    } catch (_) {}
+    sources.push(sourceFromBase(DEPLOYED_FIXTURE_BASE));
+    return uniqueSources(sources);
+  }
+
+  async function fetchTemplate() {
+    let lastError = null;
+    for (const source of TEMPLATE_SOURCES) {
+      try {
+        const response = await fetch(source.url, { credentials: 'omit' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return { html: await response.text(), base: source.base };
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw lastError || new Error('No order template source available');
+  }
+
+  function buildSrcdoc(html, base) {
     // Strip every <script> (the live lib-react/main/page bundles would otherwise
     // hydrate #root and wipe our fills); the page already ships fully
     // server-rendered, so it looks identical static.
     let out = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
     // <base> so the page's relative CSS/images resolve against the fixtures dir.
-    if (/<head[^>]*>/i.test(out)) out = out.replace(/<head([^>]*)>/i, '<head$1><base href="' + BASE + '">');
-    else out = '<base href="' + BASE + '">' + out;
+    if (/<head[^>]*>/i.test(out)) out = out.replace(/<head([^>]*)>/i, '<head$1><base href="' + base + '">');
+    else out = '<base href="' + base + '">' + out;
     return out;
   }
 
   function ensure() {
     if (ready) return ready;
     ready = (async () => {
-      const html = await fetch(ORDER_URL, { credentials: 'omit' }).then(r => r.text());
+      const template = await fetchTemplate();
       scrim = document.createElement('div');
       Object.assign(scrim.style, {
         position: 'fixed', inset: '0', zIndex: String(Z),
@@ -74,7 +115,7 @@
       document.documentElement.appendChild(scrim);
       await new Promise((resolve) => {
         iframe.addEventListener('load', () => resolve(), { once: true });
-        iframe.srcdoc = buildSrcdoc(html);
+        iframe.srcdoc = buildSrcdoc(template.html, template.base);
       });
     })();
     return ready;
@@ -123,9 +164,9 @@
         const unitEl = priceRow.querySelector('.H4-Semibold.text-color-UIText1');
         const strikeEl = priceRow.querySelector('.H4-Regular.text-color-UIText3.line-through');
         txt(unitEl, order.priceText);
-        if (order.isSample) {
-          if (strikeEl) strikeEl.remove();      // samples carry no struck "original"
-        } else if (strikeEl && order.strikeText) {
+        if (order.isSample || !order.strikeText) {
+          if (strikeEl) strikeEl.remove();      // samples + real-priced orders carry no struck "original"
+        } else if (strikeEl) {
           txt(strikeEl, order.strikeText);
         }
         // Lifepreneur retail annotation (our own UI, not TikTok's) for samples.
