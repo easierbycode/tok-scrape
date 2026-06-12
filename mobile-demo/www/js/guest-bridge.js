@@ -82,6 +82,15 @@
         if (callback) {
             if (!window.__lifeCallbacks) window.__lifeCallbacks = {};
             window.__lifeCallbacks[id] = callback;
+            // A request the host never answers must not hang the caller forever
+            // (the demo awaits every reply before showing its report) — time out
+            // with undefined, which every caller treats as a graceful miss.
+            setTimeout(function() {
+                if (window.__lifeCallbacks && window.__lifeCallbacks[id]) {
+                    console.warn('[LP-guest] no host response for ' + (message && message.type) + ' — timing out');
+                    window.__lifeOnResponse(id, undefined);
+                }
+            }, 20000);
         }
         post({ id: id, payload: message });
     };

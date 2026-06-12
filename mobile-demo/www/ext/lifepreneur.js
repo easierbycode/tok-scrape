@@ -502,7 +502,7 @@
     }, { class: 'tnum', text: money(0) });
     add(hero, heroNum);
     const subline = el('div', { color: 'var(--text-dim)', fontSize: '14px', marginTop: '8px', fontWeight: '500' });
-    subline.innerHTML = 'in free samples this week — <span style="color:var(--text);font-weight:700">you paid ' + money(0) + '</span>';
+    subline.innerHTML = 'in free samples this week — <span style="color:var(--text);font-weight:700">you paid ' + money(s.paid) + '</span>';
     add(hero, subline);
     add(scroller, hero);
 
@@ -510,7 +510,7 @@
     const tiles = el('div', { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', margin: '22px 0' });
     add(tiles,
       Tile('Samples corroborated', String(s.count), 'across ' + M.accountsConnected + ' accounts'),
-      Tile('Avg. retail / sample', money(s.count ? s.totalValue / s.count : 0), 'vs. $0.00 paid'),
+      Tile('Avg. retail / sample', money(s.count ? s.totalValue / s.count : 0), 'vs. ' + money(s.count ? s.paid / s.count : 0) + ' paid'),
       Tile('Resale at 10%', money(resale), 'if you flip them', 'gold'),
       Tile('Monthly pace', money0(s.totalValue * M.monthlyMultiplier), "at this week's rate")
     );
@@ -689,7 +689,7 @@
 
   function shareSummary(s, samples) {
     const txt = 'Lifepreneur — free-sample value this week: ' + money(s.totalValue) +
-      ' across ' + s.count + ' samples (you paid $0.00). Resale at 10%: ' + money(s.totalValue * 0.10) + '.';
+      ' across ' + s.count + ' samples (you paid ' + money(s.paid) + '). Resale at 10%: ' + money(s.totalValue * 0.10) + '.';
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(txt).catch(() => {});
     }

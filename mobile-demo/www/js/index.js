@@ -36,6 +36,10 @@ document.addEventListener('deviceready', function() {
         }
     });
 
+    function respondTo(id, res) {
+        iab.executeScript({ code: "if(window.__lifeOnResponse) window.__lifeOnResponse(" + JSON.stringify(String(id)) + ", " + JSON.stringify(res) + ");" });
+    }
+
     iab.addEventListener('message', function(e) {
         var msgStr = JSON.stringify(e.data);
         console.log('[LP-host] message received: ' + (msgStr.length > 300 ? msgStr.slice(0, 300) + '… (' + msgStr.length + ' chars)' : msgStr));
@@ -57,14 +61,22 @@ document.addEventListener('deviceready', function() {
             doPriceLookup(data.id, data.payload.query);
         } else if (data.id && data.payload && data.payload.type === 'share-image') {
             doShareImage(data.id, data.payload.dataUrl, data.payload.text);
+        } else if (data.id && data.payload && data.payload.type === 'persist-sample-product') {
+            // The extension's background.js persists samples to the kiosk; this
+            // demo app has nowhere to store them, but the orchestrator awaits
+            // every reply before showing the report — answer or it never opens.
+            respondTo(data.id, { ok: false, skipped: true, error: 'persist not supported in mobile demo' });
+        } else if (data.id && data.payload) {
+            // Catch-all for request types added to the extension demo after this
+            // host was written — an unanswered request wedges the demo's run.
+            console.warn('[LP-host] unsupported request type: ' + data.payload.type);
+            respondTo(data.id, { ok: false, error: 'unsupported: ' + data.payload.type });
         }
     });
 
     function doShareImage(id, dataUrl, text) {
         console.log('[LP-host] share-image request');
-        var respond = function(res) {
-            iab.executeScript({ code: "if(window.__lifeOnResponse) window.__lifeOnResponse(" + JSON.stringify(String(id)) + ", " + JSON.stringify(res) + ");" });
-        };
+        var respond = function(res) { respondTo(id, res); };
         // community-cordova-plugin-social-sharing ≥6.3 exposes SocialSharingPlugin;
         // older builds used window.plugins.socialsharing
         var sharing = window.SocialSharingPlugin || (window.plugins && window.plugins.socialsharing);
