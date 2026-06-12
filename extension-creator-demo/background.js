@@ -12,7 +12,7 @@
 //     price of a free-sample item by its description and we parse the first
 //     price out of the search-results HTML.
 
-const DEPLOYED_ORDERS_URL = 'https://easierbycode.com/tok-scrape/fixtures/orders.html';
+const DEPLOYED_ORDERS_URL = 'https://easierbycode.com/tok-scrape/fixtures/orders-wizard.html';
 const KIOSK_API_BASE = 'https://thirsty-store-kiosk.easierbycode.deno.net';
 
 // Direct Graylog write path, same as the seller/agency scrapers. The
@@ -23,11 +23,20 @@ var GRAYLOG_TOKEN    = '1d1l5fhd0bugo25s5ulib29vtjshp93q8sg4ll76nck84rj6krlr';
 const SUPPORTED_FIXTURES = [
   {
     origin: 'https://easierbycode.com',
+    path: '/tok-scrape/fixtures/orders-wizard.html'
+  },
+  {
+    origin: 'https://easierbycode.com',
     path: '/tok-scrape/fixtures/orders.html'
   }
 ];
 const LOCAL_FIXTURE_HOSTS = new Set(['localhost', '127.0.0.1']);
-const LOCAL_ORDER_LIST_PATHS = new Set(['/fixtures/orders.html', '/orders', '/orders/']);
+const LOCAL_ORDER_LIST_PATHS = new Set([
+  '/fixtures/orders.html',
+  '/fixtures/orders-wizard.html',
+  '/orders',
+  '/orders/'
+]);
 const TIKTOK_ORDER_LIST_HOSTS = new Set(['www.tiktok.com']);
 const TIKTOK_ORDER_LIST_PATHS = new Set(['/shop/order_list', '/shop/order_list/']);
 
