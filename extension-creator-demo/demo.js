@@ -1,9 +1,13 @@
-// Orchestrator — runs the whole show on the supported orders.html fixture
+// Orchestrator — runs the whole show on the supported order-list fixture
 // currently loaded in the tab (localhost or easierbycode.com).
 //
-// 1. Snapshot every order card (store, icon, product description, date, status)
-//    using the exact selectors the seller scraper already relies on.
-// 2. Mark ~9 of every 10 orders as $0 free samples; the rest keep a paid price.
+// 1. Snapshot every order card (store, icon, product description, date, status).
+//    Two dialects: the SSR orders.html fixture (tux/H4 classes, no prices on
+//    cards) and the in-app webview render orders-wizard.html (imdcf-* classes,
+//    real "N items: USD x.xx" order totals).
+// 2. Split samples from paid orders. Wizard cards carry real totals, so a
+//    cheap, non-canceled order IS the free sample; orders.html has no prices,
+//    so it keeps the deterministic ~9-of-10 split.
 // 3. For each order in turn: flash its "View order details" button, open the
 //    order.html template filled with that order's data (samples show $0.00 with
 //    the struck price removed), and tick the Lifepreneur scanning HUD.
@@ -17,6 +21,12 @@
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
   const CARD_SEL = 'div.flex.flex-col.gap-12.background-color-UIPageFlat1.p-16.rounded-6.cursor-pointer.shadow';
+  // orders-wizard.html (in-app webview snapshot). The class suffixes are CSS-module
+  // hashes, so match on the stable prefixes only.
+  const WIZARD_CARD_SEL = '[class*="item-wrapper_"]';
+  // Wizard orders carry real totals; at or below this an order is a free sample
+  // (creator samples are charged a token amount, the fixture medians ~$1.84).
+  const SAMPLE_PRICE_MAX = 5;
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
   const money = (n, dp = 2) => n == null ? '—' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
@@ -49,40 +59,76 @@
   function shortName(desc) { const d = clean(desc); return d.length > 42 ? d.slice(0, 42) + '…' : d; }
 
   // ---- snapshot --------------------------------------------------------------
-  const cards = Array.prototype.slice.call(document.querySelectorAll(CARD_SEL));
-  if (!cards.length) {
-    console.warn('[life-demo] no order cards found — is this the orders.html fixture?');
+  function snapshotOrdersHtml() {
+    const cards = Array.prototype.slice.call(document.querySelectorAll(CARD_SEL));
+    return cards.map((card, i) => {
+      const iconImg = card.querySelector('img.w-20.h-20') || card.querySelector('.flex.items-center.gap-8 img');
+      const nameEl = card.querySelector('.H4-Semibold.text-color-UIText1');
+      const dateEl = card.querySelector('.P3-Regular.text-color-UIText2');
+      const statusEl = card.querySelector('.H4-Bold.text-color-UIText1');
+      const prodImg = card.querySelector('div.relative.flex-shrink-0.w-80.h-80 img[alt]') || card.querySelector('img.w-full[alt]');
+      let btn = null;
+      card.querySelectorAll('button, .tux-button__content-naVKgq').forEach(b => { if (!btn && /view order details/i.test(b.textContent || '')) btn = b.closest('[data-testid="tux-web-button-container"]') || b.closest('button') || b; });
+      const description = prodImg ? clean(prodImg.getAttribute('alt')) : '';
+      return {
+        i,
+        shopName: nameEl ? clean(nameEl.textContent) : 'Shop',
+        shopIconSrc: iconImg ? iconImg.src : '',
+        description: description || 'Sample item',
+        productImgSrc: prodImg ? prodImg.src : '',
+        dateText: dateText(dateEl ? dateEl.textContent : ''),
+        statusText: statusEl ? clean(statusEl.textContent) : 'Order completed',
+        buttonRef: btn, cardRef: card
+      };
+    }).filter(o => o.description);
+  }
+
+  // orders-wizard.html: every card carries exactly two imdcf-base-img images
+  // (shop icon, then product), two text-p2 spans (shop name, then status), one
+  // bold text-p3 (description), one text-color-4 (variant) and one text-t1
+  // total ("N items: USD x.xx"). No dates and no detail buttons on this page.
+  function snapshotWizard() {
+    const cards = Array.prototype.slice.call(document.querySelectorAll(WIZARD_CARD_SEL));
+    return cards.map((card, i) => {
+      const imgs = card.querySelectorAll('img.imdcf-base-img');
+      const heads = card.querySelectorAll('[class*="imdcf-text-p2"] span');
+      const descEl = card.querySelector('[class*="imdcf-text-color-1"][class*="imdcf-text-p3"] span');
+      const variantEl = card.querySelector('[class*="imdcf-text-color-4"] span');
+      const totalEl = card.querySelector('[class*="imdcf-text-t1"] span');
+      const m = totalEl ? clean(totalEl.textContent).match(/(\d+)\s*items?:\s*USD\s*([0-9]+(?:\.[0-9]+)?)/i) : null;
+      const status = heads.length > 1 ? clean(heads[1].textContent) : 'Completed';
+      return {
+        i,
+        shopName: heads.length ? clean(heads[0].textContent) : 'Shop',
+        shopIconSrc: imgs.length ? imgs[0].src : '',
+        description: descEl ? clean(descEl.textContent) : '',
+        variantText: variantEl ? clean(variantEl.textContent) : '',
+        productImgSrc: imgs.length > 1 ? imgs[1].src : '',
+        dateText: dateText(''),
+        statusText: 'Order ' + status.toLowerCase(),
+        parsedPaid: m ? parseFloat(m[2]) : null,
+        qty: m ? parseInt(m[1], 10) : 1,
+        buttonRef: null, cardRef: card
+      };
+    }).filter(o => o.description);
+  }
+
+  let orders = snapshotOrdersHtml();
+  if (!orders.length) orders = snapshotWizard();
+  if (!orders.length) {
+    console.warn('[life-demo] no order cards found — is this an orders fixture?');
     return;
   }
 
-  const orders = cards.map((card, i) => {
-    const iconImg = card.querySelector('img.w-20.h-20') || card.querySelector('.flex.items-center.gap-8 img');
-    const nameEl = card.querySelector('.H4-Semibold.text-color-UIText1');
-    const dateEl = card.querySelector('.P3-Regular.text-color-UIText2');
-    const statusEl = card.querySelector('.H4-Bold.text-color-UIText1');
-    const prodImg = card.querySelector('div.relative.flex-shrink-0.w-80.h-80 img[alt]') || card.querySelector('img.w-full[alt]');
-    let btn = null;
-    card.querySelectorAll('button, .tux-button__content-naVKgq').forEach(b => { if (!btn && /view order details/i.test(b.textContent || '')) btn = b.closest('[data-testid="tux-web-button-container"]') || b.closest('button') || b; });
-    const description = prodImg ? clean(prodImg.getAttribute('alt')) : '';
-    return {
-      i,
-      shopName: nameEl ? clean(nameEl.textContent) : 'Shop',
-      shopIconSrc: iconImg ? iconImg.src : '',
-      description: description || 'Sample item',
-      productImgSrc: prodImg ? prodImg.src : '',
-      dateText: dateText(dateEl ? dateEl.textContent : ''),
-      statusText: statusEl ? clean(statusEl.textContent) : 'Order completed',
-      buttonRef: btn, cardRef: card
-    };
-  }).filter(o => o.description);
-
   // ---- assign sample / paid + value model -----------------------------------
   orders.forEach((o, i) => {
-    o.isSample = ((i * 7 + 3) % 10) !== 0;       // ~9 of every 10, scattered
+    o.isSample = o.parsedPaid != null
+      ? (o.parsedPaid <= SAMPLE_PRICE_MAX && !/cancel/i.test(o.statusText))
+      : ((i * 7 + 3) % 10) !== 0;               // no prices on cards: ~9 of 10, scattered
     o.tone = tone(o.description);
     o.category = category(o.description);
     if (o.isSample) {
-      o.paid = 0;
+      o.paid = o.parsedPaid || 0;
       o.retail = Math.round(estRetail(o.description) * 100) / 100;
       o.resolved = true;                         // fallback always yields a value
       o.confidence = 'med';                      // upgraded to 'high' on a real embedded hit
@@ -91,9 +137,10 @@
       o.date = o.dateText;
       o.img = o.productImgSrc;                   // share card shows it; lookup fills gaps
     } else {
-      const p = Math.round(paidPrice(o.description) * 100) / 100;
+      const p = o.parsedPaid != null ? o.parsedPaid : Math.round(paidPrice(o.description) * 100) / 100;
       o.paid = p; o.paidText = money(p);
-      o.strikeText = money(Math.round((p + 2 + (hash(o.description) % 14)) * 100) / 100);
+      // Real totals get no synthetic struck-through "original" price.
+      o.strikeText = o.parsedPaid != null ? null : money(Math.round((p + 2 + (hash(o.description) % 14)) * 100) / 100);
       o.retail = null;
     }
   });
@@ -176,14 +223,15 @@
             productId: persistedProductId(name),
             name,
             price,
-            sampleCount: 1,
+            sampleCount: s.qty || 1,
             category: s.category || 'Samples',
             seller: s.store || s.shopName || 'Lifepreneur extension',
             sourceUrl: s.sourceUrl,
             fetchedAt: new Date().toISOString(),
             lastSeen: s.dateText || s.date || new Date().toISOString(),
             notes: (s._real ? 'Resolved by extension lookup' : 'Estimated by extension demo') +
-              (s.confidence ? ' · confidence ' + s.confidence : '')
+              (s.confidence ? ' · confidence ' + s.confidence : '') +
+              (s.variantText ? ' · variant ' + s.variantText : '')
           }
         }, (resp) => {
           if (chrome.runtime.lastError) {
@@ -222,19 +270,20 @@
   }
 
   function flashButton(o) {
-    const btn = o.buttonRef;
+    // Wizard cards have no "View order details" button — flash the card itself.
+    const btn = (o.buttonRef && o.buttonRef.isConnected) ? o.buttonRef : o.cardRef;
     try { if (o.cardRef && o.cardRef.isConnected && o.cardRef.scrollIntoView) o.cardRef.scrollIntoView({ block: 'center' }); } catch (_) {}
     if (!btn || !btn.isConnected) return;
     const prev = btn.style.cssText;
     btn.style.outline = '2px solid #e8650a';
     btn.style.boxShadow = '0 0 0 4px rgba(232,101,10,0.25)';
-    btn.style.borderRadius = '99px';
+    btn.style.borderRadius = btn === o.cardRef ? '8px' : '99px';
     setTimeout(() => { if (btn.isConnected) btn.style.cssText = prev; }, 260);
   }
 
   function view(o) {
     return o.isSample
-      ? { shopName: o.shopName, shopIconSrc: o.shopIconSrc, description: o.description, productImgSrc: o.productImgSrc, dateText: o.dateText, statusText: o.statusText, isSample: true, priceText: money(0), strikeText: null, retailText: o.retail != null ? money(o.retail) : null }
+      ? { shopName: o.shopName, shopIconSrc: o.shopIconSrc, description: o.description, productImgSrc: o.productImgSrc, dateText: o.dateText, statusText: o.statusText, isSample: true, priceText: money(o.paid || 0), strikeText: null, retailText: o.retail != null ? money(o.retail) : null }
       : { shopName: o.shopName, shopIconSrc: o.shopIconSrc, description: o.description, productImgSrc: o.productImgSrc, dateText: o.dateText, statusText: o.statusText, isSample: false, priceText: o.paidText, strikeText: o.strikeText, retailText: null };
   }
 
@@ -256,7 +305,7 @@
     if (!alive()) return;
 
     const total = orders.length;
-    const perOrder = total > 40 ? 240 : total > 20 ? 320 : 460;
+    const perOrder = total > 120 ? 110 : total > 40 ? 240 : total > 20 ? 320 : 460;
     window.Lifepreneur.scanStart(total);
     window.Lifepreneur.scanUpdate({ label: 'Reading your order list…' });
     await sleep(600);

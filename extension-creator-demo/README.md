@@ -6,8 +6,10 @@ this overlay corroborates them against their **retail value**.
 
 Supported order-list URLs:
 
+- `http://localhost:8741/fixtures/orders-wizard.html`
 - `http://localhost:8741/fixtures/orders.html`
 - `http://localhost:5173/orders/`
+- `https://easierbycode.com/tok-scrape/fixtures/orders-wizard.html`
 - `https://easierbycode.com/tok-scrape/fixtures/orders.html`
 - `https://www.tiktok.com/shop/order_list`
 
@@ -15,18 +17,25 @@ Supported order-list URLs:
 
 Click the toolbar icon and it:
 
-1. **Uses the active order-list tab** when it is already on local
-   `orders.html`, local `/orders/`, the deployed fixture, or TikTok's live
-   buyer order list at `https://www.tiktok.com/shop/order_list`. From any other tab, it navigates to
-   `https://easierbycode.com/tok-scrape/fixtures/orders.html`.
+1. **Uses the active order-list tab** when it is already on a local or deployed
+   fixture (`orders-wizard.html` / `orders.html`), local `/orders/`, or TikTok's
+   live buyer order list at `https://www.tiktok.com/shop/order_list`. From any
+   other tab, it navigates to
+   `https://easierbycode.com/tok-scrape/fixtures/orders-wizard.html`.
 2. **Loops every order.** For each one it flashes the *View order details* button
-   and opens a detail **template** — the real `fixtures/order.html` from the
+   (or the card itself on `orders-wizard.html`, which has no buttons) and opens a
+   detail **template** — the real `fixtures/order.html` from the
    current fixture host when available, otherwise the deployed detail fixture,
    rendered in an iframe (its scripts stripped so its React bundle can't hydrate
    over the fills) with the **shop icon/name, product description, purchase date
    and price** filled in.
-3. **Marks ~9 of every 10 orders as samples:** their price is swapped to **$0.00**
-   and the struck-through "original" price is removed.
+3. **Splits samples from paid orders.** `orders-wizard.html` (the in-app webview
+   render, `imdcf-*` classes) carries **real order totals** (`N items: USD x.xx`),
+   so samples are parsed from the data: a non-canceled order of **$5 or less** is a
+   free sample, shown at its real token price (~84% of the fixture's 335 orders).
+   `orders.html` has no prices on its cards, so it keeps the deterministic
+   ~9-of-10 split with prices swapped to **$0.00**. Either way the struck-through
+   "original" price is removed for samples.
 4. **Looks up each sample's retail value** by its description — the background
    service worker searches `https://shop.tiktok.com/us/s?q=<description>` and pulls
    the first price out of the results. TikTok renders its grid client-side and
@@ -54,7 +63,7 @@ Click the toolbar icon and it:
 |------|------|
 | `manifest.json` | MV3; host perms for localhost, `easierbycode.com`, `www.tiktok.com` + `shop.tiktok.com` |
 | `background.js` | toolbar click → use current supported order list or navigate + inject; TikTok price-lookup relay |
-| `demo.js` | orchestrator: snapshot orders → loop templates → tally → overlay |
+| `demo.js` | orchestrator: snapshot orders (both fixture dialects) → split samples → loop templates → tally → overlay |
 | `template.js` | renders same-host `order.html` in an iframe and fills each order's fields |
 | `lifepreneur.js` | the Shadow-DOM overlay (Scanning HUD + Results + Queued) |
 | `icons/` | identical to `extension-seller/icons/` |
@@ -63,14 +72,18 @@ Click the toolbar icon and it:
 
 `chrome://extensions` → Developer mode → **Load unpacked** → pick this folder.
 Then click the toolbar icon on any tab (it will navigate to the fixture itself).
-If you are already on `http://localhost:8741/fixtures/orders.html`,
+If you are already on a local fixture (`orders-wizard.html` / `orders.html`),
 `http://localhost:5173/orders/`, or `https://www.tiktok.com/shop/order_list`,
 the demo will run there without navigating away.
 
 ## Notes / scope
 
-- The dollar figures are scoped entirely to this feature — the club's own
-  initiative — and are not real prices unless a live TikTok lookup resolves.
-- The sample/paid split is deterministic (~9/10) so a run is reproducible.
+- On `orders-wizard.html` the **paid** prices are real (parsed from the cards);
+  the **retail** figures are still estimates unless a live TikTok lookup
+  resolves. On `orders.html` all dollar figures are scoped to this feature —
+  the club's own initiative.
+- The `orders.html` sample/paid split is deterministic (~9/10) so a run is
+  reproducible; the wizard split is data-driven (total ≤ $5, not canceled) and
+  equally reproducible.
 - Built from the design handoff bundle `sample-value-summary/` (README + chat +
   `Lifepreneur Sample Value.html` and its `app.jsx`/`states.jsx`/`components.jsx`).

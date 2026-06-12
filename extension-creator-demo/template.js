@@ -42,8 +42,8 @@
     const sources = [];
     try {
       const url = new URL(window.location.href);
-      if (/\/fixtures\/orders\.html$/i.test(url.pathname)) {
-        url.pathname = url.pathname.replace(/orders\.html$/i, '');
+      if (/\/fixtures\/orders(?:-wizard)?\.html$/i.test(url.pathname)) {
+        url.pathname = url.pathname.replace(/orders(?:-wizard)?\.html$/i, '');
         url.search = '';
         url.hash = '';
         sources.push(sourceFromBase(url.href));
@@ -164,9 +164,9 @@
         const unitEl = priceRow.querySelector('.H4-Semibold.text-color-UIText1');
         const strikeEl = priceRow.querySelector('.H4-Regular.text-color-UIText3.line-through');
         txt(unitEl, order.priceText);
-        if (order.isSample) {
-          if (strikeEl) strikeEl.remove();      // samples carry no struck "original"
-        } else if (strikeEl && order.strikeText) {
+        if (order.isSample || !order.strikeText) {
+          if (strikeEl) strikeEl.remove();      // samples + real-priced orders carry no struck "original"
+        } else if (strikeEl) {
           txt(strikeEl, order.strikeText);
         }
         // Lifepreneur retail annotation (our own UI, not TikTok's) for samples.
