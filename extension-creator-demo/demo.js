@@ -228,10 +228,9 @@
             seller: s.store || s.shopName || 'Lifepreneur extension',
             sourceUrl: s.sourceUrl,
             fetchedAt: new Date().toISOString(),
-            lastSeen: s.dateText || s.date || new Date().toISOString(),
-            notes: (s._real ? 'Resolved by extension lookup' : 'Estimated by extension demo') +
-              (s.confidence ? ' · confidence ' + s.confidence : '') +
-              (s.variantText ? ' · variant ' + s.variantText : '')
+            lastSeen: s.dateText || s.date || new Date().toISOString()
+            // No notes: the recovery queue's API/Extension source badge already
+            // conveys provenance, so a "Resolved by extension lookup" note is noise.
           }
         }, (resp) => {
           if (chrome.runtime.lastError) {
