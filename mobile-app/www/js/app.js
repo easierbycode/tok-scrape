@@ -39,7 +39,11 @@
   var DEFAULT_GRAYLOG_URL = 'https://tok-graylog-api.ngrok-free.dev';
   var DEFAULT_GRAYLOG_TOKEN = '1m0r2v13opjqaj64bqcupa5ltkuq8j95jnlkm5epf8eiao2r9jmc';
   var DEFAULT_GELF_URL = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
-  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v2';
+  // Bump this key whenever DEFAULT_GRAYLOG_TOKEN is rotated (or needs to be
+  // re-pushed to installs that already ran an earlier migration). loadSettings()
+  // only re-applies the embedded token to an install once per key value, so a
+  // version bump is what makes the refresh reach devices that migrated before.
+  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v3';
 
   function loadSettings() {
     try {
