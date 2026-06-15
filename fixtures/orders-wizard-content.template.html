@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sample Orders → Content · @wizardofdealz</title>
+<style>
+  :root{
+    --bg:#0b0e13; --panel:#141922; --panel2:#1b212d; --line:#262d3a;
+    --txt:#e8edf5; --mut:#8b97aa; --mut2:#5e6b7e;
+    --red:#fe2c55; --cyan:#25f4ee; --green:#2bd576; --amber:#ffb02e;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+
+  /* header */
+  header h1{margin:0;font-size:30px;letter-spacing:-.02em}
+  header h1 .at{background:linear-gradient(90deg,var(--cyan),var(--red));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--mut);margin:8px 0 0;max-width:760px}
+  .meta-line{color:var(--mut2);font-size:12.5px;margin-top:10px}
+  .meta-line b{color:var(--mut)}
+
+  /* process steps */
+  .flow{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 4px;align-items:stretch}
+  .step{flex:1 1 220px;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:14px 16px;position:relative}
+  .step .n{font-size:11px;color:var(--mut2);letter-spacing:.12em;text-transform:uppercase}
+  .step .t{font-weight:650;margin:3px 0 4px;display:flex;gap:8px;align-items:center}
+  .step .d{color:var(--mut);font-size:12.5px}
+  .step .ico{font-size:16px}
+  .arrow{align-self:center;color:var(--mut2);font-size:20px}
+  @media(max-width:720px){.arrow{display:none}}
+
+  /* KPIs */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:24px 0}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+  .kpi .v{font-size:26px;font-weight:720;letter-spacing:-.02em}
+  .kpi .l{color:var(--mut);font-size:12.5px;margin-top:2px}
+  .kpi .x{color:var(--mut2);font-size:11.5px;margin-top:3px}
+  .kpi.accent .v{color:var(--cyan)}
+  .kpi.money .v{color:var(--green)}
+
+  /* tabs + controls */
+  .bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:6px 0 18px;
+    position:sticky;top:0;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);
+    padding:12px 0;z-index:5}
+  .tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);
+    border-radius:999px;padding:4px}
+  .tab{padding:7px 16px;border-radius:999px;color:var(--mut);cursor:pointer;font-weight:600;font-size:13.5px;border:none;background:none}
+  .tab.on{background:var(--red);color:#fff}
+  .spacer{flex:1}
+  .search{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:8px 14px;color:var(--txt);min-width:200px;outline:none}
+  .search:focus{border-color:var(--mut)}
+  .chips{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px}
+  .fchip{padding:6px 12px;border-radius:999px;color:var(--mut);cursor:pointer;font-size:12.5px;border:none;background:none}
+  .fchip.on{background:var(--panel2);color:var(--txt)}
+
+  /* sample grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px;display:flex;flex-direction:column;gap:10px}
+  .card.has{border-color:#2b5b46}
+  .prow{display:flex;gap:12px}
+  .thumb{width:56px;height:56px;border-radius:10px;flex:0 0 56px;position:relative;overflow:hidden;background:var(--panel2)}
+  .ph{display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:20px}
+  .timg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .pname{font-weight:600;font-size:13.5px;line-height:1.35;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .pmeta{color:var(--mut2);font-size:11.5px;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
+  .price{color:var(--amber);font-weight:650}
+
+  .badge{font-size:11px;font-weight:650;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .b-need{background:#241a14;color:var(--amber)}
+  .b-has{background:#13261c;color:var(--green)}
+  .b-live{background:#2a1119;color:var(--red)}
+  .b-vid{background:#10212b;color:var(--cyan)}
+  .b-shop{background:var(--panel2);color:var(--mut)}
+
+  .content{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:7px}
+  .cpiece{display:flex;gap:9px;align-items:center;background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;padding:8px 10px;transition:.12s}
+  .cpiece:hover{border-color:var(--mut2)}
+  .cpiece .ic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 26px}
+  .ic.vid{background:#10212b;color:var(--cyan)}
+  .ic.live{background:#2a1119;color:var(--red)}
+  .cpiece .cm{flex:1;min-width:0}
+  .cpiece .ct{font-size:12px;font-weight:600}
+  .cpiece .cs{font-size:11px;color:var(--mut2)}
+  .cpiece .cg{text-align:right;font-size:12px}
+  .cpiece .cg b{color:var(--green)}
+  .cpiece .cg span{color:var(--mut2);font-size:11px;display:block}
+  .needline{color:var(--mut2);font-size:12px;font-style:italic}
+
+  /* content library cards */
+  .clib .card{gap:12px}
+  .metrics{display:flex;gap:16px;flex-wrap:wrap}
+  .metric .mv{font-weight:700;font-size:16px}
+  .metric .mv.g{color:var(--green)}
+  .metric .ml{color:var(--mut2);font-size:11px}
+  .empty{color:var(--mut2);text-align:center;padding:50px;grid-column:1/-1}
+  .secttl{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.1em;margin:6px 2px 2px}
+  footer{color:var(--mut2);font-size:12px;margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;color:var(--cyan);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Sample Orders → Content <span class="at" id="creator"></span></h1>
+    <p class="sub">Each free / sample product the creator received, matched to the videos and LIVEs
+       made for it. The order list is the to-do list; the content analytics show what's been posted —
+       and where the gaps are.</p>
+    <p class="meta-line" id="metaline"></p>
+  </header>
+
+  <div class="flow">
+    <div class="step">
+      <div class="n">Step 1 · collect</div>
+      <div class="t"><span class="ico">📦</span> Sample order list</div>
+      <div class="d"><code>scrape-order-list.js</code> captures every $0 / sample order — the products
+        a creator needs to make content for.</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="n">Step 2 · collect</div>
+      <div class="t"><span class="ico">🎬</span> Video &amp; LIVE analytics</div>
+      <div class="d">Affiliate export (<code>tiktok-affiliate-export</code> in Graylog) ties each
+        <b>content piece</b> to the <b>product</b> it sold, with GMV &amp; commission.</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="n">Step 3 · correlate</div>
+      <div class="t"><span class="ico">🔗</span> Match by product</div>
+      <div class="d">Join content → product → sample order by product name. Empty join =
+        a sample that still needs content.</div>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="bar">
+    <div class="tabs">
+      <button class="tab on" data-view="samples">Sample orders → content</button>
+      <button class="tab" data-view="content">Content library</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="chips" id="filters">
+      <button class="fchip on" data-f="all">All</button>
+      <button class="fchip" data-f="has">Has content</button>
+      <button class="fchip" data-f="need">Needs content</button>
+    </div>
+    <input class="search" id="search" placeholder="Search products…">
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script id="data" type="application/json">/*__DATA_JSON__*/null</script>
+<script>
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const $ = (s,r=document)=>r.querySelector(s);
+const money = n => '$'+(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const intf = n => (n||0).toLocaleString();
+const PAL = ['#fe2c55','#25f4ee','#2bd576','#ffb02e','#7c83ff','#ff7eb6','#22b8cf'];
+function colorFor(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return PAL[h%PAL.length];}
+
+function thumb(name,img){
+  const c=colorFor(name||'?');
+  const letter=(name||'?').replace(/[^A-Za-z0-9]/,'').charAt(0).toUpperCase()||'•';
+  const im = img?`<img class="timg" src="${esc(img)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
+  return `<div class="thumb ph" style="background:${c}">${letter}${im}</div>`;
+}
+function piece(cp){
+  const isLive = (cp.type||'').toLowerCase()==='live';
+  const ic = isLive?'<div class="ic live">🔴</div>':'<div class="ic vid">▶</div>';
+  const label = isLive?'LIVE':'Video';
+  const date = cp.date_min===cp.date_max?cp.date_min:`${cp.date_min} – ${cp.date_max}`;
+  const inner = `${ic}<div class="cm"><div class="ct">${label} · ${date}</div>
+     <div class="cs">${cp.orders} order${cp.orders>1?'s':''} · ${intf(cp.items)} item${cp.items>1?'s':''} · #${cp.content_id}</div></div>
+     <div class="cg"><b>${money(cp.gmv)}</b><span>${money(cp.commission)} comm</span></div>`;
+  return isLive ? `<div class="cpiece">${inner}</div>`
+               : `<a class="cpiece" href="${cp.url}" target="_blank" rel="noopener">${inner}</a>`;
+}
+
+function sampleCard(s){
+  const has=s.content&&s.content.length;
+  let badges='';
+  if(s.video) badges+=`<span class="badge b-vid">▶ ${s.video}</span>`;
+  if(s.live)  badges+=`<span class="badge b-live">🔴 ${s.live}</span>`;
+  if(!has)    badges=`<span class="badge b-need">Needs content</span>`;
+  const body = has
+    ? `<div class="content">${s.content.map(piece).join('')}</div>`
+    : `<div class="content"><div class="needline">No video or LIVE posted for this sample yet.</div></div>`;
+  return `<div class="card ${has?'has':''}">
+    <div class="prow">
+      ${thumb(s.name,s.img)}
+      <div style="flex:1;min-width:0">
+        <div class="pname">${esc(s.name)}</div>
+        <div class="pmeta"><span class="price">${money(s.price)}</span>
+          <span>${s.orders} sample order${s.orders>1?'s':''}</span><span>${s.status}</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${badges}</div>
+    </div>${body}</div>`;
+}
+
+function contentCard(c){
+  const badges = `<span class="badge b-shop">${esc(c.shop||'shop')}</span>`+
+    (c.video?`<span class="badge b-vid">▶ ${c.video} video${c.video>1?'s':''}</span>`:'')+
+    (c.live?`<span class="badge b-live">🔴 ${c.live} LIVE${c.live>1?'s':''}</span>`:'')+
+    (c.sampled?`<span class="badge b-has">✓ in sample list</span>`:'');
+  return `<div class="card has">
+    <div class="prow"><div style="flex:1;min-width:0">
+      <div class="pname" style="-webkit-line-clamp:2">${esc(c.name)}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">${badges}</div>
+    </div></div>
+    <div class="metrics">
+      <div class="metric"><div class="mv g">${money(c.gmv)}</div><div class="ml">GMV</div></div>
+      <div class="metric"><div class="mv">${money(c.commission)}</div><div class="ml">Est. commission</div></div>
+      <div class="metric"><div class="mv">${intf(c.items)}</div><div class="ml">Items sold</div></div>
+      <div class="metric"><div class="mv">${c.content.length}</div><div class="ml">Content pieces</div></div>
+    </div>
+    <div class="content">${c.content.map(piece).join('')}</div></div>`;
+}
+
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+let view='samples', filter='all', query='';
+function render(){
+  const grid=$('#grid'); const q=query.trim().toLowerCase();
+  $('#filters').style.display = view==='samples' ? 'flex' : 'none';
+  if(view==='samples'){
+    let rows=DATA.samples.filter(s=>{
+      if(filter==='has' && !(s.content&&s.content.length)) return false;
+      if(filter==='need' && (s.content&&s.content.length)) return false;
+      if(q && !s.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    rows.sort((a,b)=>(b.content.length>0)-(a.content.length>0) || b.content_gmv-a.content_gmv);
+    grid.className='grid';
+    grid.innerHTML = rows.length? rows.map(sampleCard).join('')
+      : `<div class="empty">No products match “${esc(query)}”.</div>`;
+  } else {
+    let rows=DATA.content_products.filter(c=>!q||c.name.toLowerCase().includes(q));
+    grid.className='grid clib';
+    grid.innerHTML = rows.length? rows.map(contentCard).join('')
+      : `<div class="empty">No content products match “${esc(query)}”.</div>`;
+  }
+}
+
+function kpis(){
+  const k=DATA.kpis;
+  const cards=[
+    {v:intf(k.sample_products),l:'Sample products',x:`${intf(k.sample_orders)} orders`},
+    {v:`${k.samples_with_content}`,l:'Samples with content',x:`${k.sample_products-k.samples_with_content} need content`,cls:'accent'},
+    {v:intf(k.content_pieces),l:'Content pieces',x:`${k.videos} video · ${k.lives} LIVE`,cls:'accent'},
+    {v:money(k.gmv),l:'Content GMV',x:`across ${k.content_products} products`,cls:'money'},
+    {v:money(k.commission),l:'Est. commission',x:`${intf(k.affiliate_orders)} affiliate orders`,cls:'money'},
+  ];
+  $('#kpis').innerHTML=cards.map(c=>`<div class="kpi ${c.cls||''}">
+     <div class="v">${c.v}</div><div class="l">${c.l}</div><div class="x">${c.x}</div></div>`).join('');
+}
+
+$('#creator').textContent=DATA.creator;
+$('#metaline').innerHTML=`Source: <b>${DATA.generated_from}</b> · content window <b>${DATA.kpis.date_min} → ${DATA.kpis.date_max}</b> · `+
+  `${DATA.kpis.content_products_sampled} of ${DATA.kpis.content_products} content products are in this sample list`;
+$('#footer').innerHTML=`Generated by <code>scripts/build-orders-content.py</code> from the recovered Graylog stack `+
+  `(source <code>tiktok-affiliate-export</code>, creator ${DATA.creator}) and <code>fixtures/orders-wizard.html</code>. `+
+  `Video tiles link to the TikTok post; LIVE replays aren't directly linkable.`;
+kpis();
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
+  view=t.dataset.view;render();});
+document.querySelectorAll('.fchip').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.fchip').forEach(x=>x.classList.remove('on'));t.classList.add('on');
+  filter=t.dataset.f;render();});
+$('#search').oninput=e=>{query=e.target.value;render();};
+render();
+</script>
+</body>
+</html>
