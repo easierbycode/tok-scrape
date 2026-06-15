@@ -103,6 +103,9 @@
       },
       title: { text: '' },
       credits: { enabled: false },
+      // We don't ship the Highcharts accessibility module, so the core logs a
+      // warning on every chart. Disable it explicitly to silence that warning.
+      accessibility: { enabled: false },
       legend: {
         itemStyle: { color: cssVar('--foreground', '#f2f1ed') },
         itemHoverStyle: { color: cssVar('--foreground', '#ffffff') }
