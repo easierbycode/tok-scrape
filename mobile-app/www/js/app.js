@@ -37,13 +37,13 @@
   // (extension-seller/config.js). The bookmarklet-sync sidecar in
   // docker-compose.yml rewrites this on every `docker compose up`.
   var DEFAULT_GRAYLOG_URL = 'https://tok-graylog-api.ngrok-free.dev';
-  var DEFAULT_GRAYLOG_TOKEN = '1m0r2v13opjqaj64bqcupa5ltkuq8j95jnlkm5epf8eiao2r9jmc';
+  var DEFAULT_GRAYLOG_TOKEN = '1hjk2lkmmgqh8gqbint3fneasc2hn208jrf28hd7gsfv9j6s9amr';
   var DEFAULT_GELF_URL = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
   // Bump this key whenever DEFAULT_GRAYLOG_TOKEN is rotated (or needs to be
   // re-pushed to installs that already ran an earlier migration). loadSettings()
   // only re-applies the embedded token to an install once per key value, so a
   // version bump is what makes the refresh reach devices that migrated before.
-  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v3';
+  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v4';
 
   function loadSettings() {
     try {
@@ -55,6 +55,14 @@
       // so `host:tiktok-bookmarklet` never matched any message. Rewrite silently.
       if (query === 'host:tiktok-bookmarklet') query = 'source:tiktok-bookmarklet';
       var url = (s.url || '').replace(/\/+$/, '');
+      // Repair a base URL pointed at the GELF *ingest* endpoint. That host only
+      // accepts writes (the bookmarklet posts there); the dashboard reads from
+      // the REST API host, so a misseeded URL makes every search 401 no matter
+      // how valid the token is. Rewrite it to the API default so the install
+      // recovers without a manual Settings edit.
+      if (url === DEFAULT_GELF_URL || url === DEFAULT_GELF_URL.replace(/\/gelf$/, '')) {
+        url = DEFAULT_GRAYLOG_URL;
+      }
       var migratedToken = s.token || '';
       var tokenMigrationApplied = localStorage.getItem(GRAYLOG_TOKEN_MIGRATION_KEY) === '1';
       if (url === DEFAULT_GRAYLOG_URL &&
