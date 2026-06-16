@@ -73,6 +73,16 @@ DEFAULT_RANGE_SECONDS = 30 * 24 * 3600  # 30 days
 # Sane default columns when the caller doesn't pass --fields.
 DEFAULT_COLUMNS = ["timestamp", "source", "creator", "short_message"]
 
+# Direct-OpenSearch fallback (--opensearch). Graylog's metadata layer can drift
+# out of sync with the OpenSearch that actually holds the data — when that
+# happens Graylog returns near-nothing even though the docs are all there. This
+# mode skips Graylog and hits OpenSearch's _search directly. OpenSearch here runs
+# with the security plugin off (no auth), but it's only reachable on the host
+# (localhost:9200) — NOT via the public ngrok URL. See SKILL.md "When Graylog
+# can't see its own data".
+DEFAULT_OPENSEARCH_URL = "http://localhost:9200"
+MESSAGE_INDEX = "graylog_*"
+
 # Where the committed (default) token lives. Resolved relative to this file so
 # the tool works regardless of the current working directory.
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -207,6 +217,51 @@ def _trim(body: str, n: int = 600) -> str:
     return body if len(body) <= n else body[:n] + " …"
 
 
+def search_opensearch(os_url: str, index: str, query: str, range_seconds: int,
+                      fields: list[str] | None, limit: int, sort: str, timeout: float = 30.0) -> dict:
+    """Query OpenSearch's _search directly. Same Lucene goes in (via the
+    query_string query) and the result is normalized to search()'s shape so the
+    renderers are shared. No auth — OpenSearch runs with security disabled here."""
+    qs = {"query_string": {"query": query or "*"}}
+    if range_seconds and range_seconds < FIVE_YEARS_SECONDS:
+        body_q = {"bool": {"must": [qs],
+                           "filter": [{"range": {"timestamp": {"gte": "now-%ds" % range_seconds}}}]}}
+    else:
+        body_q = qs
+    field, _, direction = sort.partition(":")
+    body = {
+        "size": limit,
+        "track_total_hits": True,
+        "query": body_q,
+        # unmapped_type keeps the sort from erroring on indices missing the field.
+        "sort": [{field: {"order": direction or "desc", "unmapped_type": "keyword"}}],
+    }
+    if fields:
+        body["_source"] = fields
+    url = os_url.rstrip("/") + "/" + urllib.parse.quote(index) + "/_search"
+    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="POST",
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        sys.exit("OpenSearch HTTP %s: %s" % (e.code, _trim(e.read().decode("utf-8", "replace"))))
+    except urllib.error.URLError as e:
+        sys.exit(
+            "Could not reach OpenSearch at %s (%s). This mode talks to OpenSearch "
+            "directly — it lives on the Mac at localhost:9200 and is NOT exposed "
+            "via the public ngrok URL, so run it on the host." % (os_url, e.reason))
+    hits = data.get("hits", {})
+    total = hits.get("total", {})
+    total = total.get("value") if isinstance(total, dict) else total
+    rows = []
+    for h in hits.get("hits", []):
+        m = dict(h.get("_source") or {})
+        m.setdefault("_index", h.get("_index"))
+        rows.append({"message": m})
+    return {"messages": rows, "total_results": total, "time": data.get("took"), "_opensearch": True}
+
+
 # --------------------------------------------------------------------------- #
 # Rendering
 # --------------------------------------------------------------------------- #
@@ -299,6 +354,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--token", help="Graylog API token (env GRAYLOG_TOKEN).")
     p.add_argument("--user", help="Username for Basic auth (env GRAYLOG_USER), e.g. admin.")
     p.add_argument("--password", help="Password for --user (env GRAYLOG_PASSWORD).")
+    p.add_argument("--opensearch", "--os", action="store_true", dest="opensearch",
+                   help="Bypass Graylog and query its OpenSearch directly (host-only, no auth). "
+                        "Use when Graylog returns near-nothing despite data existing — see SKILL.md.")
+    p.add_argument("--os-url", help=f"OpenSearch base for --opensearch (env GRAYLOG_OPENSEARCH_URL; default {DEFAULT_OPENSEARCH_URL}).")
+    p.add_argument("--index", help=f"Index pattern for --opensearch (default {MESSAGE_INDEX}).")
     return p
 
 
@@ -315,16 +375,24 @@ def main(argv: list[str] | None = None) -> int:
     # For aggregation we only need the one field; keeps payloads small.
     fields = [agg_field] if agg_field else ([f.strip() for f in args.fields.split(",")] if args.fields else None)
 
-    if args.show_url:
-        params = {"query": args.query or "*", "range": str(range_seconds),
-                  "limit": str(limit), "sort": args.sort}
-        if fields:
-            params["fields"] = ",".join(fields)
-        print(base_url.rstrip("/") + "/api/search/universal/relative?" + urllib.parse.urlencode(params))
-        return 0
-
-    auth_b64, label = resolve_auth(args)
-    resp = search(base_url, auth_b64, args.query, range_seconds, fields, limit, args.sort)
+    if args.opensearch:
+        os_url = args.os_url or os.environ.get("GRAYLOG_OPENSEARCH_URL") or DEFAULT_OPENSEARCH_URL
+        index = args.index or MESSAGE_INDEX
+        if args.show_url:
+            print(os_url.rstrip("/") + "/" + index + "/_search   (HTTP POST; query in the request body)")
+            return 0
+        resp = search_opensearch(os_url, index, args.query, range_seconds, fields, limit, args.sort)
+        label = f"OpenSearch direct [{index}]"
+    else:
+        if args.show_url:
+            params = {"query": args.query or "*", "range": str(range_seconds),
+                      "limit": str(limit), "sort": args.sort}
+            if fields:
+                params["fields"] = ",".join(fields)
+            print(base_url.rstrip("/") + "/api/search/universal/relative?" + urllib.parse.urlencode(params))
+            return 0
+        auth_b64, label = resolve_auth(args)
+        resp = search(base_url, auth_b64, args.query, range_seconds, fields, limit, args.sort)
 
     if args.json:
         print(json.dumps(resp, indent=2, ensure_ascii=False))
@@ -348,7 +416,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # Help the user tell "genuinely empty" apart from "indexes not registered".
     if total == 0:
-        if resp.get("_empty_window"):
+        if resp.get("_opensearch"):
+            print("\n(no documents matched in OpenSearch. Widen with --all, or "
+                  "check the query/field names against references/sources.md.)")
+        elif resp.get("_empty_window"):
             print("\n(empty window: no index covers this time range — try --all "
                   "or a wider --last.)")
         elif not resp.get("used_indices"):

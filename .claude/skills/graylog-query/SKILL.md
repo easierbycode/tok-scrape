@@ -61,7 +61,14 @@ graylog_query.py
   --json                 Raw Graylog JSON (for piping / deep inspection).
   --show-url             Print the request URL (no creds) and exit.
   --url / --token / --user / --password   Overrides (see Auth).
+  --opensearch / --os    Bypass Graylog, query OpenSearch directly (see below).
+  --os-url / --index     OpenSearch base + index pattern for --opensearch.
 ```
+
+> **If a Graylog query returns near-nothing but you expect data, add `--opensearch`.**
+> The Graylog metadata layer on this deployment can drift out of sync with the
+> OpenSearch that holds the data; `--opensearch` reads OpenSearch directly and is
+> currently the reliable path. See "When Graylog can't see its own data" below.
 
 Default window is **30 days**. Reach for `--all` when the user says "ever",
 "all time", "historically", or when a narrow window comes back empty (this data
@@ -97,6 +104,38 @@ tokens) and pass it via `--token` / `GRAYLOG_TOKEN`; for a quick one-off, use
 the admin login via `GRAYLOG_USER` / `GRAYLOG_PASSWORD`. **Don't hardcode admin
 credentials into this skill or echo a freshly-minted token into chat** — pass
 secrets through env vars or flags at call time.
+
+## When Graylog can't see its own data (`--opensearch`)
+
+This deployment has hit a state where Graylog's index metadata (in MongoDB) is
+desynced from the OpenSearch that physically holds the messages — Graylog
+returns almost nothing (e.g. a handful of phantom docs) even though the data is
+all there. It stems from a Mongo↔OpenSearch lineage mismatch during a cluster
+recovery and isn't fixable by query-time tweaks.
+
+**Workaround that always works: query OpenSearch directly.**
+```bash
+# Everything, by source:
+python3 .../graylog_query.py --opensearch --list-sources --all
+# Same Lucene recipes as Graylog mode — they run as an OpenSearch query_string:
+python3 .../graylog_query.py --os --all \
+  -q 'source:tiktok-affiliate-export AND (creator:"@wizardofdealz" OR creator.keyword:"@wizardofdealz")'
+```
+
+Notes and limits:
+- **Host-only.** OpenSearch listens on `http://localhost:9200` (security off, no
+  auth) and is **not** exposed via the public ngrok URL, so `--opensearch` only
+  works when the script runs on the Mac host. Override with `--os-url` /
+  `GRAYLOG_OPENSEARCH_URL` for a different OpenSearch.
+- **Same query language.** `--query`, `--last`/`--range`/`--all`, `--fields`,
+  `--limit`, `--sort`, `--terms`, `--list-sources` all behave the same; the
+  Lucene goes through OpenSearch's `query_string`, so the `creator.keyword`
+  trick and `gmv_num:[100 TO *]` ranges work unchanged.
+- **It bypasses Graylog entirely** — no streams, no access control, no token. It
+  reads the raw `graylog_*` indices. The mobile app still reads through Graylog,
+  so this doesn't fix the app; it's for answering questions from Claude now.
+- The proper fix is rebuilding the Graylog stack against the existing OpenSearch
+  data (a deliberate, offline operation) — until then, prefer `--opensearch`.
 
 ## Sources at a glance
 
