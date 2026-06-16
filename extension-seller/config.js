@@ -2,7 +2,7 @@
 // The bookmarklet-sync sidecar in docker-compose.yml rewrites
 // GRAYLOG_ENDPOINT and GRAYLOG_TOKEN on every `docker compose up`.
 var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
-var GRAYLOG_TOKEN    = '1iavfie5ggdbkcqf07besckrg8inpqfdfnen6eptuih0dq17gocq';
+var GRAYLOG_TOKEN    = '1dfl48d81q96uu1djdahq1ic87cvnlmu4jqsvco2l0bh8u3adns8';
 
 globalThis.TOK_CONFIG = {
   GRAYLOG_ENDPOINT: GRAYLOG_ENDPOINT,
