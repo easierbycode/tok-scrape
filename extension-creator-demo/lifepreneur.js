@@ -20,6 +20,14 @@
   const Z = 2147483600; // sit above the host page + the order-detail template
   const ACCENT = '#e8650a';
 
+  // Kyle's profile picture, inlined as a data: URL so it always renders in
+  // the shareable image. The mobile-demo sync only copies the JS files (not
+  // the orders_files/ fixtures), and external <img> srcs don't load while an
+  // SVG image rasterizes — so a relative/network path would 404 in the
+  // embedded demo and never reach the share card. The gradient "K" tile stays
+  // as the fallback if even this fails to decode.
+  const KYLE_AVATAR = 'data:image/webp;base64,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';
+
   // ---- formatting -----------------------------------------------------------
   const money = (n, dp = 2) =>
     n == null ? '—'
@@ -610,11 +618,12 @@
       display: 'grid', placeItems: 'center', color: '#06130d', fontSize: '24px', fontWeight: '700',
       boxShadow: '0 0 20px var(--accent-soft)', position: 'relative', overflow: 'hidden'
     }, { text: 'K' });
-    // Kyle's avatar from the fixture (resolved against the host page so it
-    // works on both the deployed fixture and local previews); the gradient
-    // "K" underneath stays as the fallback if the image can't load
+    // Kyle's avatar, embedded as a data: URL (see KYLE_AVATAR) so it renders
+    // everywhere — deployed fixture, local preview, and the sandboxed embed —
+    // and survives the share-image capture; the gradient "K" underneath stays
+    // as the fallback if the image can't decode
     const avatarImg = el('img', { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover' }, {
-      src: new URL('orders_files/831fd8188287557752e933eac7af810a~tplv-tiktokx-cropcenter_100_100.webp', location.href).href,
+      src: KYLE_AVATAR,
       alt: 'Kyle'
     });
     avatarImg.addEventListener('error', () => avatarImg.remove());
