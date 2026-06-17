@@ -168,7 +168,12 @@
     // bridge.js posts via window.cordova_iab.postMessage; route that to our
     // 'message' listeners. Re-injected per navigation (each is a fresh document).
     try {
-      win.cordova_iab = { postMessage: function (s) { self._onGuestMessage(s); } };
+      // `__shim` flags this as the web/desktop bridge (no native plugins behind
+      // it). The guest's share code keys off window.cordova_iab to decide it has
+      // a *native* share host; without this marker it would round-trip to a host
+      // that has no social-sharing plugin and then refuse ("Sharing isn't
+      // available on this build") instead of using the browser share fallback.
+      win.cordova_iab = { postMessage: function (s) { self._onGuestMessage(s); }, __shim: true };
     } catch (e) { /* cross-origin guest: messaging unavailable */ }
 
     if (this._barLabel) this._barLabel.textContent = href;

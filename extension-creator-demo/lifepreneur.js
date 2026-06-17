@@ -337,6 +337,13 @@
 
   // ---- share plumbing ---------------------------------------------------------
   function hasNativeShareHost() {
+    // The web/desktop cordova.js shim (Thirsty OS, standalone web) also exposes
+    // window.cordova_iab so the run-extension / price-lookup channel works, but
+    // there is no social-sharing plugin behind it. Treat the shim as "no native
+    // host" so sharing falls through to the Web Share API + browser fallback
+    // instead of refusing outright. A real native InAppBrowser host (the Android
+    // APK) has the plugin and is detected normally.
+    if (window.cordova_iab && window.cordova_iab.__shim) return false;
     return !!(window.cordova_iab || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cordova_iab));
   }
 
@@ -378,15 +385,58 @@
         return { via: 'webshare' };
       }
     } catch (e) { if (e && e.name === 'AbortError') return { via: 'cancelled' }; }
-    // Inside the InAppBrowser, the browser fallback cannot save the image and
-    // window.open would navigate the webview away from the demo.
+    // Inside the *real* native InAppBrowser the browser fallback cannot save the
+    // image and window.open would navigate the webview away from the demo. (The
+    // web/desktop shim reports hasNativeShareHost() === false, so it continues.)
     if (hasNativeShareHost()) return { via: 'unavailable' };
-    // 3) browser only: save the PNG + open Facebook's share dialog (URL-only —
-    // sharer.php can't carry a local image, so the user attaches the saved PNG)
-    const a = el('a', null, { href: dataUrl, download: 'lifepreneur-free-samples.png' });
-    document.documentElement.appendChild(a); a.click(); a.remove();
-    window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(location.href), '_blank');
-    return { via: 'sharer-url' };
+    // 3) browser: save the PNG + open Facebook's share dialog (URL-only —
+    // sharer.php can't carry a local image, so the user attaches the saved PNG).
+    // window.open returning null means popups/downloads are blocked — i.e. the
+    // sandboxed embed (Thirsty OS web), where neither the download nor the popup
+    // can fire. Fall back to presenting the PNG for a long-press Save/Share,
+    // which works even inside the sandbox.
+    const fbUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(location.href);
+    let popup = null;
+    try { popup = window.open(fbUrl, '_blank'); } catch (_) { popup = null; }
+    if (popup) {
+      const a = el('a', null, { href: dataUrl, download: 'lifepreneur-free-samples.png' });
+      document.documentElement.appendChild(a); a.click(); a.remove();
+      return { via: 'sharer-url' };
+    }
+    showShareImageOverlay(dataUrl);
+    return { via: 'image-overlay' };
+  }
+
+  // Sandboxed-embed fallback: show the rendered valuation PNG full-screen so the
+  // user can long-press (mobile) or right-click (desktop) → Save / Share Image.
+  // The only share path that survives an allow-scripts/allow-same-origin iframe,
+  // where downloads and popups are both blocked.
+  function showShareImageOverlay(dataUrl) {
+    const sh = ensureHost();
+    const wrap = el('div', {
+      position: 'fixed', inset: '0', zIndex: String(Z + 3), display: 'flex',
+      flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px',
+      padding: '24px', background: 'rgba(6,8,12,0.92)', backdropFilter: 'blur(4px)',
+      pointerEvents: 'auto', opacity: '0', transition: 'opacity 0.25s ease'
+    }, { 'data-life-nocapture': '1' });
+    const close = () => { wrap.style.opacity = '0'; setTimeout(() => wrap.remove(), 250); };
+    const img = el('img', {
+      maxWidth: 'min(92vw, 480px)', maxHeight: '68vh', borderRadius: '14px',
+      border: '1px solid var(--line-strong)', boxShadow: 'var(--shadow)',
+      // let the OS image menu win over text selection / drag
+      webkitTouchCallout: 'default', webkitUserSelect: 'none', touchAction: 'manipulation'
+    }, { src: dataUrl, alt: 'Lifepreneur free samples valuation' });
+    const hint = el('div', {
+      color: 'var(--text)', fontSize: '14px', fontWeight: '700', textAlign: 'center',
+      maxWidth: '320px', lineHeight: '1.4'
+    }, { text: 'Press and hold the image to save or share it to Facebook' });
+    const done = el('button', {
+      marginTop: '4px', padding: '10px 22px', borderRadius: '99px', border: '1px solid var(--line-strong)',
+      background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', fontWeight: '700', cursor: 'pointer'
+    }, { text: 'Done', onclick: close });
+    add(wrap, img, hint, done);
+    add(sh, wrap);
+    requestAnimationFrame(() => { wrap.style.opacity = '1'; });
   }
 
   // The host calls this if the native share fails after it already acked —
@@ -668,7 +718,8 @@
         const r = await shareImage(dataUrl, shareText);
         if (r.via === 'sharer-url') toast('Image saved — attach it to your Facebook post');
         if (r.via === 'unavailable') toast('Sharing isn’t available on this build');
-        fbLabel.textContent = (r.via === 'cancelled' || r.via === 'unavailable') ? 'Share to Facebook' : '✓ Ready to post';
+        const idle = r.via === 'cancelled' || r.via === 'unavailable' || r.via === 'image-overlay';
+        fbLabel.textContent = idle ? 'Share to Facebook' : '✓ Ready to post';
       } catch (e) {
         console.warn('[life-demo] share failed', e);
         toast('Couldn’t create the share image');
