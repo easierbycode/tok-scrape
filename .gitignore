@@ -10,3 +10,6 @@ mobile-app/dist
 # Local secrets (ngrok authtoken, cluster secrets) — never commit
 .env
 **/.env
+
+# Local Graylog/OpenSearch exports
+backups/

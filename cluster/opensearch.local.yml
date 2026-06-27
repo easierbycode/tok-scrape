@@ -1,0 +1,18 @@
+# Local recovery OpenSearch config.
+#
+# Use this when the HA cluster has collapsed to a single laptop but the local
+# OpenSearch volume still has the Graylog indices. It avoids boot-time waits on
+# unavailable Tailnet peers while preserving the same data volume.
+
+cluster.name: graylog
+node.name: os-mac
+node.roles: [data, cluster_manager, ingest]
+
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+
+discovery.type: single-node
+
+action.auto_create_index: false
+plugins.security.disabled: true

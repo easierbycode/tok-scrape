@@ -1,0 +1,27 @@
+# Local recovery override for the HA Graylog stack.
+#
+# This is for the current one-laptop recovery mode: MongoDB, OpenSearch,
+# Graylog, nginx forwarder, and ngrok all run on the local Docker network while
+# preserving the existing tok-scrape_* Docker volumes.
+#
+# Run from this directory with the existing project name:
+#
+#   docker compose -p tok-scrape \
+#     -f docker-compose.datanode.yml \
+#     -f docker-compose.local-recovery.yml \
+#     up -d mongodb opensearch graylog graylog-fwd ngrok
+
+services:
+  opensearch:
+    volumes:
+      - ./opensearch.local.yml:/usr/share/opensearch/config/opensearch.yml:ro
+      - opensearch_data:/usr/share/opensearch/data
+
+  graylog:
+    environment:
+      # Keep the public forwarder URL, but keep Graylog's own database traffic
+      # inside the Docker network. directConnection avoids the replica-set
+      # driver's peer discovery path when only this local member is available.
+      GRAYLOG_HTTP_EXTERNAL_URI: "https://tok-graylog-api.ngrok-free.dev/"
+      GRAYLOG_MONGODB_URI: "mongodb://mongodb:27017/graylog?directConnection=true&serverSelectionTimeoutMS=5000"
+      GRAYLOG_ELASTICSEARCH_HOSTS: "http://opensearch:9200"
