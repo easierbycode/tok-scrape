@@ -4,6 +4,14 @@
   "version": "0.1.0",
   "description": "Scrape seller-side LIVE Dashboard + Streamer Compass on shop.tiktok.com and ship to Graylog / Sheets.",
   "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.tiktok.com/shop/order_detail*"],
+      "js": ["scrape-order-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
   "permissions": ["scripting", "activeTab"],
   "host_permissions": [
     "https://shop.tiktok.com/*",

@@ -165,7 +165,45 @@
   };
   console.log('[tok-scrape:order]', payload);
 
-  if (GRAYLOG_ENDPOINT) {
+  // Numeric product ids only exist in the page's data fetch, captured by the
+  // MAIN-world hook (scrape-order-main.js, installed at document_start). Request
+  // them, match by product NAME, stamp _product_id, then send. Times out to
+  // name-match-only (source 'none') so a missing/SSR-only API never blocks.
+  function resolveProductIds(cb) {
+    var done = false;
+    function finish(items) {
+      if (done) return;
+      done = true;
+      window.removeEventListener('message', onMsg);
+      cb(items || []);
+    }
+    function onMsg(ev) {
+      if (ev.source !== window) return;
+      var d = ev.data;
+      if (!d || d.source !== 'tok-scrape-order' || d.kind !== 'ids') return;
+      finish(d.items || []);
+    }
+    window.addEventListener('message', onMsg, false);
+    try {
+      window.postMessage({ source: 'tok-scrape-order', kind: 'request' }, window.location.origin);
+    } catch (e) { /* MAIN hook absent — timeout falls back to name-match */ }
+    setTimeout(function () { finish([]); }, 1200);
+  }
+
+  function matchProductId(name, items) {
+    var n = clean(name).toLowerCase();
+    if (!n) return '';
+    for (var i = 0; i < items.length; i++) {
+      var inm = clean(items[i].name).toLowerCase();
+      if (inm && (inm === n || inm.indexOf(n) !== -1 || n.indexOf(inm) !== -1)) {
+        return items[i].productId;
+      }
+    }
+    return '';
+  }
+
+  function sendGelf(productId, productIdSource) {
+    if (!GRAYLOG_ENDPOINT) return;
     // Graylog stores GELF additional fields as OpenSearch `keyword`, and Lucene
     // caps a single keyword term at 32,766 bytes. An order's line-item array is
     // tiny, but guard it the same way scrape-live.js does for safety.
@@ -199,8 +237,8 @@
       _scrapedAt:        payload.scrapedAt,
       _creator:          orderCreator,
       _creator_kind:     'display_name',
-      _product_id:       '',
-      _product_id_source: 'none',
+      _product_id:       productId,
+      _product_id_source: productIdSource,
       _graylog_key:      GRAYLOG_TOKEN
     };
     if (lineItemsJson !== null) gelf._line_items_json = lineItemsJson;
@@ -221,4 +259,17 @@
       }
     });
   }
+
+  resolveProductIds(function (items) {
+    // Enrich line items with their matched numeric ids (carried in line_items_json).
+    for (var li = 0; li < lineItems.length; li++) {
+      var pid = matchProductId(lineItems[li].productName, items) ||
+                matchProductId(lineItems[li].productAlt, items);
+      if (pid) lineItems[li].productId = pid;
+    }
+    var defaultId = defaultItem
+      ? (defaultItem.productId || matchProductId(defaultProductName, items))
+      : matchProductId(defaultProductName, items);
+    sendGelf(defaultId || '', defaultId ? 'order-api' : 'none');
+  });
 })();
