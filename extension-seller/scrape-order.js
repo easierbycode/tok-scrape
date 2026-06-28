@@ -260,16 +260,34 @@
     });
   }
 
+  // Synthetic product id for an order line with no real numeric id. FNV-1a over
+  // the cleaned product name, "900"-prefixed — byte-identical to
+  // extension-creator-demo's persistedProductId() AND data-pimp's stableProductId()
+  // (core/samples.ts), so an order event lands in the SAME id space the rest of
+  // the system uses for id-less products (the live order_list scraper has always
+  // identified products this way). The MAIN-world hook upgrades to a real id when
+  // the page actually exposes one.
+  function stableProductId(name) {
+    var s = clean(name);
+    if (!s) return '';
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return '900' + String(h >>> 0).padStart(10, '0');
+  }
+
   resolveProductIds(function (items) {
-    // Enrich line items with their matched numeric ids (carried in line_items_json).
+    // Each line item gets its captured real id, else the synthetic name-hash id.
     for (var li = 0; li < lineItems.length; li++) {
-      var pid = matchProductId(lineItems[li].productName, items) ||
-                matchProductId(lineItems[li].productAlt, items);
-      if (pid) lineItems[li].productId = pid;
+      var realPid = matchProductId(lineItems[li].productName, items) ||
+                    matchProductId(lineItems[li].productAlt, items);
+      lineItems[li].productId = realPid || stableProductId(lineItems[li].productName);
     }
-    var defaultId = defaultItem
-      ? (defaultItem.productId || matchProductId(defaultProductName, items))
-      : matchProductId(defaultProductName, items);
-    sendGelf(defaultId || '', defaultId ? 'order-api' : 'none');
+    var realDefault = matchProductId(defaultProductName, items);
+    if (realDefault) {
+      sendGelf(realDefault, 'order-api');
+    } else {
+      var synth = stableProductId(defaultProductName);
+      sendGelf(synth, synth ? 'name-hash' : 'none');
+    }
   });
 })();
