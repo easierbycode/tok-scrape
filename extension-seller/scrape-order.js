@@ -13,6 +13,22 @@
   var GRAYLOG_TOKEN    = CFG.GRAYLOG_TOKEN;
   var GRAYLOG_HOST     = 'tiktok-bookmarklet-orders';
 
+  // The logged-in account that placed/owns this order, from the Modern.js SSR
+  // blob. NOTE: order pages carry only a DISPLAY NAME (`user_nick_name`, e.g.
+  // "Neon Deals"), not the `@unique_id` the other scrapers emit — so this is a
+  // name, not an @handle. Stamped as `_creator` with `_creator_kind` so the
+  // dashboard can name-match it (the lifecycle assigned-creator dropdown is fed
+  // by matching the product NAME, since orders carry no numeric product id).
+  var orderCreator = '';
+  try {
+    var ssrEl = document.getElementById('__MODERN_ROUTER_DATA__') ||
+                document.getElementById('__MODERN_SSR_DATA__');
+    if (ssrEl) {
+      var ssrMatch = (ssrEl.textContent || '').match(/"user_nick_name":"([^"]+)"/);
+      if (ssrMatch) orderCreator = ssrMatch[1];
+    }
+  } catch (e) { /* SSR blob absent/changed — leave creator empty */ }
+
   var clean = function (s) { return (s || '').replace(/\s+/g, ' ').trim(); };
 
   // "$62.89" -> 62.89 (number); "" / unparseable -> null (never NaN, so the
@@ -181,6 +197,10 @@
       _shipping:         totals.shipping,
       _order_date:       orderInfo.orderDate,
       _scrapedAt:        payload.scrapedAt,
+      _creator:          orderCreator,
+      _creator_kind:     'display_name',
+      _product_id:       '',
+      _product_id_source: 'none',
       _graylog_key:      GRAYLOG_TOKEN
     };
     if (lineItemsJson !== null) gelf._line_items_json = lineItemsJson;
