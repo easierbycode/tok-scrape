@@ -11,6 +11,19 @@
   var GRAYLOG_TOKEN    = CFG.GRAYLOG_TOKEN;
   var GRAYLOG_HOST     = 'tiktok-bookmarklet-orders-list';
 
+  // Logged-in account that owns this order list, from the Modern.js SSR blob.
+  // A DISPLAY NAME (`user_nick_name`), not an @handle — one buyer owns the page,
+  // so the top-level `_creator` covers the whole feed. See scrape-order.js.
+  var orderCreator = '';
+  try {
+    var ssrEl = document.getElementById('__MODERN_ROUTER_DATA__') ||
+                document.getElementById('__MODERN_SSR_DATA__');
+    if (ssrEl) {
+      var ssrMatch = (ssrEl.textContent || '').match(/"user_nick_name":"([^"]+)"/);
+      if (ssrMatch) orderCreator = ssrMatch[1];
+    }
+  } catch (e) { /* SSR blob absent/changed — leave creator empty */ }
+
   var clean = function (s) { return (s || '').replace(/\s+/g, ' ').trim(); };
 
   var cards = document.querySelectorAll(
@@ -70,6 +83,8 @@
       timestamp: Math.floor(Date.now() / 1000),
       _order_count: orders.length,
       _scrapedAt:   payload.scrapedAt,
+      _creator:      orderCreator,
+      _creator_kind: 'display_name',
       _graylog_key: GRAYLOG_TOKEN
     };
     if (ordersJson !== null) gelf._orders_json = ordersJson;
