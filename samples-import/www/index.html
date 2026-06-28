@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>Samples · Import</title>
+    <link rel="stylesheet" href="css/import.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hd">
+        <div class="logo" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M5 14.5 L10 9 L13.5 12.5 L19 6.5" stroke="#06130d" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M14.5 6.5 L19 6.5 L19 11" stroke="#06130d" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div>
+          <h1>Samples · Import</h1>
+          <p class="sub">Paste or upload TikTok product IDs → hydrate → add to inventory, assigned to a creator.</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <label for="ids">Product IDs</label>
+        <textarea id="ids" rows="5" placeholder='Paste a list or array, e.g. ["1729587769570529799", 1731578642912612516] or one ID per line'></textarea>
+        <div class="row between">
+          <label class="file">
+            <input type="file" id="file" accept=".txt,.csv,text/plain,text/csv" />
+            <span>Upload .txt / .csv</span>
+          </label>
+          <span id="count" class="muted">0 product IDs</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <label for="creator">Assign to creator</label>
+        <div class="row">
+          <input id="creator" list="creator-list" placeholder="@handle" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <button id="suggest" class="ghost" type="button" title="Derive candidates who ordered the first product">Suggest</button>
+        </div>
+        <datalist id="creator-list"></datalist>
+        <p id="suggest-note" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <label class="toggle">
+          <input type="checkbox" id="autolist" />
+          <span>Auto-list after fulfillment</span>
+        </label>
+        <div id="autolist-panel" class="panel" hidden>
+          <div class="row">
+            <label class="num">Videos required<input type="number" id="videos" value="10" min="1" /></label>
+            <label class="num">Goal / day<input type="number" id="goal" value="5" min="1" /></label>
+            <label class="num">Marketplace<input id="marketplace" value="ebay" /></label>
+          </div>
+          <p id="days-note" class="muted"></p>
+          <p class="stub">Draft-listing intent only — records the schedule; nothing posts to eBay yet.</p>
+        </div>
+      </section>
+
+      <button id="start" class="primary" type="button">Import &amp; assign</button>
+
+      <section id="log" class="log" aria-live="polite"></section>
+      <section id="summary" class="summary" hidden></section>
+    </main>
+
+    <!-- Shared visual component: the order-detail modal (forked, flicker-free). -->
+    <script src="ext/template.js"></script>
+    <script src="js/import.js"></script>
+  </body>
+</html>
