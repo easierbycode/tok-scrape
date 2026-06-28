@@ -212,6 +212,21 @@
       (fail ? " · <b>" + fail + "</b> failed" : "") +
       (scheduled ? " · <b>" + scheduled + "</b> auto-list scheduled (~" + days + "d, draft stub)" : "") + ".";
     startEl.disabled = false;
+
+    // Tell the Thirsty OS shell a batch finished so it can relay a refresh to
+    // the Inventory pane (the right half of ?workspace=samples-import), making
+    // the just-imported rows appear without a manual reload. Fired ONCE per run
+    // (not per item). Guarded so a standalone (non-iframed) open is a no-op;
+    // payload is benign (counts + public @handle) so targetOrigin "*" is fine.
+    // Sibling convention: ebay-draft.js posts {type:"ebay-autofill"}.
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          source: "samples-import", type: "imported",
+          count: ok, fail: fail, scheduled: scheduled, total: ids.length, creator: creator,
+        }, "*");
+      }
+    } catch (e) { /* best-effort UI hint; the import already persisted */ }
   }
 
   startEl.addEventListener("click", run);
