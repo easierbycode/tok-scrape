@@ -154,6 +154,17 @@
     });
   }
 
+  // A "eBay draft" action on an imported line → the eBay listing snapshot.
+  function addDraftButton(el, product) {
+    if (!el || !window.EbayDraft) return;
+    var btn = document.createElement("button");
+    btn.className = "draft-btn";
+    btn.type = "button";
+    btn.textContent = "eBay draft";
+    btn.addEventListener("click", function () { window.EbayDraft.show(product); });
+    el.appendChild(btn);
+  }
+
   async function run() {
     var ids = currentIds();
     var creator = normCreator(creatorEl.value);
@@ -181,8 +192,12 @@
       if (res && res.ok) {
         ok++;
         if (res.scheduledListing) scheduled++;
-        line("ok", "✓", res.name || h.name, "→ " + creator +
+        var okLine = line("ok", "✓", res.name || h.name, "→ " + creator +
           (res.campaign ? ' · campaign "' + res.campaign + '"' : ""), res.enrichment || []);
+        addDraftButton(okLine, {
+          productId: h.productId, name: res.name || h.name,
+          price: h.price, image: h.image, seller: h.seller,
+        });
       } else {
         fail++;
         line("bad", "✕", h.name, (res && res.error) || "import failed");
