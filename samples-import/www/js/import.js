@@ -15,6 +15,9 @@
 
   var API = (new URLSearchParams(location.search).get("api") ||
     "https://thirsty.store").replace(/\/+$/, "");
+  // Dry-run (?dryrun=1): the import API computes campaign/enrichment but writes
+  // nothing — used by the E2E demo to show the flow without touching inventory.
+  var DRY = new URLSearchParams(location.search).get("dryrun") === "1";
 
   var $ = function (id) { return document.getElementById(id); };
   var idsEl = $("ids"), fileEl = $("file"), countEl = $("count");
@@ -129,6 +132,7 @@
       image: h.image, seller: h.seller, creator: creator,
     };
     if (days > 0) { body.autoListAfterDays = days; body.marketplace = marketplace; }
+    if (DRY) body.dryRun = true;
     return fetch(API + "/api/sample-import", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -193,6 +197,7 @@
         ok++;
         if (res.scheduledListing) scheduled++;
         var okLine = line("ok", "✓", res.name || h.name, "→ " + creator +
+          (DRY ? " · dry-run (not saved)" : "") +
           (res.campaign ? ' · campaign "' + res.campaign + '"' : ""), res.enrichment || []);
         addDraftButton(okLine, {
           productId: h.productId, name: res.name || h.name,
@@ -207,10 +212,11 @@
 
     try { window.LifeTemplate.hide(); } catch (e) {}
     summaryEl.hidden = false;
-    summaryEl.innerHTML = "Imported <b>" + ok + "</b> of " + ids.length +
-      " sample" + (ids.length === 1 ? "" : "s") + " → assigned to <b>" + esc(creator) + "</b>" +
+    summaryEl.innerHTML = (DRY ? "<b>DRY-RUN</b> · Previewed <b>" : "Imported <b>") + ok + "</b> of " + ids.length +
+      " sample" + (ids.length === 1 ? "" : "s") + " → " + (DRY ? "would assign to <b>" : "assigned to <b>") + esc(creator) + "</b>" +
       (fail ? " · <b>" + fail + "</b> failed" : "") +
-      (scheduled ? " · <b>" + scheduled + "</b> auto-list scheduled (~" + days + "d, draft stub)" : "") + ".";
+      (scheduled ? " · <b>" + scheduled + "</b> auto-list scheduled (~" + days + "d, draft stub)" : "") +
+      (DRY ? " · <b>nothing was written</b>" : "") + ".";
     startEl.disabled = false;
 
     // Tell the Thirsty OS shell a batch finished so it can relay a refresh to
