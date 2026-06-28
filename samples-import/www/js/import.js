@@ -215,5 +215,23 @@
   }
 
   startEl.addEventListener("click", run);
-  refreshCount();
+
+  // Demo / e2e mode: ?ids=<list>&creator=@x&autostart=1 prefills the form and,
+  // with autostart, replays the import visually — the left pane of the two-pane
+  // e2e workspace (the OS opens this with the run's product ids; see os.js
+  // ?workspace=samples-import). ?api= is already honored above.
+  (function initFromQuery() {
+    var q = new URLSearchParams(location.search);
+    var qids = q.get("ids");
+    if (qids) {
+      var parsed = parseIds(qids);
+      if (parsed.length) idsEl.value = parsed.join("\n");
+    }
+    var qc = q.get("creator");
+    if (qc) creatorEl.value = qc;
+    refreshCount();
+    if (q.get("autostart") === "1" && currentIds().length && normCreator(creatorEl.value)) {
+      setTimeout(run, 500); // let the page settle + LifeTemplate.ensure resolve
+    }
+  })();
 })();
