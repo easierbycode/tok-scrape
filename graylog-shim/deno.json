@@ -1,0 +1,28 @@
+{
+  "tasks": {
+    "dev": "KV_PATH=./local.kv API_TOKENS=devtoken ADMIN_PASSWORD=ChangeMeAdmin! deno run -A --unstable-kv --watch main.ts",
+    "check": "deno check --unstable-kv main.ts lucene.ts import-to-kv.ts",
+    "import:local": "KV_PATH=./local.kv deno run -A --unstable-kv import-to-kv.ts",
+    "deploy": "deno deploy --prod --app graylog-shim"
+  },
+  "fmt": { "lineWidth": 110 },
+  "lock": false,
+  "deploy": {
+    "org": "easierbycode",
+    "app": "graylog-shim"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -15,10 +15,10 @@
 const DEPLOYED_ORDERS_URL = 'https://easierbycode.com/tok-scrape/fixtures/orders-wizard.html';
 const KIOSK_API_BASE = 'https://thirsty-store-kiosk.easierbycode.deno.net';
 
-// Direct Graylog write path, same as the seller/agency scrapers. The
-// bookmarklet-sync sidecar rewrites these two lines on `docker compose up`
-// (see scripts/sync-bookmarklet.py).
-var GRAYLOG_ENDPOINT = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+// Direct Graylog write path, same as the seller/agency scrapers. Points at the
+// graylog-shim Deno Deploy app; the token is sent as _graylog_key and accepted
+// by the shim's GELF write gate (it's in API_TOKENS). See MIGRATION_PLAN.md.
+var GRAYLOG_ENDPOINT = 'https://graylog-shim.easierbycode.deno.net/gelf';
 var GRAYLOG_TOKEN    = '1d1l5fhd0bugo25s5ulib29vtjshp93q8sg4ll76nck84rj6krlr';
 const SUPPORTED_FIXTURES = [
   {
