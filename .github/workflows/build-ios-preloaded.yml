@@ -143,6 +143,26 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Tag: $tag"
 
+      # cordova-ios picks a default simulator by name; on newer runner images the
+      # pre-created sims can land on an UNAVAILABLE runtime (e.g. "iPhone 16e"),
+      # so xcodebuild fails with "Unable to find a device matching the provided
+      # destination specifier". Prune unavailable sims and guarantee at least one
+      # available iPhone exists so cordova's default-target resolves. Runner-agnostic.
+      - name: Ensure an available iOS simulator
+        run: |
+          set -euo pipefail
+          xcrun simctl delete unavailable || true
+          if ! xcrun simctl list devices available | grep -q "iPhone"; then
+            RUNTIME=$(xcrun simctl list runtimes --json \
+              | jq -r '[.runtimes[] | select(.isAvailable == true and (.name | startswith("iOS")))] | sort_by(.version) | last.identifier')
+            DEVTYPE=$(xcrun simctl list devicetypes --json \
+              | jq -r '[.devicetypes[] | select(.productFamily == "iPhone")] | last.identifier')
+            echo "creating iPhone-CI on $DEVTYPE / $RUNTIME"
+            xcrun simctl create "iPhone-CI" "$DEVTYPE" "$RUNTIME"
+          fi
+          echo "available iPhone simulators:"
+          xcrun simctl list devices available | grep iPhone
+
       - name: Build pre-loaded iOS bundle
         working-directory: mobile-app
         env:
