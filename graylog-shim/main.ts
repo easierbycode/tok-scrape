@@ -29,6 +29,12 @@ const MAX_TS = Number.MAX_SAFE_INTEGER;
 const SYNTH_INDEX = "graylog_kv";
 const tsKey = (ms: number) => String(MAX_TS - ms).padStart(16, "0");
 
+// All keys live under a namespace segment so this app can safely SHARE a Deno KV
+// instance with other apps (the free plan caps KV at 1 instance). Nothing outside
+// the ["graylog", …] subtree is ever read or written. Override via KV_NAMESPACE.
+const NS = Deno.env.get("KV_NAMESPACE") ?? "graylog";
+const k = (...parts: Deno.KvKeyPart[]): Deno.KvKey => [NS, ...parts];
+
 export interface StoredDoc {
   _id: string;
   source: string;
@@ -52,13 +58,40 @@ const json = (b: unknown, s = 200, extra: HeadersInit = {}) =>
 // newest stored ms — drives the empty-window gate. Loaded at boot, refreshed on write.
 let newestStoredMs = 0;
 async function loadNewest() {
-  for await (const e of kv.list<StoredDoc>({ prefix: ["ix", "ts"] }, { limit: 1 })) {
+  for await (const e of kv.list<StoredDoc>({ prefix: k("ix", "ts") }, { limit: 1 })) {
     newestStoredMs = Date.parse(e.value.timestamp); // first key = newest (tsDesc)
   }
 }
 await loadNewest();
 
 // ───────────────────────────── write path ─────────────────────────────
+
+// Backup-record timestamp may be space-separated UTC ("2026-05-28 03:17:37.000")
+// with no zone. Force ISO-T + Z so V8 parses it as UTC, not local time.
+function parseBackupTs(ts: string): number {
+  const iso = ts.includes("T") ? ts : ts.replace(" ", "T");
+  const ms = Date.parse(iso.endsWith("Z") ? iso : iso + "Z");
+  return Number.isNaN(ms) ? Date.now() : ms;
+}
+
+// One-shot bulk import of backup records ({_id, source, timestamp, fields}).
+// Used by the migration + rollback re-seed. Auth-gated (same Basic-auth as read).
+async function handleImport(req: Request): Promise<Response> {
+  let body: unknown;
+  try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
+  const recs = Array.isArray(body) ? body : (body as { records?: unknown[] })?.records;
+  if (!Array.isArray(recs)) return json({ error: "expected an array of records" }, 400);
+  let n = 0;
+  for (const r of recs as Array<{ _id: string; source: string; timestamp: string; fields: Record<string, unknown> }>) {
+    if (!r || !r._id) continue;
+    const ms = parseBackupTs(r.timestamp);
+    const ts = new Date(ms).toISOString();
+    const fields: Record<string, unknown> = { ...r.fields, source: r.source, timestamp: ts };
+    await putDoc({ _id: r._id, source: r.source, timestamp: ts, index: SYNTH_INDEX, fields });
+    n++;
+  }
+  return json({ imported: n });
+}
 
 function gelfToDoc(g: Record<string, unknown>): StoredDoc {
   const source = String(g.host ?? "unknown");
@@ -81,24 +114,25 @@ function gelfToDoc(g: Record<string, unknown>): StoredDoc {
 export async function putDoc(doc: StoredDoc) {
   const ms = Date.parse(doc.timestamp);
   const tk = tsKey(ms);
-  const primary: Deno.KvKey = ["ix", "ts", tk, doc._id];
+  const primary: Deno.KvKey = k("ix", "ts", tk, doc._id);
   const creator = (doc.fields.creator ?? "") as string;
-  const prior = await kv.get<Deno.KvKey>(["msg_by_id", doc._id]);
+  const prior = await kv.get<Deno.KvKey>(k("msg_by_id", doc._id));
   let a = kv.atomic();
   if (prior.value && !(prior.value.length === primary.length && prior.value.every((p, i) => p === primary[i]))) {
     // _id moved to a new timestamp (corrected ts on re-import): drop stale rows.
     const old = prior.value;
     a = a.delete(old);
     // old source/creator index rows share the same trailing [tk,id]; best-effort delete.
-    const [, , oldTk, oldId] = old as [string, string, string, string];
-    a = a.delete(["ix", "source", doc.source, oldTk, oldId]);
-    if (creator) a = a.delete(["ix", "creator", creator, oldTk, oldId]);
+    // old = [NS, "ix", "ts", oldTk, oldId]
+    const [, , , oldTk, oldId] = old as [string, string, string, string, string];
+    a = a.delete(k("ix", "source", doc.source, oldTk, oldId));
+    if (creator) a = a.delete(k("ix", "creator", creator, oldTk, oldId));
   }
-  a = a.set(["doc", doc._id], doc)
+  a = a.set(k("doc", doc._id), doc)
     .set(primary, doc)
-    .set(["ix", "source", doc.source, tk, doc._id], doc)
-    .set(["msg_by_id", doc._id], primary);
-  if (creator) a = a.set(["ix", "creator", creator, tk, doc._id], doc);
+    .set(k("ix", "source", doc.source, tk, doc._id), doc)
+    .set(k("msg_by_id", doc._id), primary);
+  if (creator) a = a.set(k("ix", "creator", creator, tk, doc._id), doc);
   const res = await a.commit();
   if (!res.ok) throw new Error(`KV commit failed for ${doc._id}`);
   if (ms > newestStoredMs) newestStoredMs = ms;
@@ -125,7 +159,7 @@ async function handleGelf(req: Request): Promise<Response> {
 async function candidates(ast: Node): Promise<StoredDoc[]> {
   const src = pinnedEq(ast, "source");
   const cre = pinnedEq(ast, "creator");
-  const prefix: Deno.KvKey = src ? ["ix", "source", src] : cre ? ["ix", "creator", cre] : ["ix", "ts"];
+  const prefix: Deno.KvKey = src ? k("ix", "source", src) : cre ? k("ix", "creator", cre) : k("ix", "ts");
   const out: StoredDoc[] = [];
   for await (const e of kv.list<StoredDoc>({ prefix }, { batchSize: 500, consistency: "eventual" })) {
     out.push(e.value); // value IS the full doc — no follow-up get
@@ -227,6 +261,12 @@ async function handler(req: Request): Promise<Response> {
   if (pathname === "/api/search/universal/relative" && req.method === "GET") {
     if (!authOk(req)) return unauthorized();
     return handleSearch(url);
+  }
+
+  // ADMIN — one-shot bulk import of backup records (Basic auth). Migration/re-seed only.
+  if (pathname === "/admin/import" && req.method === "POST") {
+    if (!authOk(req)) return unauthorized();
+    return handleImport(req);
   }
 
   // Benign stubs so optional client features don't throw.

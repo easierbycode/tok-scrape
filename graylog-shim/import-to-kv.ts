@@ -37,6 +37,10 @@ if (!path) {
 const connect = Deno.env.get("KV_CONNECT_URL") || Deno.env.get("KV_PATH");
 const kv = await Deno.openKv(connect);
 
+// Must match main.ts: all keys namespaced so a shared KV instance stays isolated.
+const NS = Deno.env.get("KV_NAMESPACE") ?? "graylog";
+const k = (...parts: Deno.KvKeyPart[]): Deno.KvKey => [NS, ...parts];
+
 const text = await Deno.readTextFile(path);
 const lines = text.split("\n").filter((l) => l.trim());
 
@@ -62,14 +66,14 @@ for (const line of lines) {
   const fields: Record<string, unknown> = { ...d.fields, source: d.source, timestamp: ts };
   const doc = { _id: d._id, source: d.source, timestamp: ts, index: SYNTH_INDEX, fields };
   const tk = tsKey(ms);
-  const primary: Deno.KvKey = ["ix", "ts", tk, d._id];
+  const primary: Deno.KvKey = k("ix", "ts", tk, d._id);
   const creator = (fields.creator ?? "") as string;
 
-  a = a.set(["doc", d._id], doc)
+  a = a.set(k("doc", d._id), doc)
     .set(primary, doc)
-    .set(["ix", "source", d.source, tk, d._id], doc)
-    .set(["msg_by_id", d._id], primary);
-  if (creator) a = a.set(["ix", "creator", creator, tk, d._id], doc);
+    .set(k("ix", "source", d.source, tk, d._id), doc)
+    .set(k("msg_by_id", d._id), primary);
+  if (creator) a = a.set(k("ix", "creator", creator, tk, d._id), doc);
 
   seen.add(d._id);
   perSource[d.source] = (perSource[d.source] ?? 0) + 1;
