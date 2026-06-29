@@ -430,11 +430,11 @@ async function run(): Promise<void> {
     throw new Error('--target=orders --env=prod requires --product="<product name>" to find the order.');
   }
 
-  if (!sources.graylogEndpoint.includes('ngrok')) {
+  if (sources.graylogEndpoint.includes('ngrok')) {
     // eslint-disable-next-line no-console
     console.warn(
-      `[warn] GRAYLOG_ENDPOINT=${sources.graylogEndpoint} does not look like an ngrok URL; ` +
-        `if you haven't run 'docker compose up' lately it is probably stale.`,
+      `[warn] GRAYLOG_ENDPOINT=${sources.graylogEndpoint} still points at the retired ngrok stack; ` +
+        `the live target is the graylog-shim Deno Deploy app (see MIGRATION_PLAN.md).`,
     );
   }
 

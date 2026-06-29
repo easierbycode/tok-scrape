@@ -33,12 +33,24 @@
 
   function $(id) { return document.getElementById(id); }
 
-  // Default GELF HTTP input endpoint, matching the browser extensions
-  // (extension-seller/config.js). The bookmarklet-sync sidecar in
-  // docker-compose.yml rewrites this on every `docker compose up`.
-  var DEFAULT_GRAYLOG_URL = 'https://tok-graylog-api.ngrok-free.dev';
+  // Read API + GELF ingest endpoints, matching the browser extensions
+  // (extension-seller/config.js). Points at the graylog-shim Deno Deploy app
+  // that replaces the old self-hosted Graylog + ngrok stack (MIGRATION_PLAN.md).
+  // Both are the same origin on the shim (path-routed). The token is accepted by
+  // the shim's API_TOKENS.
+  var DEFAULT_GRAYLOG_URL = 'https://graylog-shim.easierbycode.deno.net';
   var DEFAULT_GRAYLOG_TOKEN = '1hjk2lkmmgqh8gqbint3fneasc2hn208jrf28hd7gsfv9j6s9amr';
-  var DEFAULT_GELF_URL = 'https://tok-graylog-gelf.ngrok-free.dev/gelf';
+  var DEFAULT_GELF_URL = 'https://graylog-shim.easierbycode.deno.net/gelf';
+  // Hosts that no longer serve data — installs with any of these persisted in
+  // localStorage are force-migrated to DEFAULT_GRAYLOG_URL/DEFAULT_GELF_URL on
+  // load (see loadSettings). This is the lever that re-points already-installed
+  // apps off the dead ngrok stack; a token-key bump alone would not (the token
+  // migration is gated on url === DEFAULT_GRAYLOG_URL).
+  var DEAD_HOSTS = [
+    'https://tok-graylog-api.ngrok-free.dev',
+    'https://tok-graylog-gelf.ngrok-free.dev/gelf',
+    'https://tok-graylog-gelf.ngrok-free.dev'
+  ];
   // Bump this key whenever DEFAULT_GRAYLOG_TOKEN is rotated (or needs to be
   // re-pushed to installs that already ran an earlier migration). loadSettings()
   // only re-applies the embedded token to an install once per key value, so a
@@ -55,12 +67,13 @@
       // so `host:tiktok-bookmarklet` never matched any message. Rewrite silently.
       if (query === 'host:tiktok-bookmarklet') query = 'source:tiktok-bookmarklet';
       var url = (s.url || '').replace(/\/+$/, '');
-      // Repair a base URL pointed at the GELF *ingest* endpoint. That host only
-      // accepts writes (the bookmarklet posts there); the dashboard reads from
-      // the REST API host, so a misseeded URL makes every search 401 no matter
-      // how valid the token is. Rewrite it to the API default so the install
-      // recovers without a manual Settings edit.
-      if (url === DEFAULT_GELF_URL || url === DEFAULT_GELF_URL.replace(/\/gelf$/, '')) {
+      // Force-migrate installs off dead hosts (the old self-hosted Graylog +
+      // ngrok stack, replaced by graylog-shim) and off a base URL misseeded at
+      // the GELF *ingest* endpoint (that host only accepts writes, so reads 401).
+      // Rewrite to the current API default so the install recovers without a
+      // manual Settings edit. Idempotent + persisted below, so it self-heals once.
+      if (DEAD_HOSTS.indexOf(url) !== -1 ||
+          url === DEFAULT_GELF_URL || url === DEFAULT_GELF_URL.replace(/\/gelf$/, '')) {
         url = DEFAULT_GRAYLOG_URL;
       }
       var migratedToken = s.token || '';
@@ -71,11 +84,18 @@
         migratedToken = DEFAULT_GRAYLOG_TOKEN;
         localStorage.setItem(GRAYLOG_TOKEN_MIGRATION_KEY, '1');
       }
+      // Same dead-host migration for the GELF ingest endpoint (the affiliate
+      // "Add Exported Data" uploader posts there) so it follows url off ngrok.
+      var gelfUrl = s.gelfUrl || DEFAULT_GELF_URL;
+      if (DEAD_HOSTS.indexOf(gelfUrl) !== -1 ||
+          DEAD_HOSTS.indexOf(gelfUrl.replace(/\/gelf$/, '')) !== -1) {
+        gelfUrl = DEFAULT_GELF_URL;
+      }
       var migrated = {
         url:         url,
         token:       migratedToken,
         query:       query,
-        gelfUrl:     s.gelfUrl     || DEFAULT_GELF_URL,
+        gelfUrl:     gelfUrl,
         autoRefresh: !!s.autoRefresh
       };
       if (migrated.url !== s.url ||
@@ -1251,7 +1271,7 @@
   // numbers — this keeps the source of truth intact while letting Graylog
   // aggregate over numeric fields. timestamp comes from Order date when
   // parseable; otherwise falls back to the upload time.
-  function gelfFromOrder(row, agencyOverride, scrapedAt) {
+  function gelfFromOrder(row, agencyOverride, scrapedAt, token) {
     var orderDate    = row['Order date'] || '';
     var orderDateIso = affiliateDateToIso(orderDate);
     var unixTs = orderDateIso
@@ -1267,6 +1287,8 @@
       host: 'tiktok-affiliate-export',
       short_message: 'affiliate order ' + orderId + ': ' + (row['Currency'] || '') + ' ' + (row['GMV'] || '0') + ' ' + contentType,
       timestamp: unixTs,
+      // The graylog-shim GELF endpoint gates writes on _graylog_key ∈ API_TOKENS.
+      _graylog_key:                token || '',
       // creator is what the dashboard's account picker filters on. The export
       // doesn't carry the actual TikTok handle, only the agency label, so we
       // mirror it into both fields.
@@ -1352,7 +1374,7 @@
         var scrapedAt = new Date().toISOString();
 
         setUploadStatus('Sending 0 / ' + rows.length + ' orders to Graylog…');
-        return pushOrdersBatched(rows, s.gelfUrl, agencyOverride, scrapedAt);
+        return pushOrdersBatched(rows, s.gelfUrl, agencyOverride, scrapedAt, s.token);
       })
       .then(function (summary) {
         var failures = summary.failed;
@@ -1372,7 +1394,7 @@
       });
   }
 
-  function pushOrdersBatched(rows, gelfUrl, agencyOverride, scrapedAt) {
+  function pushOrdersBatched(rows, gelfUrl, agencyOverride, scrapedAt, token) {
     var concurrency = 4;
     var i = 0, sent = 0, failed = 0, inflight = 0;
     var total = rows.length;
@@ -1385,7 +1407,7 @@
         while (inflight < concurrency && i < total) {
           var idx = i++;
           inflight++;
-          postGelf(gelfUrl, gelfFromOrder(rows[idx], agencyOverride, scrapedAt))
+          postGelf(gelfUrl, gelfFromOrder(rows[idx], agencyOverride, scrapedAt, token))
             .then(function () { sent++; })
             .catch(function (err) {
               failed++;

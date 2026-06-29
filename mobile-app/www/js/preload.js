@@ -23,7 +23,7 @@
     auth:     { scope: ['member-id'] },                        // tok-scrape.auth.v1
     settings: { url: '', token: '',                            // tok-scrape.settings.v1
                 query: 'source:tiktok-bookmarklet',
-                gelfUrl: 'https://tok-graylog-gelf.ngrok-free.dev/gelf',
+                gelfUrl: 'https://graylog-shim.easierbycode.deno.net/gelf',
                 autoRefresh: true },
     roster:   [],                                              // window.__TOK_PRELOADED_ROSTER__
     common:   { enabled: false, name: 'Seller Comparison',     // tok-scrape.commonDashboard.v1

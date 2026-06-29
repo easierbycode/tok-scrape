@@ -31,8 +31,11 @@ of dumping a raw stack trace. See the SKILL.md "Auth" section.
 
 URL resolution:
   1. --url   (or env GRAYLOG_API_URL)
-  2. default: https://tok-graylog-api.ngrok-free.dev   (the public ngrok domain)
-  Use http://localhost:9000 for a local stack.
+  2. default: https://graylog-shim.easierbycode.deno.net   (the Deno Deploy shim
+     that replaced the old self-hosted Graylog + ngrok stack; see MIGRATION_PLAN.md)
+  Auth: pass the API token (Basic <token>:token) — the committed extension token
+  works (it's in the shim's API_TOKENS). The admin/password fallback only works if
+  ADMIN_PASSWORD is set on the shim.
 
 Examples
 --------
@@ -67,7 +70,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_URL = "https://tok-graylog-api.ngrok-free.dev"
+DEFAULT_URL = "https://graylog-shim.easierbycode.deno.net"
 FIVE_YEARS_SECONDS = 5 * 365 * 24 * 3600
 DEFAULT_RANGE_SECONDS = 30 * 24 * 3600  # 30 days
 # Sane default columns when the caller doesn't pass --fields.

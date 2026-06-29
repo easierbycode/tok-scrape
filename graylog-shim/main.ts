@@ -111,6 +111,18 @@ function gelfToDoc(g: Record<string, unknown>): StoredDoc {
   return { _id, source, timestamp: ts, index: SYNTH_INDEX, fields };
 }
 
+async function deleteDoc(doc: StoredDoc) {
+  const tk = tsKey(Date.parse(doc.timestamp));
+  const creator = (doc.fields.creator ?? "") as string;
+  let a = kv.atomic()
+    .delete(k("doc", doc._id))
+    .delete(k("ix", "ts", tk, doc._id))
+    .delete(k("ix", "source", doc.source, tk, doc._id))
+    .delete(k("msg_by_id", doc._id));
+  if (creator) a = a.delete(k("ix", "creator", creator, tk, doc._id));
+  await a.commit();
+}
+
 export async function putDoc(doc: StoredDoc) {
   const ms = Date.parse(doc.timestamp);
   const tk = tsKey(ms);
@@ -267,6 +279,25 @@ async function handler(req: Request): Promise<Response> {
   if (pathname === "/admin/import" && req.method === "POST") {
     if (!authOk(req)) return unauthorized();
     return handleImport(req);
+  }
+
+  // ADMIN — delete docs matching a mini-Lucene query+range (Basic auth). Purge
+  // test/probe docs or prune. Body: { query: "<lucene>", range?: <seconds> }.
+  if (pathname === "/admin/delete" && req.method === "POST") {
+    if (!authOk(req)) return unauthorized();
+    let b: { query?: string; range?: number };
+    try { b = await req.json(); } catch { return json({ error: "bad json" }, 400); }
+    if (!b.query) return json({ error: "query required" }, 400);
+    const ast = parse(b.query);
+    const range = Number(b.range ?? 0);
+    const unbounded = range === 0 || range >= FIVE_YEARS_S;
+    const minMs = unbounded ? -Infinity : Date.now() - range * 1000;
+    const pool = await candidates(ast);
+    let n = 0;
+    for (const d of pool) {
+      if (Date.parse(d.timestamp) >= minMs && evalNode(ast, d.fields)) { await deleteDoc(d); n++; }
+    }
+    return json({ deleted: n });
   }
 
   // Benign stubs so optional client features don't throw.

@@ -82,9 +82,14 @@ bump `--limit` higher.
 
 ## Auth & endpoint
 
-**Endpoint** defaults to the public ngrok domain
-`https://tok-graylog-api.ngrok-free.dev` (override with `--url` or
-`GRAYLOG_API_URL`; use `http://localhost:9000` against a local stack).
+**Endpoint** defaults to the **graylog-shim** Deno Deploy app
+`https://graylog-shim.easierbycode.deno.net` — a small Deno+KV service that
+reproduces the Graylog Universal Search + GELF contracts and replaced the old
+self-hosted Graylog + ngrok stack (see `MIGRATION_PLAN.md`). Override with `--url`
+or `GRAYLOG_API_URL`. The committed extension API token authenticates fine (it's
+in the shim's `API_TOKENS`); the `admin`/password fallback only works if the shim
+has `ADMIN_PASSWORD` set. The `--opensearch` mode below is legacy (it hit the old
+Mac's `localhost:9200`, gone once the old stack is decommissioned).
 
 **Credential** resolution, highest priority first:
 1. `--user` + `--password` (or `GRAYLOG_USER` / `GRAYLOG_PASSWORD`) — Basic auth,
