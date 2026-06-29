@@ -1,0 +1,5 @@
+local.kv*
+*.kv
+*.kv-shm
+*.kv-wal
+deno.lock
