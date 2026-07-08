@@ -57,11 +57,17 @@
     <p class="note">
       Inside the modal: a <strong>style switcher</strong> (SmashTV · Showcase) and a
       <strong>“Just the numbers”</strong> checkbox (its preference is remembered). Press
-      <strong>Esc</strong> or click the backdrop to close. Toggle your OS “reduce motion”
-      setting to see the no-animation path.
+      <strong>Esc</strong> or click the backdrop to close. This demo page forces the
+      animations on even when the OS asks for reduced motion; injected as a content
+      script (without <code>TOK_SAMPLES_FORCE_MOTION</code>) the modal honors the setting.
     </p>
   </div>
 
+  <script>
+    // This page demos the animations themselves — play them even when the OS
+    // reports prefers-reduced-motion (e.g. Windows "Animation effects" off).
+    window.TOK_SAMPLES_FORCE_MOTION = true;
+  </script>
   <script src="samples-mock.js"></script>
   <script src="samples-modal.js"></script>
   <script>

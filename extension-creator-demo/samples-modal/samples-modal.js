@@ -31,7 +31,17 @@
     });
   }
 
+  // Demo pages set window.TOK_SAMPLES_FORCE_MOTION = true (or pass
+  // { motion: 'force' } to show()) — the animation IS what's being demoed, so
+  // it must play even when the OS reports prefers-reduced-motion. Real
+  // content-script injection leaves the flag unset and honors the preference.
+  function forceMotion() {
+    if (current && current.forceMotion) return true;
+    try { return window.TOK_SAMPLES_FORCE_MOTION === true; } catch (e) { return false; }
+  }
+
   function reducedMotion() {
+    if (forceMotion()) return false;
     try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
     catch (e) { return false; }
   }
@@ -223,9 +233,12 @@
     '.samp-table tr:nth-child(even) td { background: rgba(255,255,255,.018); }',
     '.brand-tag { color: #76768a; font-size: 10.5px; margin-left: 6px; }',
     '.samp-table .acct { color: #9a9aa6; white-space: nowrap; }',
-    '.samp-table .rv { text-align: right; font-weight: 700; color: #fff; white-space: nowrap; }',
-    '@media (prefers-reduced-motion: reduce) { .overlay, .lot, .showcase-final, .bulbs { animation: none !important; transition: none !important; } }'
+    '.samp-table .rv { text-align: right; font-weight: 700; color: #fff; white-space: nowrap; }'
   ].join('\n');
+
+  // Appended at render time unless motion is forced — the media query fires on
+  // the OS setting regardless of our JS flag, so it can't live in CSS above.
+  var REDUCED_CSS = '\n@media (prefers-reduced-motion: reduce) { .overlay, .lot, .showcase-final, .bulbs { animation: none !important; transition: none !important; } }';
 
   // ==========================================================================
   // markup builders
@@ -436,7 +449,8 @@
     if (!current) return;
     clearAnimations();
     var reduced = reducedMotion();
-    current.shadow.innerHTML = '<style>' + CSS + '</style>' + frameHtml(current.haul, current.style, reduced);
+    current.shadow.innerHTML = '<style>' + CSS + (forceMotion() ? '' : REDUCED_CSS) + '</style>' +
+      frameHtml(current.haul, current.style, reduced);
     wireChrome();
     var animate = ANIMATORS[current.style];
     if (animate) animate(current.haul, current.shadow, reduced);
@@ -474,6 +488,7 @@
     current = {
       host: host, shadow: shadow, haul: haul,
       style: style, fancy: style === 'boring' ? 'smashtv' : style,
+      forceMotion: opts.motion === 'force',
       cancels: [], onKey: onKey
     };
     render();
