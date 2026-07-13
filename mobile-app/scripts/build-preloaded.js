@@ -264,7 +264,7 @@ function findIosArtifact(release) {
   const memberIds   = parseMemberIds(envOrFail('MEMBER_ID'));
   const graylogUrl  = envOrFail('GRAYLOG_URL');
   const token       = envOrFail('GRAYLOG_TOKEN');
-  const gelfUrl     = (process.env.GRAYLOG_GELF_URL || 'https://graylog-shim.easierbycode.deno.net/gelf').trim();
+  const gelfUrl     = (process.env.GRAYLOG_GELF_URL || 'https://thirsty.store/gelf').trim();
   const dashboardName = (process.env.COMMON_DASHBOARD_NAME || 'Seller Comparison').trim();
   let dashboardId   = (process.env.COMMON_DASHBOARD_ID || '').trim();
   const release     = process.env.RELEASE === '1';

@@ -33,14 +33,12 @@
 
   function $(id) { return document.getElementById(id); }
 
-  // Read API + GELF ingest endpoints, matching the browser extensions
-  // (extension-seller/config.js). Points at the graylog-shim Deno Deploy app
-  // that replaces the old self-hosted Graylog + ngrok stack (MIGRATION_PLAN.md).
-  // Both are the same origin on the shim (path-routed). The token is accepted by
-  // the shim's API_TOKENS.
-  var DEFAULT_GRAYLOG_URL = 'https://graylog-shim.easierbycode.deno.net';
+  // Read API + GELF ingest endpoints, matching the LP-OS browser extension.
+  // Both are served by thirsty.store: reads use the Graylog-compatible search
+  // surface and writes use its /gelf endpoint.
+  var DEFAULT_GRAYLOG_URL = 'https://thirsty.store';
   var DEFAULT_GRAYLOG_TOKEN = '1hjk2lkmmgqh8gqbint3fneasc2hn208jrf28hd7gsfv9j6s9amr';
-  var DEFAULT_GELF_URL = 'https://graylog-shim.easierbycode.deno.net/gelf';
+  var DEFAULT_GELF_URL = 'https://thirsty.store/gelf';
   // Hosts that no longer serve data — installs with any of these persisted in
   // localStorage are force-migrated to DEFAULT_GRAYLOG_URL/DEFAULT_GELF_URL on
   // load (see loadSettings). This is the lever that re-points already-installed
@@ -49,13 +47,15 @@
   var DEAD_HOSTS = [
     'https://tok-graylog-api.ngrok-free.dev',
     'https://tok-graylog-gelf.ngrok-free.dev/gelf',
-    'https://tok-graylog-gelf.ngrok-free.dev'
+    'https://tok-graylog-gelf.ngrok-free.dev',
+    'https://graylog-shim.easierbycode.deno.net',
+    'https://graylog-shim.easierbycode.deno.net/gelf'
   ];
   // Bump this key whenever DEFAULT_GRAYLOG_TOKEN is rotated (or needs to be
   // re-pushed to installs that already ran an earlier migration). loadSettings()
   // only re-applies the embedded token to an install once per key value, so a
   // version bump is what makes the refresh reach devices that migrated before.
-  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v4';
+  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v5';
 
   function loadSettings() {
     try {
