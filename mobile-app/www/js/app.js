@@ -55,7 +55,7 @@
   // re-pushed to installs that already ran an earlier migration). loadSettings()
   // only re-applies the embedded token to an install once per key value, so a
   // version bump is what makes the refresh reach devices that migrated before.
-  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v5';
+  var GRAYLOG_TOKEN_MIGRATION_KEY = 'tok-scrape.graylogToken.v6';
 
   function loadSettings() {
     try {
@@ -67,18 +67,24 @@
       // so `host:tiktok-bookmarklet` never matched any message. Rewrite silently.
       if (query === 'host:tiktok-bookmarklet') query = 'source:tiktok-bookmarklet';
       var url = (s.url || '').replace(/\/+$/, '');
+      var migratedFromDeadHost = DEAD_HOSTS.indexOf(url) !== -1;
       // Force-migrate installs off dead hosts (the old self-hosted Graylog +
       // ngrok stack, replaced by graylog-shim) and off a base URL misseeded at
       // the GELF *ingest* endpoint (that host only accepts writes, so reads 401).
       // Rewrite to the current API default so the install recovers without a
       // manual Settings edit. Idempotent + persisted below, so it self-heals once.
-      if (DEAD_HOSTS.indexOf(url) !== -1 ||
+      if (migratedFromDeadHost ||
           url === DEFAULT_GELF_URL || url === DEFAULT_GELF_URL.replace(/\/gelf$/, '')) {
         url = DEFAULT_GRAYLOG_URL;
       }
       var migratedToken = s.token || '';
       var tokenMigrationApplied = localStorage.getItem(GRAYLOG_TOKEN_MIGRATION_KEY) === '1';
-      if (url === DEFAULT_GRAYLOG_URL &&
+      // A URL migration and its credential migration are one operation. Never
+      // carry credentials from a retired service to the replacement origin.
+      if (migratedFromDeadHost) {
+        migratedToken = DEFAULT_GRAYLOG_TOKEN;
+        localStorage.setItem(GRAYLOG_TOKEN_MIGRATION_KEY, '1');
+      } else if (url === DEFAULT_GRAYLOG_URL &&
           migratedToken !== DEFAULT_GRAYLOG_TOKEN &&
           !tokenMigrationApplied) {
         migratedToken = DEFAULT_GRAYLOG_TOKEN;

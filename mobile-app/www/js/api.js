@@ -20,6 +20,27 @@
 (function (global) {
   'use strict';
 
+  var CURRENT_API_BASE = 'https://thirsty.store';
+  var RETIRED_API_ORIGINS = [
+    'https://graylog-shim.easierbycode.deno.net',
+    'https://tok-graylog-api.ngrok-free.dev',
+    'https://tok-graylog-gelf.ngrok-free.dev'
+  ];
+
+  // Settings are normally migrated by app.js, but keep the transport safe on
+  // its own too. This covers an older persisted setting, a partially cached
+  // web bundle, or any caller that constructs GraylogClient directly.
+  function canonicalApiBase(value) {
+    var base = String(value || '').trim().replace(/\/+$/, '');
+    for (var i = 0; i < RETIRED_API_ORIGINS.length; i++) {
+      if (base === RETIRED_API_ORIGINS[i] ||
+          base.indexOf(RETIRED_API_ORIGINS[i] + '/') === 0) {
+        return CURRENT_API_BASE;
+      }
+    }
+    return base;
+  }
+
   // AND `base` with a creator filter built from a single handle or an array
   // of handles. An array becomes an OR-joined disjunction so a multi-creator
   // scope returns scrapes from any listed handle. Empty / null skips the AND.
@@ -49,7 +70,7 @@
   }
 
   function GraylogClient(opts) {
-    this.baseUrl = (opts.baseUrl || '').replace(/\/+$/, '');
+    this.baseUrl = canonicalApiBase(opts.baseUrl);
     this.token   = opts.token || '';
   }
 

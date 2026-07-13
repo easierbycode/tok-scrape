@@ -71,6 +71,7 @@
   // -----------------------------------------------------------------
   var bundleVersion = String(window.__BUNDLE_VERSION__ || 'dev');
   var nativeVersion = String(window.__APK_NATIVE_VERSION__ || '0.0.0');
+  var isNativeShell = !!window.cordova;
 
   var skipOTA = false;
   try { skipOTA = sessionStorage.getItem(SKIP_FLAG) === '1'; } catch (_) {}
@@ -435,6 +436,13 @@
 
   function checkForUpdate(opts) {
     opts = opts || {};
+    // The repository's browser-hosted page already serves current assets
+    // directly and has neither a native version nor cordova-plugin-file. OTA
+    // only applies to the installed Cordova shell.
+    if (!isNativeShell) {
+      console.log('OTA: browser host detected -- native update check skipped');
+      return Promise.resolve({ skipped: 'browser-host' });
+    }
     var url = (opts.manifestUrl || MANIFEST_URL) + '?ts=' + Date.now();
     console.log('OTA: checking', url);
     return fetch(url, { cache: 'no-store' }).then(function (r) {
