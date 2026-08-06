@@ -1,0 +1,420 @@
+/*
+ * LP brand color theme for Graylog Open's web UI.
+ *
+ * Mirrors the palette used by mobile-app/www/css/app.css so the dashboards
+ * the mobile-app iframes (see Seller Comparison overlay) feel like one
+ * product instead of two.
+ *
+ * Strategy:
+ *   1. Override every CSS custom property Graylog 7.x's theme bridge might
+ *      read — both the styled-components `--theme-colors-*` namespace and
+ *      the Bootstrap `--bs-*` namespace.
+ *   2. Apply direct selector overrides as a backstop, because styled-
+ *      components generate hashed class names that we can't target.
+ *
+ * The `!important` flags are deliberate — Graylog's compiled stylesheets
+ * carry very specific class-name selectors, and without `!important` our
+ * single-class selectors lose specificity even with later document order.
+ *
+ * Source palette: mobile-app/www/css/app.css :root
+ *   --background:       #1a1916
+ *   --foreground:       #f2f1ed
+ *   --card:             #232220
+ *   --primary:          #f54e00  (LP orange)
+ *   --primary-hover:    #e8650a  (= mobile-app --ring)
+ *   --secondary:        #24243a
+ *   --muted-foreground: rgb(242 241 237 / 0.6)
+ *   --border:           rgb(242 241 237 / 0.1)
+ *   --warning:          #fbbf24
+ *   --destructive:      #ef4444
+ *   --success:          #39a561
+ */
+
+:root,
+html,
+body,
+[data-theme] {
+  /* Graylog 7.x theme-bridge variables (styled-components ThemeProvider) */
+  --theme-colors-brand-primary: #f54e00 !important;
+  --theme-colors-brand-secondary: #e8650a !important;
+  --theme-colors-brand-tertiary: #f2f1ed !important;
+  --theme-colors-brand-logo: #f54e00 !important;
+
+  --theme-colors-global-background: #1a1916 !important;
+  --theme-colors-global-contentBackground: #232220 !important;
+  --theme-colors-global-textDefault: #f2f1ed !important;
+  --theme-colors-global-textAlt: rgb(242 241 237 / 0.6) !important;
+  --theme-colors-global-link: #f54e00 !important;
+  --theme-colors-global-linkHover: #e8650a !important;
+  --theme-colors-global-inputBackground: #232220 !important;
+  --theme-colors-global-mouseHover: rgb(245 78 0 / 0.12) !important;
+  --theme-colors-global-navigationBackground: rgb(26 25 22 / 0.94) !important;
+  --theme-colors-global-navigationBoxShadow: 0 -10px 40px rgb(0 0 0 / 0.22) !important;
+  --theme-colors-global-borderColor: rgb(242 241 237 / 0.1) !important;
+
+  --theme-colors-variant-primary: #f54e00 !important;
+  --theme-colors-variant-success: #39a561 !important;
+  --theme-colors-variant-info: #f54e00 !important;
+  --theme-colors-variant-warning: #fbbf24 !important;
+  --theme-colors-variant-danger: #ef4444 !important;
+  --theme-colors-variant-default: #232220 !important;
+
+  --theme-colors-variant-light-primary: rgb(245 78 0 / 0.18) !important;
+  --theme-colors-variant-light-success: rgb(57 165 97 / 0.18) !important;
+  --theme-colors-variant-light-info: rgb(245 78 0 / 0.12) !important;
+  --theme-colors-variant-light-warning: rgb(251 191 36 / 0.18) !important;
+  --theme-colors-variant-light-danger: rgb(239 68 68 / 0.18) !important;
+  --theme-colors-variant-light-default: rgb(35 34 32 / 0.92) !important;
+
+  --theme-colors-variant-dark-primary: #e8650a !important;
+  --theme-colors-variant-dark-success: #2c8049 !important;
+  --theme-colors-variant-dark-info: #e8650a !important;
+  --theme-colors-variant-dark-warning: #d99e1c !important;
+  --theme-colors-variant-dark-danger: #c1342f !important;
+  --theme-colors-variant-dark-default: #1a1916 !important;
+
+  /* Bootstrap 5 vars Graylog inherits from react-bootstrap */
+  --bs-primary: #f54e00 !important;
+  --bs-primary-rgb: 245, 78, 0 !important;
+  --bs-link-color: #f54e00 !important;
+  --bs-link-color-rgb: 245, 78, 0 !important;
+  --bs-link-hover-color: #e8650a !important;
+  --bs-link-hover-color-rgb: 232, 101, 10 !important;
+  --bs-body-bg: #1a1916 !important;
+  --bs-body-bg-rgb: 26, 25, 22 !important;
+  --bs-body-color: #f2f1ed !important;
+  --bs-body-color-rgb: 242, 241, 237 !important;
+  --bs-border-color: rgb(242 241 237 / 0.1) !important;
+  --bs-border-color-translucent: rgb(242 241 237 / 0.1) !important;
+  --bs-secondary-bg: #232220 !important;
+  --bs-tertiary-bg: #1a1916 !important;
+  --bs-success: #39a561 !important;
+  --bs-warning: #fbbf24 !important;
+  --bs-danger: #ef4444 !important;
+  --bs-info: #f54e00 !important;
+}
+
+/* ----- Base surfaces ------------------------------------------------- */
+html,
+body {
+  background-color: #1a1916 !important;
+  color: #f2f1ed !important;
+}
+
+/* ----- Links --------------------------------------------------------- */
+a,
+.btn-link {
+  color: #f54e00 !important;
+}
+
+a:hover,
+a:focus,
+.btn-link:hover,
+.btn-link:focus {
+  color: #e8650a !important;
+}
+
+/* ----- Buttons ------------------------------------------------------- */
+.btn-primary,
+button.btn-primary,
+[type="submit"].btn-primary {
+  background-color: #f54e00 !important;
+  border-color: #f54e00 !important;
+  color: #ffffff !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-primary.active,
+button.btn-primary:hover,
+button.btn-primary:focus {
+  background-color: #e8650a !important;
+  border-color: #e8650a !important;
+  color: #ffffff !important;
+}
+
+.btn-info,
+button.btn-info {
+  background-color: #f54e00 !important;
+  border-color: #f54e00 !important;
+  color: #ffffff !important;
+}
+
+.btn-info:hover,
+.btn-info:focus,
+.btn-info:active {
+  background-color: #e8650a !important;
+  border-color: #e8650a !important;
+}
+
+.btn-success,
+button.btn-success {
+  background-color: #39a561 !important;
+  border-color: #39a561 !important;
+  color: #ffffff !important;
+}
+
+.btn-warning,
+button.btn-warning {
+  background-color: #fbbf24 !important;
+  border-color: #fbbf24 !important;
+  color: #1a1916 !important;
+}
+
+.btn-danger,
+button.btn-danger {
+  background-color: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.btn-default,
+button.btn-default,
+.btn-secondary,
+button.btn-secondary {
+  background-color: #232220 !important;
+  border-color: rgb(242 241 237 / 0.1) !important;
+  color: #f2f1ed !important;
+}
+
+.btn-default:hover,
+.btn-default:focus,
+.btn-secondary:hover,
+.btn-secondary:focus {
+  background-color: #2a2926 !important;
+  border-color: rgb(242 241 237 / 0.16) !important;
+  color: #f2f1ed !important;
+}
+
+/* ----- Form inputs --------------------------------------------------- */
+.form-control,
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+textarea,
+select {
+  background-color: #232220 !important;
+  color: #f2f1ed !important;
+  border-color: rgb(242 241 237 / 0.1) !important;
+}
+
+.form-control:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  background-color: #232220 !important;
+  color: #f2f1ed !important;
+  border-color: #e8650a !important;
+  box-shadow: 0 0 0 0.2rem rgb(245 78 0 / 0.25) !important;
+}
+
+.form-control::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: rgb(242 241 237 / 0.4) !important;
+}
+
+/* ----- Cards / panels / modals --------------------------------------- */
+.panel,
+.panel-default,
+.card,
+.modal-content,
+.popover,
+.dropdown-menu {
+  background-color: #232220 !important;
+  border-color: rgb(242 241 237 / 0.1) !important;
+  color: #f2f1ed !important;
+}
+
+.panel-heading,
+.card-header,
+.modal-header,
+.modal-footer {
+  background-color: rgb(35 34 32 / 0.92) !important;
+  border-color: rgb(242 241 237 / 0.1) !important;
+  color: #f2f1ed !important;
+}
+
+.panel-title,
+.card-title,
+.modal-title {
+  color: #f2f1ed !important;
+}
+
+/* ----- Tables -------------------------------------------------------- */
+table,
+.table {
+  color: #f2f1ed !important;
+}
+
+.table > thead > tr > th,
+.table > tbody > tr > td,
+.table > tfoot > tr > td,
+.table > tbody > tr > th {
+  border-color: rgb(242 241 237 / 0.1) !important;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: rgb(242 241 237 / 0.02) !important;
+}
+
+.table-hover > tbody > tr:hover {
+  background-color: rgb(242 241 237 / 0.04) !important;
+}
+
+/* ----- Navigation / navbar ------------------------------------------ */
+.navbar,
+.navbar-default,
+.navbar-inverse,
+header[role="banner"] {
+  background-color: rgb(26 25 22 / 0.94) !important;
+  border-color: rgb(242 241 237 / 0.1) !important;
+  color: #f2f1ed !important;
+}
+
+.navbar a,
+.navbar-nav > li > a,
+.nav > li > a {
+  color: #f2f1ed !important;
+}
+
+.navbar a:hover,
+.navbar a:focus,
+.navbar-nav > li > a:hover,
+.nav > li > a:hover {
+  color: #f54e00 !important;
+  background-color: rgb(245 78 0 / 0.08) !important;
+}
+
+.navbar-nav > .active > a,
+.nav > .active > a,
+.nav-pills > li.active > a,
+.nav-tabs > li.active > a {
+  background-color: rgb(245 78 0 / 0.12) !important;
+  color: #f54e00 !important;
+}
+
+/* ----- Alerts / labels / badges ------------------------------------- */
+.alert-info,
+.alert-primary {
+  background-color: rgb(245 78 0 / 0.12) !important;
+  border-color: rgb(245 78 0 / 0.34) !important;
+  color: #f2f1ed !important;
+}
+
+.alert-success {
+  background-color: rgb(57 165 97 / 0.14) !important;
+  border-color: rgb(57 165 97 / 0.34) !important;
+  color: #b6e4c6 !important;
+}
+
+.alert-warning {
+  background-color: rgb(251 191 36 / 0.14) !important;
+  border-color: rgb(251 191 36 / 0.34) !important;
+  color: #fde7a7 !important;
+}
+
+.alert-danger {
+  background-color: rgb(239 68 68 / 0.14) !important;
+  border-color: rgb(239 68 68 / 0.34) !important;
+  color: #ffd3d5 !important;
+}
+
+.label-primary,
+.label-info,
+.badge-primary,
+.badge-info {
+  background-color: #f54e00 !important;
+  color: #ffffff !important;
+}
+
+.label-success,
+.badge-success {
+  background-color: #39a561 !important;
+  color: #ffffff !important;
+}
+
+.label-warning,
+.badge-warning {
+  background-color: #fbbf24 !important;
+  color: #1a1916 !important;
+}
+
+.label-danger,
+.badge-danger {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+/* ----- Pagination & tabs -------------------------------------------- */
+.pagination > .active > a,
+.pagination > .active > span,
+.pagination > .active > a:hover,
+.pagination > .active > span:hover {
+  background-color: #f54e00 !important;
+  border-color: #f54e00 !important;
+  color: #ffffff !important;
+}
+
+.pagination > li > a,
+.pagination > li > span {
+  background-color: #232220 !important;
+  border-color: rgb(242 241 237 / 0.1) !important;
+  color: #f2f1ed !important;
+}
+
+.pagination > li > a:hover {
+  background-color: rgb(245 78 0 / 0.12) !important;
+  color: #f54e00 !important;
+}
+
+/* ----- Progress / sliders ------------------------------------------- */
+.progress {
+  background-color: #232220 !important;
+}
+
+.progress-bar,
+.progress-bar-info,
+.progress-bar-primary {
+  background-color: #f54e00 !important;
+}
+
+.progress-bar-success {
+  background-color: #39a561 !important;
+}
+
+.progress-bar-warning {
+  background-color: #fbbf24 !important;
+}
+
+.progress-bar-danger {
+  background-color: #ef4444 !important;
+}
+
+/* ----- Focus rings (matches mobile-app --ring) ---------------------- */
+*:focus-visible {
+  outline-color: #e8650a !important;
+}
+
+/* ----- Scrollbars (WebKit) ------------------------------------------ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1916;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(242 241 237 / 0.14);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(245 78 0 / 0.45);
+}

@@ -1,6 +1,6 @@
 #!/bin/bash
-# inject-branding.sh — Patch Graylog's HTML shell with LP favicon links and
-# the branding-patch.js script tag.
+# inject-branding.sh — Patch Graylog's HTML shell with LP favicon links,
+# the branding-theme.css stylesheet link, and the branding-patch.js script tag.
 #
 # Called from the Dockerfile:  ./inject-branding.sh <WEB_ROOT>
 #
@@ -14,12 +14,12 @@ set -euo pipefail
 WEB_ROOT="${1:?Usage: inject-branding.sh <WEB_ROOT>}"
 
 # Plain snippet (static HTML — Graylog ≤6.x or non-templated assets/index.html).
-SNIPPET='<link rel="icon" type="image/png" href="/assets/favicon.png"/><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png"/><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png"/><link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png"/><link rel="shortcut icon" href="/assets/favicon.ico"/><script src="/assets/branding-patch.js" defer></script>'
+SNIPPET='<link rel="icon" type="image/png" href="/assets/favicon.png"/><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png"/><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png"/><link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png"/><link rel="shortcut icon" href="/assets/favicon.ico"/><link rel="stylesheet" href="/assets/branding-theme.css"/><script src="/assets/branding-patch.js" defer></script>'
 
 # Nonce-aware snippet for Graylog 7.x templates that interpolate ${nonce}
 # into every <script>/<link> the JVM emits. The CSP set by Graylog enforces
 # nonce-based script execution, so a plain <script> tag is blocked.
-SNIPPET_TEMPLATE='<link rel="icon" type="image/png" href="${appPrefix}assets/favicon.png"/><link rel="icon" type="image/png" sizes="16x16" href="${appPrefix}assets/favicon-16.png"/><link rel="icon" type="image/png" sizes="32x32" href="${appPrefix}assets/favicon-32.png"/><link rel="icon" type="image/png" sizes="192x192" href="${appPrefix}assets/favicon-192.png"/><link rel="shortcut icon" href="${appPrefix}assets/favicon.ico"/><script nonce="${nonce}" src="${appPrefix}assets/branding-patch.js" defer></script>'
+SNIPPET_TEMPLATE='<link rel="icon" type="image/png" href="${appPrefix}assets/favicon.png"/><link rel="icon" type="image/png" sizes="16x16" href="${appPrefix}assets/favicon-16.png"/><link rel="icon" type="image/png" sizes="32x32" href="${appPrefix}assets/favicon-32.png"/><link rel="icon" type="image/png" sizes="192x192" href="${appPrefix}assets/favicon-192.png"/><link rel="shortcut icon" href="${appPrefix}assets/favicon.ico"/><link rel="stylesheet" href="${appPrefix}assets/branding-theme.css"/><script nonce="${nonce}" src="${appPrefix}assets/branding-patch.js" defer></script>'
 
 # JAR entries Graylog 7.x renders for the main web app. Order matters — the
 # .template variants are what /<-> actually serves; assets/index.html is a
@@ -255,6 +255,7 @@ echo ">>> Templates to patch: ${TEMPLATES_TO_PATCH[*]}"
 ASSETS_FS_DIR="${WEB_ROOT}/assets"
 ASSET_FILES=(
   branding-patch.js
+  branding-theme.css
   lp-logo.svg
   lp-logo-512.png
   favicon.png
